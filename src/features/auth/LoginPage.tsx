@@ -250,10 +250,10 @@ function RememberPrompt({
         onCancel();
       }}
       onMouseDown={(e) => e.target === ref.current && onCancel()}
-      className="m-auto w-[calc(100%-2rem)] max-w-[480px] overflow-hidden rounded-[22px] bg-surface p-0 text-ink shadow-[0_32px_64px_-16px_rgb(29_32_37/0.45)] backdrop:bg-ink/55 backdrop:backdrop-blur-[3px] open:animate-pop-in"
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[520px] overflow-hidden rounded-[22px] bg-surface p-0 text-ink shadow-[0_32px_64px_-16px_rgb(29_32_37/0.45)] backdrop:bg-ink/55 backdrop:backdrop-blur-[3px] open:animate-pop-in"
     >
       {open && (
-        <div className="relative px-7 pt-9 pb-7 text-center sm:px-10">
+        <div className="scrollbar-thin relative max-h-[calc(100dvh-2rem)] overflow-y-auto px-7 pt-9 pb-7 text-center sm:px-11">
           <button
             type="button"
             onClick={onCancel}
@@ -276,7 +276,7 @@ function RememberPrompt({
           </h2>
           <p id="remember-text" className="mt-3 text-[15.5px] leading-relaxed text-ink-2">
             Assim você <strong className="text-ink">não precisa digitar e-mail e senha</strong> toda vez que abrir o sistema neste computador. O acesso fica ativo
-            por <strong className="text-ink">30 dias</strong> e se renova enquanto você usa.
+            por <strong className="whitespace-nowrap text-ink">30 dias</strong> e se renova enquanto você usa.
           </p>
           <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-subtle px-4 py-3 text-left text-[13.5px] leading-relaxed text-muted">
             <Info className="mt-0.5 size-4 shrink-0 text-soft" />

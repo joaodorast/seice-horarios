@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { CLASS_SHIFTS, SHIFT_KEYS, SUBJECT_COLORS, WEEKDAYS } from './types';
-import { TIME_PATTERN, toMinutes } from './time';
-import { MAX_IMPORT_ROWS } from './import';
+import { CLASS_SHIFTS, SHIFT_KEYS, SUBJECT_COLORS, WEEKDAYS } from './types.js';
+import { TIME_PATTERN, toMinutes } from './time.js';
+import { MAX_IMPORT_ROWS } from './import.js';
 
 function optionalText(max: number, label: string) {
   return z
@@ -154,4 +154,9 @@ export const importRequestSchema = z.object({
     })
     .default({ existing: 'update', createMissingSubjects: false, replaceExisting: false }),
   dryRun: z.boolean().default(false),
+});
+
+export const loginSchema = z.object({
+  email: z.string({ error: 'Informe o e-mail.' }).trim().min(1, { error: 'Informe o e-mail.' }).max(200),
+  password: z.string({ error: 'Informe a senha.' }).min(1, { error: 'Informe a senha.' }).max(200),
 });

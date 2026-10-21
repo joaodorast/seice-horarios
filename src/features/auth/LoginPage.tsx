@@ -1,99 +1,423 @@
-import { useEffect, useState } from 'react';
-import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
-import { Alert, Button, Field, Input } from '@/components/ui';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { AlertTriangle, ArrowRight, CalendarCheck2, Eye, EyeOff, FileSpreadsheet, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX } from 'lucide-react';
+import { Spinner } from '@/components/ui';
 import { useLogin } from '@/api/auth';
 import { ApiError, errorMessage } from '@/api/client';
+import { cn } from '@/lib/cn';
 
+/** Tela de acesso em duas metades: apresentação do sistema à esquerda, formulário à direita. */
 export function LoginPage({ expired }: { expired?: boolean }) {
-  const login = useLogin();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [show, setShow] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     document.title = 'Entrar · SEICE';
   }, []);
 
+  return (
+    <div className="flex min-h-dvh bg-surface lg:h-dvh lg:overflow-hidden">
+      <Showcase />
+      <main className="relative flex flex-1 flex-col px-6 pb-8 sm:px-10 lg:overflow-y-auto lg:px-14 lg:pt-8">
+        <MobileHero />
+        <div className="hidden items-center justify-end lg:flex">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+            <ShieldCheck className="size-4 text-success" />
+            Conexão protegida
+          </span>
+        </div>
+        <div className="flex flex-1 items-center justify-center py-10">
+          <LoginForm expired={expired} />
+        </div>
+        <p className="text-center text-xs text-soft lg:text-right">© {new Date().getFullYear()} Colégio SEICE · Sistema de Ensino Integrado de Campos Elíseos</p>
+      </main>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Formulário
+
+function LoginForm({ expired }: { expired?: boolean }) {
+  const login = useLogin();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const [error, setError] = useState<{ text: string; locked: boolean } | null>(null);
+  const [shake, setShake] = useState(0);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!email.trim() || !password) return setError('Informe o e-mail e a senha.');
+    if (!email.trim() || !password) {
+      setError({ text: 'Informe o e-mail e a senha para continuar.', locked: false });
+      setShake((n) => n + 1);
+      return;
+    }
     try {
       await login.mutateAsync({ email, password });
     } catch (err) {
-      setError(err instanceof ApiError && err.status !== 0 && err.status < 500 ? err.message : errorMessage(err));
+      const known = err instanceof ApiError && err.status > 0 && err.status < 500;
+      setError({ text: known ? (err as ApiError).message : errorMessage(err), locked: err instanceof ApiError && err.status === 429 });
+      setShake((n) => n + 1);
       setPassword('');
+      passwordRef.current?.focus();
     }
   }
 
+  const detectCaps = (e: React.KeyboardEvent) => setCapsLock(e.getModifierState?.('CapsLock') ?? false);
+
   return (
-    <div className="grid min-h-dvh place-items-center bg-nav px-4 py-10">
-      <main className="w-full max-w-[400px]">
-        <div className="mb-8 flex justify-center">
-          <img src="/logo-seice.png" alt="Colégio SEICE — Sistema de Ensino Integrado de Campos Elíseos" className="h-auto w-[240px]" />
+    <div className="w-full max-w-[400px]">
+      <p className="mb-3 inline-flex items-center gap-2 rounded-pill bg-brand-soft px-3 py-1 text-xs font-bold text-brand-ink">
+        <span className="size-1.5 rounded-full bg-brand" aria-hidden="true" />
+        Área da coordenação
+      </p>
+      <h1 className="text-[2rem] leading-tight font-extrabold tracking-[-0.035em] text-ink">Bem-vindo de volta</h1>
+      <p className="mt-2 text-[15px] text-muted">Entre com seu e-mail institucional para acessar os quadros de horários.</p>
+
+      {expired && !error && (
+        <div role="status" className="mt-6 flex items-start gap-2.5 rounded-lg bg-info-soft px-3.5 py-3 text-sm text-[#2f3778]">
+          <LockKeyhole className="mt-0.5 size-4 shrink-0" />
+          Sua sessão expirou por segurança. Entre novamente para continuar.
         </div>
-        <div className="rounded-xl bg-surface p-6 shadow-pop sm:p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-lg bg-brand-soft text-brand-ink">
-              <LockKeyhole className="size-5" />
-            </span>
-            <div>
-              <h1 className="text-lg font-extrabold tracking-[-0.015em] text-ink">Gestão de horários</h1>
-              <p className="text-[13px] text-muted">Entre com seu e-mail e senha.</p>
-            </div>
-          </div>
+      )}
 
-          {expired && !error && (
-            <Alert tone="info" className="mb-4">
-              Sua sessão expirou. Entre novamente para continuar.
-            </Alert>
-          )}
-          {error && (
-            <Alert tone="danger" className="mb-4">
-              {error}
-            </Alert>
-          )}
+      {error && (
+        <div
+          key={shake}
+          role="alert"
+          className="mt-6 flex animate-shake items-start gap-2.5 rounded-lg border border-danger/20 bg-danger-soft px-3.5 py-3 text-sm font-medium text-[#7d1d1d]"
+        >
+          {error.locked ? <ShieldX className="mt-0.5 size-4 shrink-0 text-danger" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />}
+          {error.text}
+        </div>
+      )}
 
-          <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-            <Field label="E-mail">
-              <Input
-                type="email"
-                autoComplete="username"
-                inputMode="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="voce@seice.com"
-                autoFocus
-              />
-            </Field>
-            <Field label="Senha">
-              <div className="relative">
-                <Input
-                  type={show ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pr-11"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShow((s) => !s)}
-                  aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
-                  title={show ? 'Ocultar senha' : 'Mostrar senha'}
-                  className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted hover:bg-ink/6 hover:text-ink"
-                >
-                  {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </Field>
-            <Button type="submit" variant="primary" size="lg" loading={login.isPending} className="mt-1 w-full">
+      <form onSubmit={submit} noValidate className="mt-7 flex flex-col gap-5">
+        <InputField id="login-email" label="E-mail" icon={<Mail />}>
+          <input
+            id="login-email"
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="nome@seice.com"
+            autoFocus
+            className={inputClass}
+          />
+        </InputField>
+
+        <InputField
+          id="login-password"
+          label="Senha"
+          icon={<LockKeyhole />}
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-pressed={show}
+              title={show ? 'Ocultar senha' : 'Mostrar senha'}
+              className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-ink/6 hover:text-ink"
+            >
+              {show ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+            </button>
+          }
+          hint={
+            capsLock && (
+              <span className="flex items-center gap-1.5 text-warning">
+                <AlertTriangle className="size-3.5" /> Caps Lock está ativado
+              </span>
+            )
+          }
+        >
+          <input
+            ref={passwordRef}
+            id="login-password"
+            type={show ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={detectCaps}
+            onKeyUp={detectCaps}
+            placeholder="••••••••"
+            className={cn(inputClass, 'pr-12')}
+          />
+        </InputField>
+
+        <button
+          type="submit"
+          disabled={login.isPending}
+          className="group mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-ink text-[15px] font-bold text-white shadow-[0_8px_24px_-8px_rgb(29_32_37/0.55)] transition-all duration-200 hover:bg-ink-2 hover:shadow-[0_12px_28px_-8px_rgb(29_32_37/0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:translate-y-px disabled:opacity-80"
+        >
+          {login.isPending ? (
+            <>
+              <Spinner size={18} /> Entrando…
+            </>
+          ) : (
+            <>
               Entrar
-            </Button>
-          </form>
-        </div>
-        <p className="mt-6 text-center text-xs text-nav-text/70">Acesso restrito à coordenação do Colégio SEICE.</p>
-      </main>
+              <ArrowRight className="size-[18px] transition-transform duration-200 group-hover:translate-x-1" />
+            </>
+          )}
+        </button>
+      </form>
+
+      <p className="mt-8 flex items-start gap-2 border-t border-line pt-5 text-xs leading-relaxed text-muted">
+        <ShieldCheck className="mt-px size-4 shrink-0 text-soft" />
+        Acesso restrito à coordenação. Após 5 tentativas incorretas, o acesso é bloqueado por 15 minutos.
+      </p>
     </div>
+  );
+}
+
+const inputClass =
+  'h-12 w-full rounded-lg border border-line-strong bg-surface pr-3 pl-11 text-[15px] text-ink placeholder:text-soft outline-none transition-[border-color,box-shadow] duration-150 hover:border-soft focus:border-ink focus:ring-4 focus:ring-brand/35';
+
+function InputField({
+  id,
+  label,
+  icon,
+  trailing,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  trailing?: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[13px] font-bold text-ink-2">
+        {label}
+      </label>
+      <div className="group relative">
+        <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-soft transition-colors group-focus-within:text-ink [&>svg]:size-[18px]">
+          {icon}
+        </span>
+        {children}
+        {trailing && <span className="absolute top-1/2 right-1.5 -translate-y-1/2">{trailing}</span>}
+      </div>
+      {hint && <p className="text-xs font-semibold">{hint}</p>}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Vitrine (metade esquerda)
+
+/** Unidades do Colégio SEICE exibidas no login (fotos otimizadas em public/unidades). */
+const UNITS = [
+  { name: 'SEICE Jardim Primavera', photo: '/unidades/jardim-primavera.webp', backdrop: '/unidades/jardim-primavera-fundo.webp' },
+  { name: 'SEICE Campos Elíseos', photo: '/unidades/campos-eliseos.webp', backdrop: '/unidades/campos-eliseos-fundo.webp' },
+];
+const UNIT_INTERVAL = 5000;
+
+/** Alterna a unidade em destaque; pausa quando a aba não está visível. */
+function useUnitCycle() {
+  const [active, setActive] = useState(0);
+  const [swaps, setSwaps] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setActive((a) => (a + 1) % UNITS.length);
+      setSwaps((n) => n + 1);
+    }, UNIT_INTERVAL);
+    return () => window.clearInterval(id);
+  }, []);
+  return { active, swaps };
+}
+
+/** Fachadas das unidades se alternando em esmaecimento (fundo da vitrine e faixa do celular). */
+function UnitBackdrop({ active, className }: { active: number; className: string }) {
+  return (
+    <>
+      {UNITS.map((u, i) => (
+        <img
+          key={u.name}
+          src={u.backdrop}
+          alt=""
+          className={cn(className, 'transition-opacity duration-[1400ms] ease-in-out', i === active ? 'opacity-100' : 'opacity-0')}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Faixa com as fachadas das unidades no topo da tela, em celulares e tablets. */
+function MobileHero() {
+  const { active } = useUnitCycle();
+  return (
+    <div className="relative -mx-6 mb-2 h-44 overflow-hidden bg-nav sm:-mx-10 lg:hidden">
+      <UnitBackdrop active={active} className="absolute inset-0 size-full scale-105 object-cover blur-[1.5px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-nav/40 via-nav/55 to-surface" />
+      <img src="/logo-seice.png" alt="Colégio SEICE" className="absolute top-5 left-6 h-auto w-[150px] drop-shadow-lg sm:left-10" />
+      <span key={active} className="absolute top-7 right-6 rounded-pill bg-nav/70 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm sm:right-10" style={{ animation: 'seice-fade-up 0.6s ease-out both' }}>
+        {UNITS[active].name}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Pilha de cartões-postais das unidades: a cada intervalo, o cartão da frente gira para o lado,
+ * passa para trás da pilha e o outro assume a frente.
+ */
+function UnitCards({ active, swaps }: { active: number; swaps: number }) {
+  return (
+    <div className="absolute top-9 right-12 hidden w-[214px] xl:right-16 [@media(min-height:860px)]:xl:block">
+      <div className="relative h-[262px]">
+        {UNITS.map((u, i) => {
+          const front = i === active;
+          return (
+            <figure
+              key={u.name}
+              className="absolute inset-x-0 top-0 rounded-lg bg-white p-2 pb-3 shadow-[0_24px_48px_-16px_rgb(0_0_0/0.7)] transition-[transform,filter] duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+              style={{
+                zIndex: front ? 2 : 1,
+                transform: front ? 'rotate(3deg)' : 'translate(-30px, 12px) rotate(-7deg) scale(0.93)',
+                filter: front ? 'none' : 'brightness(0.72)',
+                // O cartão que acabou de sair da frente faz o arco para o lado antes de ir para trás.
+                animation: !front && swaps > 0 ? 'seice-card-out 0.95s cubic-bezier(0.45, 0, 0.2, 1) both' : undefined,
+              }}
+            >
+              <img src={u.photo} alt="" className="aspect-square w-full rounded object-cover" />
+              <figcaption className="mt-2 text-center text-[11.5px] font-bold text-ink-2">{u.name}</figcaption>
+            </figure>
+          );
+        })}
+      </div>
+      <div className="mt-4 flex items-center justify-center gap-1.5">
+        {UNITS.map((u, i) => (
+          <span key={u.name} className={cn('h-1.5 rounded-full transition-all duration-500', i === active ? 'w-5 bg-brand' : 'w-1.5 bg-white/30')} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Showcase() {
+  const { active, swaps } = useUnitCycle();
+  return (
+    <aside className="relative hidden w-[54%] max-w-[880px] flex-col overflow-hidden bg-nav px-12 py-9 text-white lg:flex xl:px-16" aria-hidden="true">
+      {/* Fachadas das unidades ao fundo, desfocadas e escurecidas. */}
+      <UnitBackdrop active={active} className="absolute inset-0 size-full scale-110 object-cover opacity-55 blur-[6px]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-nav/95 via-nav/85 to-nav/70" />
+      <div className="bg-grid absolute inset-0 [mask-image:radial-gradient(ellipse_at_30%_40%,black_20%,transparent_75%)]" />
+      <div className="absolute -top-40 -right-32 size-[520px] rounded-full bg-brand/20 blur-[110px] [animation:seice-drift_16s_ease-in-out_infinite]" />
+      <div className="absolute -bottom-48 -left-24 size-[460px] rounded-full bg-accent/15 blur-[120px] [animation:seice-drift_20s_ease-in-out_infinite_reverse]" />
+
+      <img src="/logo-seice.png" alt="" className="relative h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
+      <UnitCards active={active} swaps={swaps} />
+
+      <div className="relative mt-auto mb-8 max-w-[560px]">
+        <p className="text-sm font-bold tracking-[0.18em] text-brand uppercase">Gestão de horários</p>
+        <h2 className="mt-3 text-[2.5rem] leading-[1.05] font-extrabold tracking-[-0.04em] xl:text-[3rem]">
+          O quadro da escola,{' '}
+          <span className="relative whitespace-nowrap text-brand">
+            sem conflitos
+            <svg viewBox="0 0 220 12" className="absolute -bottom-2 left-0 w-full" preserveAspectRatio="none">
+              <path d="M2 9 C 60 2, 150 2, 218 7" stroke="currentColor" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.7" />
+            </svg>
+          </span>
+          .
+        </h2>
+        <p className="mt-5 max-w-[460px] text-[15px] leading-relaxed text-nav-text">
+          Professores, turmas e disciplinas organizados em um só lugar, com verificação automática de choques de horário.
+        </p>
+      </div>
+
+      <SchedulePreview />
+
+      <ul className="relative mt-8 grid grid-cols-3 gap-3">
+        <Feature icon={<FileSpreadsheet />} title="Importa planilhas" text="Excel e CSV" />
+        <Feature icon={<CalendarCheck2 />} title="Sem choques" text="3 camadas de verificação" />
+        <Feature icon={<Printer />} title="Pronto para imprimir" text="Grades em PDF" />
+      </ul>
+    </aside>
+  );
+}
+
+function Feature({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <li className="rounded-xl border border-white/8 bg-white/[0.035] px-4 py-3.5 backdrop-blur-sm">
+      <span className="grid size-8 place-items-center rounded-lg bg-brand/15 text-brand [&>svg]:size-[17px]">{icon}</span>
+      <p className="mt-2.5 text-sm font-bold">{title}</p>
+      <p className="text-xs text-nav-text">{text}</p>
+    </li>
+  );
+}
+
+const PREVIEW_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+const PREVIEW_ROWS = ['07:00', '07:50', '08:40'];
+/** Aulas da prévia: [linha, coluna, disciplina, cor]. */
+const PREVIEW_LESSONS: Array<[number, number, string, string]> = [
+  [0, 0, 'Matemática', 'bg-sub-sky'],
+  [0, 2, 'Português', 'bg-sub-rose'],
+  [0, 4, 'Ciências', 'bg-sub-green'],
+  [1, 1, 'História', 'bg-sub-amber'],
+  [1, 3, 'Inglês', 'bg-sub-violet'],
+  [2, 0, 'Geografia', 'bg-sub-teal'],
+  [2, 2, 'Artes', 'bg-sub-orange'],
+  [2, 4, 'Ed. Física', 'bg-sub-lime'],
+];
+
+/** Mini quadro animado: aulas surgem uma a uma e um conflito é barrado. */
+function SchedulePreview() {
+  return (
+    <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_30px_60px_-30px_rgb(0_0_0/0.6)] backdrop-blur-md">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-xs font-bold text-white/90">6º A · Manhã</span>
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-nav-text">
+          <span className="size-1.5 rounded-full bg-[#7ddc94]" /> sem conflitos
+        </span>
+      </div>
+      <div className="grid grid-cols-[44px_repeat(5,1fr)] gap-1.5 text-[11px]">
+        <span />
+        {PREVIEW_DAYS.map((d) => (
+          <span key={d} className="pb-1 text-center font-bold text-nav-text">
+            {d}
+          </span>
+        ))}
+        {PREVIEW_ROWS.map((time, row) => (
+          <Row key={time} time={time} row={row} />
+        ))}
+      </div>
+      <div
+        className="absolute right-6 -bottom-4 flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-xs font-bold text-ink shadow-pop"
+        style={{ animation: 'seice-conflict 9s ease-in-out infinite' }}
+      >
+        <ShieldX className="size-4 text-danger" />
+        Conflito evitado: professor já ocupado
+      </div>
+    </div>
+  );
+}
+
+function Row({ time, row }: { time: string; row: number }) {
+  return (
+    <>
+      <span className="tabular flex items-center font-semibold text-nav-text/80">{time}</span>
+      {PREVIEW_DAYS.map((_, col) => {
+        const lesson = PREVIEW_LESSONS.find(([r, c]) => r === row && c === col);
+        const order = lesson ? PREVIEW_LESSONS.indexOf(lesson) : 0;
+        return (
+          <span key={col} className="relative h-9 rounded-md bg-white/[0.04] ring-1 ring-white/[0.05] ring-inset">
+            {lesson && (
+              <span
+                className="absolute inset-0 flex items-center gap-1.5 overflow-hidden rounded-md bg-white/[0.09] px-1.5 font-semibold text-white"
+                style={{ animation: `seice-cell 9s ease-in-out ${order * 0.35}s infinite both` } as CSSProperties}
+              >
+                <span className={cn('h-5 w-[3px] shrink-0 rounded-full', lesson[3])} />
+                <span className="truncate">{lesson[2]}</span>
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </>
   );
 }

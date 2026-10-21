@@ -6,6 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Badge, Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
 import { TeacherFormModal } from '@/features/TeacherForm';
 import { useEntityActions } from '@/features/EntityActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useLessons, useTeachers } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
 import { initials, matches, normalize, plural } from '@/lib/text';
@@ -73,9 +74,12 @@ export function TeachersPage() {
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Professores' }]}
       description={teachers.data ? `${plural(counts.ativos, 'professor ativo', 'professores ativos')}${counts.inativos ? ` · ${counts.inativos} inativo(s)` : ''}` : undefined}
       actions={
-        <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
-          Novo professor
-        </Button>
+        <>
+          <ImportButton kind="teachers" />
+          <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
+            Novo professor
+          </Button>
+        </>
       }
     >
       <DataGate data={teachers.data} isLoading={teachers.isPending} error={teachers.error} onRetry={() => teachers.refetch()}>
@@ -85,11 +89,14 @@ export function TeachersPage() {
               <EmptyState
                 icon={<Users />}
                 title="Nenhum professor cadastrado"
-                description="Cadastre os professores para começar a montar os quadros de horários. Apenas o nome é obrigatório."
+                description="Cadastre os professores para começar a montar os quadros de horários, ou importe a lista completa de uma planilha Excel ou CSV."
                 action={
-                  <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew}>
-                    Cadastrar primeiro professor
-                  </Button>
+                  <>
+                    <ImportButton kind="teachers" label="Importar planilha" />
+                    <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew}>
+                      Cadastrar primeiro professor
+                    </Button>
+                  </>
                 }
               />
             </Card>

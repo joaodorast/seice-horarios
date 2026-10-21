@@ -4,6 +4,7 @@
 /* Telas baixas (notebooks com barra de tarefas e abas): layouts compactos para evitar rolagem. */
 @custom-variant short (@media (max-height: 780px));
 @custom-variant tiny (@media (max-height: 680px));
+@custom-variant tall (@media (min-height: 940px));
 
 /*
  * Tokens de design do SEICE.
@@ -171,9 +172,9 @@
 }
 @keyframes seice-card-out {
   0% { z-index: 3; transform: rotate(3deg); filter: none; }
-  45% { z-index: 3; transform: translate(-165px, -14px) rotate(-15deg); }
-  55% { z-index: 0; transform: translate(-150px, -6px) rotate(-13deg); filter: brightness(0.85); }
-  100% { z-index: 1; transform: translate(-30px, 12px) rotate(-7deg) scale(0.93); filter: brightness(0.72); }
+  45% { z-index: 3; transform: translate(-62%, -6%) rotate(-15deg); }
+  55% { z-index: 0; transform: translate(-55%, -3%) rotate(-13deg); filter: brightness(0.85); }
+  100% { z-index: 1; transform: translate(-14%, 5%) rotate(-7deg) scale(0.93); filter: brightness(0.72); }
 }
 @keyframes seice-goodbye-in {
   from { opacity: 0; backdrop-filter: blur(0); }

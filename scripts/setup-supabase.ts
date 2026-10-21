@@ -5,7 +5,7 @@
  *   2. aguarda o banco ficar disponível;
  *   3. cria o schema "seice" e o usuário exclusivo da aplicação, com acesso só a esse schema
  *      e limite de conexões, sem alterar nada fora dele;
- *   4. grava a DATABASE_URL (Session pooler) no arquivo .env, aplica as migrações e
+ *   4. grava a DATABASE_URL (pooler em modo transação) no arquivo .env, aplica as migrações e
  *      confere que o usuário da aplicação não enxerga nenhuma tabela de outro sistema.
  *
  * Uso: preencha SUPABASE_ACCESS_TOKEN (e, opcionalmente, SUPABASE_PROJECT_REF) no .env e rode `npm run db:setup`.
@@ -15,7 +15,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openDatabase, SCHEMA } from '../server/db';
+import { openDatabase, SCHEMA } from '../server/db.js';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const envFile = join(root, '.env');
@@ -138,8 +138,9 @@ async function main() {
   const poolers = await api<{ db_host: string; db_name: string; database_type: string }[]>('GET', `/projects/${project.id}/config/database/pooler`);
   const pooler = poolers.find((p) => p.database_type === 'PRIMARY') ?? poolers[0];
   if (!pooler) fail('Não foi possível obter o endereço do pooler do Supabase.');
-  // Session pooler (porta 5432): conexões persistentes do servidor, compatível com IPv4.
-  const url = `postgresql://${APP_ROLE}.${project.id}:${encodeURIComponent(appPassword)}@${pooler.db_host}:5432/${pooler.db_name || 'postgres'}`;
+  // Pooler em modo transação (porta 6543): compatível com IPv4 e com funções serverless (Vercel),
+  // que abrem muitas instâncias; o pooler multiplexa todas elas em poucas conexões reais.
+  const url = `postgresql://${APP_ROLE}.${project.id}:${encodeURIComponent(appPassword)}@${pooler.db_host}:6543/${pooler.db_name || 'postgres'}`;
   setEnv({ DATABASE_URL: url, SUPABASE_PROJECT_REF: project.id });
   console.log(`  DATABASE_URL gravada no .env (${pooler.db_host}).`);
 

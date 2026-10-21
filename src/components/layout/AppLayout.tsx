@@ -18,6 +18,7 @@ import { cn } from '@/lib/cn';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { IconButton, useToast } from '@/components/ui';
 import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
+import { UpdateNotice } from './UpdateNotice';
 import { useLogout, useSession } from '@/api/auth';
 import { initials } from '@/lib/text';
 
@@ -94,7 +95,7 @@ export function AppLayout() {
               onClick={() => setCollapsed(!collapsed)}
               aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
               title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-              className="absolute top-[36px] -right-3.5 z-10 grid size-7 place-items-center rounded-full border border-nav-line bg-nav-2 text-nav-text shadow-[0_2px_8px_rgb(0_0_0/0.35)] transition-colors hover:bg-brand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              className="absolute top-[36px] -right-3.5 short:top-[23px] tiny:top-[17px] z-10 grid size-7 place-items-center rounded-full border border-nav-line bg-nav-2 text-nav-text shadow-[0_2px_8px_rgb(0_0_0/0.35)] transition-colors hover:bg-brand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
             </button>
@@ -119,6 +120,7 @@ export function AppLayout() {
             <Outlet />
           </div>
         </div>
+        <UpdateNotice />
       </ScheduleActionsProvider>
     </LayoutContext.Provider>
   );
@@ -127,28 +129,28 @@ export function AppLayout() {
 function SidebarContent({ collapsed }: { collapsed: boolean }) {
   return (
     <>
-      <div className={cn('flex h-[100px] shrink-0 items-center border-b border-nav-line', collapsed ? 'justify-center px-2' : 'px-5')}>
+      <div className={cn('flex h-[100px] shrink-0 items-center border-b border-nav-line short:h-[74px] tiny:h-[62px]', collapsed ? 'justify-center px-2' : 'px-5')}>
         <NavLink to="/" aria-label="SEICE — página inicial" className="rounded-md focus-visible:outline-brand">
           {collapsed ? (
-            <img src="/emblema-seice.png" alt="Colégio SEICE" className="size-12 object-contain" />
+            <img src="/emblema-seice.webp" alt="Colégio SEICE" className="size-12 object-contain short:size-10" />
           ) : (
-            <span className="flex flex-col gap-1.5">
-              <img src="/logo-seice.png" alt="Colégio SEICE — Sistema de Ensino Integrado de Campos Elíseos" className="h-auto w-[148px]" />
+            <span className="flex flex-col gap-1.5 short:gap-1">
+              <img src="/logo-seice.webp" alt="Colégio SEICE — Sistema de Ensino Integrado de Campos Elíseos" className="h-auto w-[148px] short:w-[120px] tiny:w-[104px]" />
               <span className="pl-1 text-[10.5px] leading-none font-bold tracking-[0.18em] text-brand/85 uppercase">Gestão de horários</span>
             </span>
           )}
         </NavLink>
       </div>
 
-      <nav className={cn('scrollbar-thin flex-1 overflow-y-auto py-3.5', collapsed ? 'px-3' : 'px-4')}>
+      <nav className={cn('scrollbar-thin flex-1 overflow-y-auto py-3.5 short:py-2.5 tiny:py-2', collapsed ? 'px-3' : 'px-4')}>
         {NAV.map((section, i) => (
-          <div key={section.group} className={cn(i > 0 && 'mt-4')}>
+          <div key={section.group} className={cn(i > 0 && 'mt-4 short:mt-3 tiny:mt-2.5')}>
             {collapsed ? (
               i > 0 && <div className="mx-auto mb-3 h-px w-8 bg-nav-line" aria-hidden="true" />
             ) : (
-              <p className="mb-1.5 px-3 text-[11px] font-bold tracking-[0.12em] text-nav-text/55 uppercase">{section.group}</p>
+              <p className="mb-1.5 px-3 text-[11px] font-bold tracking-[0.12em] text-nav-text/55 uppercase short:mb-1">{section.group}</p>
             )}
-            <ul className="space-y-1">
+            <ul className="space-y-1 short:space-y-0.5">
               {section.items.map((item) => (
                 <li key={item.to}>
                   <SidebarLink item={item} collapsed={collapsed} />
@@ -159,7 +161,7 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
         ))}
       </nav>
 
-      <div className={cn('shrink-0 border-t border-nav-line py-3', collapsed ? 'px-3' : 'px-4')}>
+      <div className={cn('shrink-0 border-t border-nav-line py-3 short:py-2', collapsed ? 'px-3' : 'px-4')}>
         <SidebarLink item={SETTINGS_ITEM} collapsed={collapsed} />
         <UserCard collapsed={collapsed} />
       </div>
@@ -176,7 +178,7 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
       aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         cn(
-          'group flex h-10 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&_svg]:size-[19px] [&_svg]:shrink-0',
+          'group flex h-10 items-center gap-3 rounded-xl px-3 short:h-9 tiny:h-[34px] text-[14px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&_svg]:size-[19px] [&_svg]:shrink-0',
           collapsed && 'justify-center px-0',
           isActive
             ? 'bg-brand text-ink shadow-[0_6px_18px_-8px_rgb(255_199_0/0.7)]'
@@ -218,7 +220,7 @@ function UserCard({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06]">
+    <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06] short:mt-2 short:p-2">
       {avatar}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-bold text-white">{user.name}</span>

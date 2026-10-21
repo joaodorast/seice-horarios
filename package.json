@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "start": "tsx server/index.ts",
     "db:setup": "tsx scripts/setup-supabase.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "user:create": "tsx scripts/create-user.ts",
     "typecheck": "tsc",
     "test": "vitest run",
     "test:watch": "vitest"

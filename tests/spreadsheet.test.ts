@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { buildTemplate, detectHeaderRow, parseCsv, readSpreadsheet, SpreadsheetError } from '../src/lib/spreadsheet';
-import { IMPORT_KINDS, IMPORT_SPECS, guessMapping } from '../shared/import';
+import { buildTemplate, detectHeaderRow, parseCsv, readSpreadsheet, SpreadsheetError } from '../src/lib/spreadsheet.js';
+import { IMPORT_KINDS, IMPORT_SPECS, guessMapping } from '../shared/import.js';
 
 describe('leitura de planilhas', () => {
   it('lê .xlsx convertendo horas, números, texto formatado e fórmulas', async () => {

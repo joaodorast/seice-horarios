@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
+import { load } from './batch';
 import type { ClassInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
 import type { ImportKind, ImportReport, ImportRequest } from '@shared/import';
 import type { Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
@@ -13,12 +14,13 @@ export const keys = {
   lessons: ['lessons'] as const,
 };
 
-export const useTeachers = () => useQuery({ queryKey: keys.teachers, queryFn: () => request<Teacher[]>('GET', '/teachers') });
-export const useClasses = () => useQuery({ queryKey: keys.classes, queryFn: () => request<SchoolClass[]>('GET', '/classes') });
-export const useSubjects = () => useQuery({ queryKey: keys.subjects, queryFn: () => request<Subject[]>('GET', '/subjects') });
-export const usePeriods = () => useQuery({ queryKey: keys.periods, queryFn: () => request<Period[]>('GET', '/periods') });
-export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => request<Settings>('GET', '/settings') });
-export const useLessons = () => useQuery({ queryKey: keys.lessons, queryFn: () => request<Lesson[]>('GET', '/lessons') });
+// As leituras passam pelo agrupador: consultas feitas juntas viram uma única requisição.
+export const useTeachers = () => useQuery({ queryKey: keys.teachers, queryFn: () => load<Teacher[]>('teachers') });
+export const useClasses = () => useQuery({ queryKey: keys.classes, queryFn: () => load<SchoolClass[]>('classes') });
+export const useSubjects = () => useQuery({ queryKey: keys.subjects, queryFn: () => load<Subject[]>('subjects') });
+export const usePeriods = () => useQuery({ queryKey: keys.periods, queryFn: () => load<Period[]>('periods') });
+export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => load<Settings>('settings') });
+export const useLessons = () => useQuery({ queryKey: keys.lessons, queryFn: () => load<Lesson[]>('lessons') });
 
 export interface ScheduleData {
   teachers: Teacher[];

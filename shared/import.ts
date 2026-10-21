@@ -1,5 +1,5 @@
-import { SHIFT_LABEL, WEEKDAY_LABEL } from './labels';
-import { CLASS_SHIFTS, SUBJECT_COLORS, type ClassShift, type PeriodKind, type ShiftKey, type SubjectColor, type Weekday } from './types';
+import { SHIFT_LABEL, WEEKDAY_LABEL } from './labels.js';
+import { CLASS_SHIFTS, SUBJECT_COLORS, type ClassShift, type PeriodKind, type ShiftKey, type SubjectColor, type Weekday } from './types.js';
 
 /**
  * Importação de planilhas (Excel ou CSV). A interface lê o arquivo e associa as colunas aos campos;

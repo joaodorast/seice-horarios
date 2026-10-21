@@ -1,35 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { AddressInfo } from 'node:net';
-import type { Server } from 'node:http';
-import { openTestDatabase, type Database } from '../server/db';
-import { createApp } from '../server/app';
+import { startTestServer, type TestServer } from './helpers.js';
+import type { Database } from '../server/db.js';
 
-let server: Server;
-let base = '';
+let server: TestServer;
 let db: Database;
-
-async function call(method: string, path: string, body?: unknown) {
-  const res = await fetch(base + path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null };
-}
+const call = (method: string, path: string, body?: unknown) => server.call(method, path, body);
 
 beforeAll(async () => {
-  db = await openTestDatabase();
-  const { app } = createApp(db);
-  server = app.listen(0);
-  await new Promise((r) => server.once('listening', r));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+  server = await startTestServer();
+  db = server.db;
 });
 
-afterAll(async () => {
-  server.close();
-  await db.close();
-});
+afterAll(() => server.close());
 
 describe('API SEICE', () => {
   let ana: { id: number };

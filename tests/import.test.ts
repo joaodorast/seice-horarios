@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { AddressInfo } from 'node:net';
-import type { Server } from 'node:http';
-import { openTestDatabase, type Database } from '../server/db';
-import { createApp } from '../server/app';
+import { startTestServer, type TestServer } from './helpers.js';
+import type { Database } from '../server/db.js';
 import {
   IMPORT_SPECS,
   guessMapping,
@@ -14,7 +12,7 @@ import {
   parseTimeRange,
   parseWeekday,
   type ImportReport,
-} from '../shared/import';
+} from '../shared/import.js';
 
 describe('interpretação de valores da planilha', () => {
   it('reconhece horários em vários formatos', () => {
@@ -59,30 +57,20 @@ describe('interpretação de valores da planilha', () => {
 });
 
 describe('API de importação', () => {
-  let server: Server;
-  let base = '';
+  let server: TestServer;
   let db: Database;
 
   async function importRows(kind: string, rows: Record<string, string>[], options: Record<string, unknown> = {}, dryRun = false) {
-    const res = await fetch(`${base}/import/${kind}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows: rows.map((values, i) => ({ line: i + 2, values })), options, dryRun }),
-    });
-    return { status: res.status, body: (await res.json()) as ImportReport & { error?: { message: string } } };
+    const res = await server.call('POST', `/import/${kind}`, { rows: rows.map((values, i) => ({ line: i + 2, values })), options, dryRun });
+    return { status: res.status, body: res.body as ImportReport & { error?: { message: string } } };
   }
 
   beforeAll(async () => {
-    db = await openTestDatabase();
-    server = createApp(db).app.listen(0);
-    await new Promise((r) => server.once('listening', r));
-    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+    server = await startTestServer();
+    db = server.db;
   });
 
-  afterAll(async () => {
-    server.close();
-    await db.close();
-  });
+  afterAll(() => server.close());
 
   it('a prévia valida tudo sem gravar nada', async () => {
     const { body } = await importRows('teachers', [{ name: 'Ana Souza', code: 'P1' }], {}, true);
@@ -191,9 +179,24 @@ describe('API de importação', () => {
     expect((await db.query("SELECT id FROM periods WHERE shift = 'manha'")).length).toBeGreaterThan(0);
   });
 
+  it('se o banco recusar uma linha inesperadamente, refaz no modo protegido e grava as demais', async () => {
+    // Regra que só existe no banco (a validação da aplicação não a conhece).
+    await db.exec("ALTER TABLE teachers ADD CONSTRAINT teste_area CHECK (area IS DISTINCT FROM 'Proibida')");
+    const result = await importRows('teachers', [
+      { name: 'Diana Prado', code: 'P10' },
+      { name: 'Eduardo Reis', code: 'P11', area: 'Proibida' },
+      { name: 'Fernanda Luz', code: 'P12' },
+    ]);
+    await db.exec('ALTER TABLE teachers DROP CONSTRAINT teste_area');
+    expect(result.body.summary).toMatchObject({ create: 2, error: 1 });
+    expect(result.body.rows[1].messages[0]).toMatch(/recusou/);
+    const names = await db.query<{ name: string }>("SELECT name FROM teachers WHERE code IN ('P10', 'P11', 'P12') ORDER BY code");
+    expect(names.map((n) => n.name)).toEqual(['Diana Prado', 'Fernanda Luz']);
+  });
+
   it('recusa pedidos inválidos', async () => {
     expect((await importRows('nada', [{ a: '1' }])).status).toBe(404);
-    const empty = await fetch(`${base}/import/teachers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: [] }) });
+    const empty = await server.call('POST', '/import/teachers', { rows: [] });
     expect(empty.status).toBe(422);
   });
 });

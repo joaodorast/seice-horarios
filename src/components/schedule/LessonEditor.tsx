@@ -291,7 +291,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
               data.subjects.length === 0 ? (
                 <>
                   Nenhuma disciplina cadastrada.{' '}
-                  <Link to="/configuracoes?aba=disciplinas" onClick={onClose} className="font-semibold text-ink underline underline-offset-2">
+                  <Link to="/disciplinas" onClick={onClose} className="font-semibold text-ink underline underline-offset-2">
                     Cadastrar disciplinas
                   </Link>
                 </>

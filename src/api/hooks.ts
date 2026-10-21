@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
 import type { ClassInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
+import type { ImportKind, ImportReport, ImportRequest } from '@shared/import';
 import type { Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
 
 export const keys = {
@@ -186,5 +187,25 @@ export function useDeleteLesson() {
       if (ctx?.previous) qc.setQueryData(keys.lessons, ctx.previous);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: keys.lessons }),
+  });
+}
+
+// -------- Importação de planilhas --------
+/** Dados que cada importação pode alterar, para atualizar as telas depois de gravar. */
+const IMPORT_AFFECTS: Record<ImportKind, (keyof typeof keys)[]> = {
+  teachers: ['teachers'],
+  classes: ['classes'],
+  subjects: ['subjects'],
+  periods: ['periods'],
+  lessons: ['lessons', 'subjects'],
+};
+
+export function useImport(kind: ImportKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ImportRequest) => request<ImportReport>('POST', `/import/${kind}`, body),
+    onSuccess: (report) => {
+      if (!report.dryRun) for (const k of IMPORT_AFFECTS[kind]) qc.invalidateQueries({ queryKey: keys[k] });
+    },
   });
 }

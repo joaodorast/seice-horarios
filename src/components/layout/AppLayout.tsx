@@ -7,6 +7,7 @@ import {
   ChevronsRight,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Settings2,
   Table2,
   UserRound,
@@ -15,7 +16,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { IconButton } from '@/components/ui';
+import { IconButton, useToast } from '@/components/ui';
+import { useLogout, useSession } from '@/api/auth';
+import { initials } from '@/lib/text';
 import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 
 interface NavItem {
@@ -163,7 +166,35 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
       <div className="px-3 pb-2">
         <SidebarLink item={SETTINGS_ITEM} collapsed={collapsed} />
       </div>
+      <UserBox collapsed={collapsed} />
     </>
+  );
+}
+
+function UserBox({ collapsed }: { collapsed: boolean }) {
+  const { data: user } = useSession();
+  const logout = useLogout();
+  const toast = useToast();
+  if (!user) return null;
+  const exit = () =>
+    logout.mutate(undefined, { onError: () => toast.error('Não foi possível sair', 'Verifique a conexão e tente novamente.') });
+  return (
+    <div className={cn('flex items-center gap-2.5 border-t border-nav-line px-3 py-3', collapsed && 'justify-center px-2')}>
+      {!collapsed && (
+        <>
+          <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-nav-2 text-[11px] font-bold text-brand">
+            {initials(user.name) || 'A'}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-semibold text-white">{user.name}</span>
+            <span className="block truncate text-xs text-nav-text/80">{user.email}</span>
+          </span>
+        </>
+      )}
+      <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
+        <LogOut className="size-[18px]" />
+      </IconButton>
+    </div>
   );
 }
 

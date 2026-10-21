@@ -1,17 +1,12 @@
-import '../server/silence-warnings';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { openDatabase, type Database } from '../server/db';
+import { openTestDatabase, type Database } from '../server/db';
 import { createApp } from '../server/app';
 
 let server: Server;
 let base = '';
 let db: Database;
-let dir = '';
 
 async function call(method: string, path: string, body?: unknown) {
   const res = await fetch(base + path, {
@@ -24,18 +19,16 @@ async function call(method: string, path: string, body?: unknown) {
 }
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'seice-test-'));
-  db = openDatabase(join(dir, 'test.db'));
+  db = await openTestDatabase();
   const { app } = createApp(db);
   server = app.listen(0);
   await new Promise((r) => server.once('listening', r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
 });
 
-afterAll(() => {
+afterAll(async () => {
   server.close();
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  await db.close();
 });
 
 describe('API SEICE', () => {
@@ -105,12 +98,26 @@ describe('API SEICE', () => {
     expect(badTime.status).toBe(422);
   });
 
-  it('o banco recusa sobreposição mesmo sem passar pela API', () => {
-    expect(() =>
-      db
-        .prepare('INSERT INTO lessons (teacher_id, class_id, weekday, start_time, end_time) VALUES (?, ?, 1, ?, ?)')
-        .run(ana.id, t6b.id, '07:10', '07:40'),
-    ).toThrow(/LESSON_OVERLAP/);
+  it('o banco recusa sobreposição mesmo sem passar pela API', async () => {
+    await expect(
+      db.query('INSERT INTO lessons (teacher_id, class_id, weekday, start_time, end_time) VALUES ($1, $2, 1, $3, $4)', [
+        ana.id,
+        t6b.id,
+        '07:10',
+        '07:40',
+      ]),
+    ).rejects.toThrow(/LESSON_OVERLAP/);
+  });
+
+  it('o banco recusa horários fora do formato HH:MM', async () => {
+    await expect(
+      db.query('INSERT INTO lessons (teacher_id, class_id, weekday, start_time, end_time) VALUES ($1, $2, 3, $3, $4)', [
+        ana.id,
+        t6b.id,
+        '7:00',
+        '07:50',
+      ]),
+    ).rejects.toThrow();
   });
 
   it('edita a aula sem conflitar consigo mesma', async () => {

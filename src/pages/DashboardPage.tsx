@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useMemo, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { NEW_PARAM } from '@/hooks/useOpenFromUrl';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -16,8 +17,6 @@ import {
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
 import { Button, ButtonLink, Card, CardHeader } from '@/components/ui';
-import { TeacherFormModal } from '@/features/TeacherForm';
-import { ClassFormModal } from '@/features/ClassForm';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
@@ -33,7 +32,9 @@ import { todayLabel } from '@/lib/format';
 export function DashboardPage() {
   const schedule = useScheduleData();
   const index = useScheduleIndex(schedule.data);
-  const [modal, setModal] = useState<'teacher' | 'class' | null>(null);
+  const navigate = useNavigate();
+  // Atalhos de cadastro levam à página correspondente, que já abre o formulário.
+  const onNew = (kind: NewKind) => navigate(`${NEW_TARGET[kind]}?${NEW_PARAM}=1`);
 
   return (
     <Page
@@ -42,10 +43,10 @@ export function DashboardPage() {
       description={todayLabel()}
       actions={
         <>
-          <Button icon={<Plus className="size-4" />} onClick={() => setModal('teacher')}>
+          <Button icon={<Plus className="size-4" />} onClick={() => onNew('teacher')}>
             Novo professor
           </Button>
-          <Button icon={<Plus className="size-4" />} onClick={() => setModal('class')}>
+          <Button icon={<Plus className="size-4" />} onClick={() => onNew('class')}>
             Nova turma
           </Button>
           <ButtonLink to="/horarios" variant="primary" icon={<Table2 className="size-4" />}>
@@ -55,15 +56,16 @@ export function DashboardPage() {
       }
     >
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch} loadingLabel="Calculando indicadores…">
-        {(data) => <Dashboard data={data} index={index} onNew={setModal} />}
+        {(data) => <Dashboard data={data} index={index} onNew={onNew} />}
       </DataGate>
-      <TeacherFormModal open={modal === 'teacher'} onClose={() => setModal(null)} />
-      <ClassFormModal open={modal === 'class'} onClose={() => setModal(null)} />
     </Page>
   );
 }
 
-function Dashboard({ data, index, onNew }: { data: ScheduleData; index: ScheduleIndex; onNew: (m: 'teacher' | 'class') => void }) {
+type NewKind = 'teacher' | 'class' | 'subject';
+const NEW_TARGET: Record<NewKind, string> = { teacher: '/professores', class: '/turmas', subject: '/disciplinas' };
+
+function Dashboard({ data, index, onNew }: { data: ScheduleData; index: ScheduleIndex; onNew: (m: NewKind) => void }) {
   const activeTeachers = data.teachers.filter((t) => t.active);
   const activeClasses = data.classes.filter((c) => c.active);
   const slots = useMemo(() => computeSlotStats(data.classes, data.lessons, data.periods, data.settings), [data]);
@@ -143,7 +145,7 @@ function Metric({
   );
 }
 
-function SetupGuide({ data, onNew }: { data: ScheduleData; onNew: (m: 'teacher' | 'class') => void }) {
+function SetupGuide({ data, onNew }: { data: ScheduleData; onNew: (m: NewKind) => void }) {
   const actions = useScheduleActions();
   const steps = [
     {
@@ -169,7 +171,7 @@ function SetupGuide({ data, onNew }: { data: ScheduleData; onNew: (m: 'teacher' 
       optional: true,
       title: 'Cadastre as disciplinas',
       text: 'Opcional — dá cor às aulas e permite filtrar o quadro por disciplina.',
-      action: <ButtonLink size="sm" to="/disciplinas">Cadastrar disciplinas</ButtonLink>,
+      action: <Button size="sm" onClick={() => onNew('subject')}>Cadastrar disciplinas</Button>,
     },
     {
       done: data.lessons.length > 0,

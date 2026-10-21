@@ -72,14 +72,26 @@ export async function upsertUser(db: Database, email: string, name: string, pass
 // ------------------------------------------------------------------ Sessão (cookie assinado)
 
 export const SESSION_COOKIE = 'seice_session';
+/** Sessão comum: termina ao fechar o navegador (cookie de sessão) e, no servidor, em até 12 horas. */
 const SESSION_HOURS = 12;
+/** "Manter conectado": 30 dias, renovados automaticamente enquanto o sistema é usado. */
+const REMEMBER_DAYS = 30;
+/** Sessões lembradas são renovadas quando já passaram deste tempo desde a emissão. */
+const RENEW_AFTER_MS = 24 * 3600_000;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
 interface SessionPayload {
+  /** Usuário. */
   u: number;
+  /** Versão das sessões do usuário (muda ao trocar a senha). */
   v: number;
+  /** Expiração (ms). */
   e: number;
+  /** Emissão (ms). */
+  i?: number;
+  /** "Manter conectado". */
+  r?: 1;
 }
 
 /** Segredo de assinatura das sessões: variável SESSION_SECRET ou, na falta dela, gerado uma vez e guardado no banco. */
@@ -117,19 +129,24 @@ export function createAuth(db: Database) {
 
   const sign = async (data: string) => createHmac('sha256', await getSecret()).update(data).digest('base64url');
 
-  async function issue(res: Response, req: Request, user: UserRow) {
-    const payload: SessionPayload = { u: user.id, v: user.sessionVersion, e: Date.now() + SESSION_HOURS * 3600_000 };
+  async function issue(res: Response, req: Request, user: { id: number; sessionVersion: number }, remember: boolean) {
+    const now = Date.now();
+    const ttl = remember ? REMEMBER_DAYS * 86400_000 : SESSION_HOURS * 3600_000;
+    const payload: SessionPayload = { u: user.id, v: user.sessionVersion, e: now + ttl, i: now, ...(remember ? { r: 1 as const } : {}) };
     const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const value = `${data}.${await sign(data)}`;
-    res.setHeader('Set-Cookie', cookie(req, value, SESSION_HOURS * 3600));
+    // Sem "manter conectado", o cookie não tem validade: o navegador o descarta ao ser fechado.
+    res.setHeader('Set-Cookie', cookie(req, value, remember ? ttl / 1000 : undefined));
   }
 
-  function cookie(req: Request, value: string, maxAge: number) {
+  function cookie(req: Request, value: string, maxAge?: number) {
     const secure = req.secure ? '; Secure' : '';
-    return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+    const age = maxAge === undefined ? '' : `; Max-Age=${Math.floor(maxAge)}`;
+    return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`;
   }
 
-  async function sessionUser(req: Request): Promise<SessionUser | null> {
+  /** Lê e valida a sessão; em sessões "manter conectado", renova o prazo de 30 dias a cada dia de uso. */
+  async function sessionUser(req: Request, res?: Response): Promise<SessionUser | null> {
     const raw = readCookie(req, SESSION_COOKIE);
     if (!raw) return null;
     const [data, mac] = raw.split('.');
@@ -149,11 +166,12 @@ export function createAuth(db: Database) {
     const user = toUser(r);
     // Trocar a senha incrementa a versão e invalida as sessões antigas.
     if (user.sessionVersion !== payload.v) return null;
+    if (res && payload.r && Date.now() - (payload.i ?? 0) > RENEW_AFTER_MS) await issue(res, req, user, true);
     return { id: user.id, email: user.email, name: user.name };
   }
 
   return {
-    async login(req: Request, res: Response, email: string, password: string): Promise<SessionUser> {
+    async login(req: Request, res: Response, email: string, password: string, remember = false): Promise<SessionUser> {
       const [r] = await db.query('SELECT * FROM users WHERE lower(email) = $1', [normalizeEmail(email)]);
       const user = r ? toUser(r) : null;
       if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
@@ -174,7 +192,7 @@ export function createAuth(db: Database) {
         throw new AuthError(401, 'invalid_credentials', 'E-mail ou senha incorretos.');
       }
       await db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = now() WHERE id = $1', [user.id]);
-      await issue(res, req, user);
+      await issue(res, req, user, remember);
       return { id: user.id, email: user.email, name: user.name };
     },
 
@@ -188,7 +206,7 @@ export function createAuth(db: Database) {
     middleware: async (req: Request, res: Response, next: NextFunction) => {
       if (req.path === '/health' || req.path.startsWith('/auth/')) return next();
       try {
-        const user = await sessionUser(req);
+        const user = await sessionUser(req, res);
         if (!user) {
           res.status(401).json({ error: { code: 'unauthorized', message: 'Sua sessão expirou. Entre novamente.' } });
           return;

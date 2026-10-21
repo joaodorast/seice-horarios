@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { findScheduleConflicts, hasBlockingIssues, validateLesson, type ValidationContext } from '../shared/conflicts';
-import { overlaps } from '../shared/time';
-import { computeSlotStats, lessonsOutsideGrid } from '../shared/grid';
-import type { Lesson, Period, SchoolClass, Teacher } from '../shared/types';
+import { findScheduleConflicts, hasBlockingIssues, validateLesson, type ValidationContext } from '../shared/conflicts.js';
+import { overlaps } from '../shared/time.js';
+import { computeSlotStats, lessonsOutsideGrid } from '../shared/grid.js';
+import type { Lesson, Period, SchoolClass, Teacher } from '../shared/types.js';
 
 const ts = '2026-01-01T00:00:00.000Z';
 const teacher = (id: number, active = true): Teacher => ({

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, CalendarCheck2, Check, Clock3, Eye, EyeOff, FileSpreadsheet, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX } from 'lucide-react';
-import { Modal, Spinner } from '@/components/ui';
+import { AlertTriangle, ArrowRight, CalendarCheck2, Check, Clock3, Eye, EyeOff, FileSpreadsheet, Info, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { Spinner } from '@/components/ui';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useLogin } from '@/api/auth';
 import { ApiError, errorMessage } from '@/api/client';
@@ -218,7 +218,7 @@ function RememberToggle({ checked, onChange }: { checked: boolean; onChange: (v:
   );
 }
 
-/** Pergunta amigável exibida ao entrar sem "manter conectado". */
+/** Pergunta amigável exibida ao entrar sem "manter conectado" (janela própria, compacta e centralizada). */
 function RememberPrompt({
   open,
   onCancel,
@@ -228,46 +228,95 @@ function RememberPrompt({
   onCancel: () => void;
   onChoose: (keep: boolean, dontAskAgain: boolean) => void;
 }) {
+  const ref = useRef<HTMLDialogElement>(null);
   const [dontAsk, setDontAsk] = useState(false);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      dialog.showModal();
+      requestAnimationFrame(() => dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus());
+    } else if (!open && dialog.open) dialog.close();
+  }, [open]);
+
   return (
-    <Modal open={open} onClose={onCancel} size="sm" title="Manter você conectado?">
-      <div className="flex flex-col items-center text-center">
-        <span className="relative grid size-16 place-items-center rounded-2xl bg-brand-soft text-brand-ink">
-          <Clock3 className="size-8" />
-          <span className="absolute -right-1.5 -bottom-1.5 grid size-7 place-items-center rounded-full bg-ink text-brand ring-4 ring-surface">
-            <ShieldCheck className="size-4" />
+    <dialog
+      ref={ref}
+      aria-labelledby="remember-title"
+      aria-describedby="remember-text"
+      onCancel={(e) => {
+        e.preventDefault();
+        onCancel();
+      }}
+      onMouseDown={(e) => e.target === ref.current && onCancel()}
+      className="m-auto w-[calc(100%-2rem)] max-w-[480px] overflow-hidden rounded-[22px] bg-surface p-0 text-ink shadow-[0_32px_64px_-16px_rgb(29_32_37/0.45)] backdrop:bg-ink/55 backdrop:backdrop-blur-[3px] open:animate-pop-in"
+    >
+      {open && (
+        <div className="relative px-7 pt-9 pb-7 text-center sm:px-10">
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Voltar ao login"
+            title="Voltar ao login"
+            className="absolute top-3.5 right-3.5 grid size-9 place-items-center rounded-full text-muted transition-colors hover:bg-ink/6 hover:text-ink"
+          >
+            <X className="size-[18px]" />
+          </button>
+
+          <span className="relative mx-auto grid size-[72px] place-items-center rounded-[20px] bg-brand-soft text-brand-ink" aria-hidden="true">
+            <Clock3 className="size-9" />
+            <span className="absolute -right-2 -bottom-2 grid size-8 place-items-center rounded-full bg-ink text-brand ring-4 ring-surface">
+              <ShieldCheck className="size-[18px]" />
+            </span>
           </span>
-        </span>
-        <p className="mt-5 text-[15px] leading-relaxed text-ink-2">
-          Assim você <strong className="text-ink">não precisa digitar e-mail e senha</strong> toda vez que abrir o sistema neste computador. O acesso fica ativo
-          por 30 dias e se renova enquanto você usa.
-        </p>
-        <p className="mt-3 rounded-lg bg-subtle px-3 py-2 text-xs leading-relaxed text-muted">
-          Recomendado no computador da coordenação. Em computadores compartilhados, prefira entrar só desta vez.
-        </p>
-        <label className="mt-4 flex cursor-pointer items-center gap-2 text-[13px] text-muted select-none">
-          <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} className="size-4 accent-[var(--color-ink)]" />
-          Não perguntar de novo neste computador
-        </label>
-      </div>
-      <div className="-mx-5 mt-5 -mb-5 flex flex-col-reverse gap-2 border-t border-line bg-subtle px-5 py-3.5 sm:-mx-6 sm:flex-row sm:px-6">
-        <button
-          type="button"
-          onClick={() => onChoose(false, dontAsk)}
-          className="h-11 flex-1 rounded-lg border border-line-strong bg-surface text-sm font-semibold text-ink-2 transition-colors hover:bg-subtle"
-        >
-          Não, só desta vez
-        </button>
-        <button
-          type="button"
-          data-autofocus
-          onClick={() => onChoose(true, dontAsk)}
-          className="h-11 flex-1 rounded-lg bg-brand text-sm font-bold text-ink shadow-[inset_0_-1px_0_rgb(0_0_0/0.12)] transition-colors hover:bg-brand-hover"
-        >
-          Sim, manter conectado
-        </button>
-      </div>
-    </Modal>
+
+          <h2 id="remember-title" className="mt-6 text-[1.375rem] leading-tight font-extrabold tracking-[-0.025em]">
+            Manter você conectado?
+          </h2>
+          <p id="remember-text" className="mt-3 text-[15.5px] leading-relaxed text-ink-2">
+            Assim você <strong className="text-ink">não precisa digitar e-mail e senha</strong> toda vez que abrir o sistema neste computador. O acesso fica ativo
+            por <strong className="text-ink">30 dias</strong> e se renova enquanto você usa.
+          </p>
+          <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-subtle px-4 py-3 text-left text-[13.5px] leading-relaxed text-muted">
+            <Info className="mt-0.5 size-4 shrink-0 text-soft" />
+            Recomendado no computador da coordenação. Em computadores compartilhados, prefira entrar só desta vez.
+          </p>
+
+          <div className="mt-6 flex flex-col gap-2.5">
+            <button
+              type="button"
+              data-autofocus
+              onClick={() => onChoose(true, dontAsk)}
+              className="h-12 rounded-xl bg-brand text-[15px] font-bold text-ink shadow-[inset_0_-1px_0_rgb(0_0_0/0.12)] transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              Sim, manter conectado
+            </button>
+            <button
+              type="button"
+              onClick={() => onChoose(false, dontAsk)}
+              className="h-12 rounded-xl border border-line-strong bg-surface text-[15px] font-semibold text-ink-2 transition-colors hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              Não, só desta vez
+            </button>
+          </div>
+
+          <label className="mt-5 inline-flex cursor-pointer items-center gap-2.5 text-[13.5px] font-medium text-muted select-none">
+            <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} className="peer sr-only" />
+            <span
+              aria-hidden="true"
+              className={cn(
+                'grid size-[18px] place-items-center rounded-[5px] border-2 transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink',
+                dontAsk ? 'border-ink bg-ink text-brand' : 'border-line-strong',
+              )}
+            >
+              {dontAsk && <Check className="size-3" strokeWidth={3.5} />}
+            </span>
+            Não perguntar de novo neste computador
+          </label>
+        </div>
+      )}
+    </dialog>
   );
 }
 
@@ -348,52 +397,61 @@ function UnitBackdrop({ active, className }: { active: number; className: string
 
 /** Faixa com as fachadas das unidades no topo da tela, em celulares e tablets. */
 function MobileHero() {
-  const { active } = useUnitCycle();
+  const { active, swaps } = useUnitCycle();
   return (
-    <div className="relative -mx-6 mb-2 h-44 overflow-hidden bg-nav sm:-mx-10 lg:hidden">
-      <UnitBackdrop active={active} className="absolute inset-0 size-full scale-105 object-cover blur-[1.5px]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-nav/40 via-nav/55 to-surface" />
-      <img src="/logo-seice.webp" alt="Colégio SEICE" className="absolute top-5 left-6 h-auto w-[150px] drop-shadow-lg sm:left-10" />
-      <span key={active} className="absolute top-7 right-6 rounded-pill bg-nav/70 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm sm:right-10" style={{ animation: 'seice-fade-up 0.6s ease-out both' }}>
-        {UNITS[active].name}
-      </span>
+    <div className="relative -mx-6 mb-2 h-52 overflow-hidden bg-nav sm:-mx-10 lg:hidden">
+      <UnitBackdrop active={active} className="absolute inset-0 size-full scale-105 object-cover blur-[2px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-nav/60 via-nav/60 to-surface" />
+      <img src="/logo-seice.webp" alt="Colégio SEICE" className="absolute top-6 left-6 h-auto w-[150px] drop-shadow-lg sm:left-10" />
+      <div className="absolute top-5 right-7 flex flex-col items-center sm:right-12">
+        <UnitCards active={active} swaps={swaps} width="92px" caption={false} />
+        <span key={active} className="mt-2 rounded-pill bg-nav/75 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white backdrop-blur-sm" style={{ animation: 'seice-fade-up 0.6s ease-out both' }}>
+          {UNITS[active].name}
+        </span>
+      </div>
     </div>
   );
 }
 
 /**
  * Pilha de cartões-postais das unidades: a cada intervalo, o cartão da frente gira para o lado,
- * passa para trás da pilha e o outro assume a frente.
+ * passa para trás da pilha e o outro assume a frente. Os dois cartões ocupam a mesma célula de grade,
+ * então a pilha tem tamanho próprio e nunca se sobrepõe ao restante da tela.
  */
-function UnitCards({ active, swaps }: { active: number; swaps: number }) {
+function UnitCards({ active, swaps, width, caption = true }: { active: number; swaps: number; width: string; caption?: boolean }) {
   return (
-    <div className="absolute top-9 right-12 hidden w-[214px] xl:right-16 [@media(min-height:860px)]:xl:block">
-      <div className="relative h-[262px]">
+    <div className="shrink-0" style={{ width }}>
+      <div className="grid">
         {UNITS.map((u, i) => {
           const front = i === active;
           return (
             <figure
               key={u.name}
-              className="absolute inset-x-0 top-0 rounded-lg bg-white p-2 pb-3 shadow-[0_24px_48px_-16px_rgb(0_0_0/0.7)] transition-[transform,filter] duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+              className={cn(
+                'rounded-lg bg-white shadow-[0_24px_48px_-16px_rgb(0_0_0/0.7)] transition-[transform,filter] duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] [grid-area:1/1]',
+                caption ? 'p-2 pb-3' : 'p-1.5',
+              )}
               style={{
                 zIndex: front ? 2 : 1,
-                transform: front ? 'rotate(3deg)' : 'translate(-30px, 12px) rotate(-7deg) scale(0.93)',
+                transform: front ? 'rotate(3deg)' : 'translate(-14%, 5%) rotate(-7deg) scale(0.93)',
                 filter: front ? 'none' : 'brightness(0.72)',
                 // O cartão que acabou de sair da frente faz o arco para o lado antes de ir para trás.
                 animation: !front && swaps > 0 ? 'seice-card-out 0.95s cubic-bezier(0.45, 0, 0.2, 1) both' : undefined,
               }}
             >
               <img src={u.photo} alt="" className="aspect-square w-full rounded object-cover" />
-              <figcaption className="mt-2 text-center text-[11.5px] font-bold text-ink-2">{u.name}</figcaption>
+              {caption && <figcaption className="mt-2 truncate text-center text-[11.5px] font-bold text-ink-2">{u.name}</figcaption>}
             </figure>
           );
         })}
       </div>
-      <div className="mt-4 flex items-center justify-center gap-1.5">
-        {UNITS.map((u, i) => (
-          <span key={u.name} className={cn('h-1.5 rounded-full transition-all duration-500', i === active ? 'w-5 bg-brand' : 'w-1.5 bg-white/30')} />
-        ))}
-      </div>
+      {caption && (
+        <div className="mt-4 flex items-center justify-center gap-1.5" aria-hidden="true">
+          {UNITS.map((u, i) => (
+            <span key={u.name} className={cn('h-1.5 rounded-full transition-all duration-500', i === active ? 'w-5 bg-brand' : 'w-1.5 bg-white/30')} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -409,12 +467,17 @@ function Showcase() {
       <div className="absolute -top-40 -right-32 size-[520px] rounded-full bg-brand/20 blur-[110px] [animation:seice-drift_16s_ease-in-out_infinite]" />
       <div className="absolute -bottom-48 -left-24 size-[460px] rounded-full bg-accent/15 blur-[120px] [animation:seice-drift_20s_ease-in-out_infinite_reverse]" />
 
-      <img src="/logo-seice.webp" alt="" className="relative h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
-      <UnitCards active={active} swaps={swaps} />
+      {/* Logo e cartões das unidades na mesma linha; o tamanho dos cartões acompanha a altura da tela. */}
+      <div className="relative flex items-start justify-between gap-8">
+        <img src="/logo-seice.webp" alt="" className="h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
+        <div className="pt-1 pr-3">
+          <UnitCards active={active} swaps={swaps} width="clamp(132px, 21vh, 214px)" />
+        </div>
+      </div>
 
-      <div className="relative mt-auto mb-8 max-w-[560px]">
+      <div className="relative mt-auto mb-8 max-w-[560px] short:mb-6">
         <p className="text-sm font-bold tracking-[0.18em] text-brand uppercase">Gestão de horários</p>
-        <h2 className="mt-3 text-[2.5rem] leading-[1.05] font-extrabold tracking-[-0.04em] xl:text-[3rem]">
+        <h2 className="mt-3 text-[2.5rem] leading-[1.05] font-extrabold tracking-[-0.04em] short:text-[2.25rem] xl:text-[3rem] xl:short:text-[2.5rem]">
           O quadro da escola,{' '}
           <span className="relative whitespace-nowrap text-brand">
             sem conflitos
@@ -429,9 +492,12 @@ function Showcase() {
         </p>
       </div>
 
-      <SchedulePreview />
+      {/* Em telas baixas, a prévia e os destaques saem antes das fotos das unidades. */}
+      <div className="tiny:hidden">
+        <SchedulePreview />
+      </div>
 
-      <ul className="relative mt-8 grid grid-cols-3 gap-3">
+      <ul className="relative mt-8 hidden grid-cols-3 gap-3 tall:grid">
         <Feature icon={<FileSpreadsheet />} title="Importa planilhas" text="Excel e CSV" />
         <Feature icon={<CalendarCheck2 />} title="Sem choques" text="3 camadas de verificação" />
         <Feature icon={<Printer />} title="Pronto para imprimir" text="Grades em PDF" />

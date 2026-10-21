@@ -1,170 +1,180 @@
-import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
+import { MIGRATIONS } from './migrations';
 
-export type Database = DatabaseSyncType;
+export type Row = Record<string, unknown>;
 
-const require = createRequire(import.meta.url);
+/**
+ * Interface mínima de acesso ao PostgreSQL usada pelo repositório.
+ * Em uso real, o banco é sempre o Supabase (via `pg`). O PostgreSQL embutido em memória (PGlite)
+ * existe apenas para os testes automatizados, que assim rodam o mesmo SQL sem tocar na nuvem.
+ */
+export interface Database {
+  query<T extends Row = Row>(text: string, params?: unknown[]): Promise<T[]>;
+  /** Executa vários comandos SQL de uma vez (sem parâmetros). */
+  exec(sql: string): Promise<void>;
+  /** Executa `fn` numa transação: confirma se terminar sem erro, desfaz se lançar. */
+  transaction<T>(fn: (tx: Database) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+  readonly kind: 'cloud' | 'embedded';
+}
 
-const SCHEMA_VERSION = 1;
+/** Schema dedicado: isola as tabelas do sistema e as mantém fora da API pública do Supabase. */
+export const SCHEMA = 'seice';
 
-const SCHEMA = /* sql */ `
-CREATE TABLE IF NOT EXISTS teachers (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL CHECK (length(trim(name)) >= 3),
-  code        TEXT UNIQUE COLLATE NOCASE,
-  area        TEXT,
-  phone       TEXT,
-  notes       TEXT,
-  active      INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
+/**
+ * Chave do bloqueio que serializa gravações de aulas, para que duas gravações simultâneas não criem conflito.
+ * Valor exclusivo do SEICE (0x5E1CE000 + 1), para não coincidir com bloqueios de outros sistemas no mesmo banco.
+ */
+export const LESSON_LOCK_KEY = 1_578_950_657;
 
-CREATE TABLE IF NOT EXISTS classes (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  grade       TEXT NOT NULL,
-  shift       TEXT NOT NULL CHECK (shift IN ('manha', 'tarde', 'noite', 'integral')),
-  notes       TEXT,
-  active      INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
+// ---------------------------------------------------------------- Nuvem (Supabase / PostgreSQL)
 
-CREATE TABLE IF NOT EXISTS subjects (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  color       TEXT NOT NULL DEFAULT 'slate',
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
+async function openCloud(url: string): Promise<Database> {
+  const { default: pg } = await import('pg');
+  const local = /@(localhost|127\.0\.0\.1)(:|\/)/.test(url);
+  const pool = new pg.Pool({
+    connectionString: url,
+    // O Supabase exige conexão criptografada; o certificado do pooler é emitido pela CA própria do Supabase.
+    ssl: local ? undefined : { rejectUnauthorized: false },
+    // Abaixo do limite de conexões do usuário no banco (5), para conviver com outros sistemas no mesmo projeto.
+    max: Number(process.env.SEICE_DB_POOL ?? 4),
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 15_000,
+    application_name: 'seice-horarios',
+    // Todas as conexões enxergam apenas o schema do SEICE.
+    options: `-c search_path=${SCHEMA}`,
+  });
+  pool.on('error', (error) => console.error('[SEICE] Conexão com o banco interrompida:', error.message));
 
-CREATE TABLE IF NOT EXISTS periods (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  shift       TEXT NOT NULL CHECK (shift IN ('manha', 'tarde', 'noite')),
-  label       TEXT NOT NULL,
-  start_time  TEXT NOT NULL,
-  end_time    TEXT NOT NULL,
-  kind        TEXT NOT NULL CHECK (kind IN ('aula', 'intervalo')),
-  sort_order  INTEGER NOT NULL DEFAULT 0,
-  CHECK (end_time > start_time)
-);
+  const wrap = (runner: { query: (text: string, params?: unknown[]) => Promise<{ rows: Row[] }> }): Database => {
+    // Uma conexão executa um comando por vez: consultas disparadas em paralelo na mesma transação entram em fila.
+    let queue: Promise<unknown> = Promise.resolve();
+    const run = (text: string, params?: unknown[]) => {
+      const next = queue.then(() => runner.query(text, params));
+      queue = next.catch(() => undefined);
+      return next;
+    };
+    return {
+      kind: 'cloud',
+      async query<T extends Row>(text: string, params?: unknown[]) {
+        return (await run(text, params)).rows as T[];
+      },
+      async exec(sql: string) {
+        await run(sql);
+      },
+      transaction: () => {
+        throw new Error('Transações aninhadas não são suportadas.');
+      },
+      close: async () => undefined,
+    };
+  };
 
-CREATE TABLE IF NOT EXISTS settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
+  const db: Database = {
+    ...wrapPool(),
+    async transaction<T>(fn: (tx: Database) => Promise<T>) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await fn(wrap(client));
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+    close: () => pool.end(),
+  };
+  return db;
 
-CREATE TABLE IF NOT EXISTS lessons (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  teacher_id  INTEGER NOT NULL REFERENCES teachers(id) ON DELETE RESTRICT,
-  class_id    INTEGER NOT NULL REFERENCES classes(id) ON DELETE RESTRICT,
-  subject_id  INTEGER REFERENCES subjects(id) ON DELETE RESTRICT,
-  weekday     INTEGER NOT NULL CHECK (weekday BETWEEN 1 AND 6),
-  start_time  TEXT NOT NULL,
-  end_time    TEXT NOT NULL,
-  notes       TEXT,
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  CHECK (end_time > start_time)
-);
+  /** Fora de transações, cada consulta usa qualquer conexão livre do pool (sem fila). */
+  function wrapPool(): Database {
+    return {
+      kind: 'cloud',
+      async query<T extends Row>(text: string, params?: unknown[]) {
+        return (await pool.query(text, params)).rows as T[];
+      },
+      async exec(sql: string) {
+        await pool.query(sql);
+      },
+      transaction: () => {
+        throw new Error('Use db.transaction.');
+      },
+      close: async () => undefined,
+    };
+  }
+}
 
-CREATE INDEX IF NOT EXISTS idx_lessons_teacher_day ON lessons (teacher_id, weekday);
-CREATE INDEX IF NOT EXISTS idx_lessons_class_day ON lessons (class_id, weekday);
+// ---------------------------------------------------------------- Embutido em memória (somente testes)
 
--- Última linha de defesa: o próprio banco recusa aulas sobrepostas para o mesmo professor ou turma,
--- independentemente de qual interface ou script esteja gravando os dados.
-CREATE TRIGGER IF NOT EXISTS lessons_no_overlap_insert
-BEFORE INSERT ON lessons
-WHEN EXISTS (
-  SELECT 1 FROM lessons
-  WHERE weekday = NEW.weekday
-    AND (teacher_id = NEW.teacher_id OR class_id = NEW.class_id)
-    AND start_time < NEW.end_time AND NEW.start_time < end_time
-)
-BEGIN
-  SELECT RAISE(ABORT, 'LESSON_OVERLAP');
-END;
+async function openEmbedded(): Promise<Database> {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const pglite = await PGlite.create();
+  await pglite.exec(`CREATE SCHEMA IF NOT EXISTS ${SCHEMA}; SET search_path TO ${SCHEMA};`);
 
-CREATE TRIGGER IF NOT EXISTS lessons_no_overlap_update
-BEFORE UPDATE OF teacher_id, class_id, weekday, start_time, end_time ON lessons
-WHEN EXISTS (
-  SELECT 1 FROM lessons
-  WHERE id <> NEW.id
-    AND weekday = NEW.weekday
-    AND (teacher_id = NEW.teacher_id OR class_id = NEW.class_id)
-    AND start_time < NEW.end_time AND NEW.start_time < end_time
-)
-BEGIN
-  SELECT RAISE(ABORT, 'LESSON_OVERLAP');
-END;
-`;
+  type Runner = Pick<typeof pglite, 'query' | 'exec'>;
+  const wrap = (runner: Runner): Database => ({
+    kind: 'embedded',
+    async query<T extends Row>(text: string, params?: unknown[]) {
+      return (await runner.query<T>(text, params)).rows;
+    },
+    async exec(sql: string) {
+      await runner.exec(sql);
+    },
+    transaction: () => {
+      throw new Error('Transações aninhadas não são suportadas.');
+    },
+    close: async () => undefined,
+  });
 
-/** Configuração inicial editável em Configurações. Não representa a grade oficial da instituição. */
-const DEFAULT_PERIODS: Array<[string, string, string, string, 'aula' | 'intervalo']> = [
-  ['manha', '1º horário', '07:00', '07:50', 'aula'],
-  ['manha', '2º horário', '07:50', '08:40', 'aula'],
-  ['manha', '3º horário', '08:40', '09:30', 'aula'],
-  ['manha', 'Intervalo', '09:30', '09:50', 'intervalo'],
-  ['manha', '4º horário', '09:50', '10:40', 'aula'],
-  ['manha', '5º horário', '10:40', '11:30', 'aula'],
-  ['manha', '6º horário', '11:30', '12:20', 'aula'],
-  ['tarde', '1º horário', '13:00', '13:50', 'aula'],
-  ['tarde', '2º horário', '13:50', '14:40', 'aula'],
-  ['tarde', '3º horário', '14:40', '15:30', 'aula'],
-  ['tarde', 'Intervalo', '15:30', '15:50', 'intervalo'],
-  ['tarde', '4º horário', '15:50', '16:40', 'aula'],
-  ['tarde', '5º horário', '16:40', '17:30', 'aula'],
-  ['noite', '1º horário', '18:30', '19:15', 'aula'],
-  ['noite', '2º horário', '19:15', '20:00', 'aula'],
-  ['noite', 'Intervalo', '20:00', '20:15', 'intervalo'],
-  ['noite', '3º horário', '20:15', '21:00', 'aula'],
-  ['noite', '4º horário', '21:00', '21:45', 'aula'],
-];
+  return {
+    ...wrap(pglite),
+    transaction: (fn) => pglite.transaction((tx) => fn(wrap(tx))),
+    close: () => pglite.close(),
+  };
+}
 
-export function openDatabase(file: string): Database {
-  const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite');
-  if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec('PRAGMA foreign_keys = ON;');
-  if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA busy_timeout = 5000;');
-  migrate(db);
+// ---------------------------------------------------------------- Abertura e migrações
+
+/** Conecta ao Supabase pela URL PostgreSQL e aplica as migrações pendentes. */
+export async function openDatabase(url: string): Promise<Database> {
+  return prepare(await openCloud(url));
+}
+
+/** Banco PostgreSQL descartável em memória, com o mesmo esquema da nuvem. Uso exclusivo dos testes. */
+export async function openTestDatabase(): Promise<Database> {
+  return prepare(await openEmbedded());
+}
+
+async function prepare(db: Database): Promise<Database> {
+  try {
+    await migrate(db);
+  } catch (error) {
+    await db.close().catch(() => undefined);
+    throw error;
+  }
   return db;
 }
 
-function migrate(db: Database) {
-  const row = db.prepare('PRAGMA user_version').get() as { user_version: number };
-  if (row.user_version >= SCHEMA_VERSION) return;
-  transaction(db, () => {
-    db.exec(SCHEMA);
-    const hasSettings = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };
-    if (hasSettings.n === 0) {
-      const put = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-      put.run('enabledDays', JSON.stringify([1, 2, 3, 4, 5]));
-      put.run('enabledShifts', JSON.stringify(['manha', 'tarde']));
-      put.run('lessonDuration', JSON.stringify(50));
-    }
-    const hasPeriods = db.prepare('SELECT COUNT(*) AS n FROM periods').get() as { n: number };
-    if (hasPeriods.n === 0) {
-      const insert = db.prepare(
-        'INSERT INTO periods (shift, label, start_time, end_time, kind, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-      );
-      DEFAULT_PERIODS.forEach(([shift, label, start, end, kind], i) => insert.run(shift, label, start, end, kind, i));
-    }
-    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
-  });
-}
+async function migrate(db: Database) {
+  const [schema] = await db.query<{ ok: boolean }>('SELECT to_regnamespace($1) IS NOT NULL AS ok', [SCHEMA]);
+  if (!schema.ok) await db.exec(`CREATE SCHEMA ${SCHEMA}`);
 
-export function transaction<T>(db: Database, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
+  await db.transaction(async (tx) => {
+    // Impede que duas instâncias do servidor apliquem a mesma migração ao mesmo tempo.
+    await tx.query('SELECT pg_advisory_xact_lock($1)', [LESSON_LOCK_KEY + 1]);
+    await tx.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version     integer PRIMARY KEY,
+        name        text NOT NULL,
+        applied_at  timestamptz NOT NULL DEFAULT now()
+      )`);
+    const applied = new Set((await tx.query<{ version: number }>('SELECT version FROM schema_migrations')).map((r) => r.version));
+    for (const migration of MIGRATIONS) {
+      if (applied.has(migration.version)) continue;
+      await tx.exec(migration.sql);
+      await tx.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [migration.version, migration.name]);
+    }
+  });
 }

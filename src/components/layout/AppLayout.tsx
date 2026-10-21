@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
+  BookOpen,
   CalendarDays,
   ChevronsLeft,
   ChevronsRight,
@@ -31,6 +32,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { to: '/professores', label: 'Professores', icon: <Users /> },
       { to: '/turmas', label: 'Turmas', icon: <GraduationCap /> },
+      { to: '/disciplinas', label: 'Disciplinas', icon: <BookOpen /> },
     ],
   },
   {

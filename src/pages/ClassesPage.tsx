@@ -9,6 +9,7 @@ import { useEntityActions } from '@/features/EntityActions';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
+import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { matches, plural } from '@/lib/text';
 import { cn } from '@/lib/cn';
 import { computeSlotStats } from '@shared/grid';
@@ -41,6 +42,7 @@ export function ClassesPage() {
 
   const openNew = useCallback(() => setEditing('new'), []);
   useHotkey('n', openNew);
+  useOpenFromUrl(openNew);
 
   const stats = useMemo(() => {
     const d = schedule.data;

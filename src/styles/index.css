@@ -1,6 +1,10 @@
 @import '@fontsource-variable/manrope';
 @import 'tailwindcss';
 
+/* Telas baixas (notebooks com barra de tarefas e abas): layouts compactos para evitar rolagem. */
+@custom-variant short (@media (max-height: 780px));
+@custom-variant tiny (@media (max-height: 680px));
+
 /*
  * Tokens de design do SEICE.
  * Base neutra (grafite + cinzas frios), com as cores da logo usadas de forma seletiva:
@@ -170,6 +174,18 @@
   45% { z-index: 3; transform: translate(-165px, -14px) rotate(-15deg); }
   55% { z-index: 0; transform: translate(-150px, -6px) rotate(-13deg); filter: brightness(0.85); }
   100% { z-index: 1; transform: translate(-30px, 12px) rotate(-7deg) scale(0.93); filter: brightness(0.72); }
+}
+@keyframes seice-goodbye-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; }
+}
+@keyframes seice-goodbye-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(1.03); visibility: hidden; }
+}
+@keyframes seice-ring-in {
+  from { opacity: 0; transform: scale(2.2); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes seice-shake {
   0%, 100% { transform: none; }

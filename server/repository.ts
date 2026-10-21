@@ -1,4 +1,4 @@
-import { LESSON_LOCK_KEY, type Database, type Row } from './db';
+import { LESSON_LOCK_KEY, type Database, type Row } from './db.js';
 import type {
   ClassInput,
   LessonInput,
@@ -6,8 +6,8 @@ import type {
   SettingsInput,
   SubjectInput,
   TeacherInput,
-} from '../shared/schemas';
-import type { Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types';
+} from '../shared/schemas.js';
+import type { Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 const text = (v: unknown) => (v === null || v === undefined ? null : String(v));

@@ -102,8 +102,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   // ---------------- Acesso ----------------
   api.post('/auth/login', async (req, res) => {
-    const { email, password } = parse(loginSchema, req.body);
-    res.json({ user: await auth.login(req, res, email, password) });
+    const { email, password, remember } = parse(loginSchema, req.body);
+    res.json({ user: await auth.login(req, res, email, password, remember) });
   });
 
   api.post('/auth/logout', (req, res) => {
@@ -112,7 +112,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.get('/auth/me', async (req, res) => {
-    const user = await auth.sessionUser(req);
+    const user = await auth.sessionUser(req, res);
     if (!user) throw new HttpError(401, 'unauthorized', 'Entre com seu e-mail e senha.');
     res.json({ user });
   });
@@ -294,6 +294,32 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const input = parse(settingsSchema, req.body);
     await db.transaction((tx) => createRepository(tx).updateSettings(input));
     res.json(await repo.getSettings());
+  });
+
+  // ---------------- Leitura em lote ----------------
+  // Uma única requisição para vários conjuntos de dados (a interface agrupa as consultas feitas juntas).
+  const RESOURCES = {
+    teachers: () => repo.listTeachers(),
+    classes: () => repo.listClasses(),
+    subjects: () => repo.listSubjects(),
+    periods: () => repo.listPeriods(),
+    settings: () => repo.getSettings(),
+    lessons: () => repo.listLessons(),
+  } as const;
+  type Resource = keyof typeof RESOURCES;
+
+  api.get('/data', async (req, res) => {
+    const names = String(req.query.include ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const unknown = names.filter((n) => !(n in RESOURCES));
+    if (names.length === 0 || unknown.length) {
+      throw new HttpError(400, 'invalid_include', `Conjuntos de dados inválidos: ${unknown.join(', ') || '(nenhum)'}.`);
+    }
+    const unique = [...new Set(names)] as Resource[];
+    const values = await Promise.all(unique.map((n) => RESOURCES[n]()));
+    res.json(Object.fromEntries(unique.map((n, i) => [n, values[i]])));
   });
 
   // ---------------- Aulas ----------------

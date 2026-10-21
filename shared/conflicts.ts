@@ -1,5 +1,5 @@
-import { WEEKDAY_LABEL, shiftsOfClass } from './labels';
-import { overlaps, toMinutes, TIME_PATTERN, formatRange } from './time';
+import { WEEKDAY_LABEL, shiftsOfClass } from './labels.js';
+import { overlaps, toMinutes, TIME_PATTERN, formatRange } from './time.js';
 import type {
   Lesson,
   LessonIssue,
@@ -9,7 +9,7 @@ import type {
   Subject,
   Teacher,
   Weekday,
-} from './types';
+} from './types.js';
 
 export interface LessonCandidate {
   id?: number;

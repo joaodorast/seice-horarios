@@ -1,5 +1,4 @@
-import type { Database } from './db';
-import { transaction } from './db';
+import { LESSON_LOCK_KEY, type Database, type Row } from './db';
 import type {
   ClassInput,
   LessonInput,
@@ -10,21 +9,20 @@ import type {
 } from '../shared/schemas';
 import type { Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types';
 
-type Row = Record<string, unknown>;
-
-const now = () => new Date().toISOString();
+const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
+const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
 
 function toTeacher(r: Row): Teacher {
   return {
     id: Number(r.id),
     name: String(r.name),
-    code: (r.code as string | null) ?? null,
-    area: (r.area as string | null) ?? null,
-    phone: (r.phone as string | null) ?? null,
-    notes: (r.notes as string | null) ?? null,
-    active: Number(r.active) === 1,
-    createdAt: String(r.created_at),
-    updatedAt: String(r.updated_at),
+    code: text(r.code),
+    area: text(r.area),
+    phone: text(r.phone),
+    notes: text(r.notes),
+    active: Boolean(r.active),
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
   };
 }
 
@@ -34,15 +32,15 @@ function toClass(r: Row): SchoolClass {
     name: String(r.name),
     grade: String(r.grade),
     shift: r.shift as SchoolClass['shift'],
-    notes: (r.notes as string | null) ?? null,
-    active: Number(r.active) === 1,
-    createdAt: String(r.created_at),
-    updatedAt: String(r.updated_at),
+    notes: text(r.notes),
+    active: Boolean(r.active),
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
   };
 }
 
 function toSubject(r: Row): Subject {
-  return { id: Number(r.id), name: String(r.name), color: r.color as SubjectColor, createdAt: String(r.created_at) };
+  return { id: Number(r.id), name: String(r.name), color: r.color as SubjectColor, createdAt: iso(r.created_at) };
 }
 
 function toPeriod(r: Row): Period {
@@ -66,198 +64,197 @@ function toLesson(r: Row): Lesson {
     weekday: Number(r.weekday) as Lesson['weekday'],
     start: String(r.start_time),
     end: String(r.end_time),
-    notes: (r.notes as string | null) ?? null,
-    createdAt: String(r.created_at),
-    updatedAt: String(r.updated_at),
+    notes: text(r.notes),
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
   };
 }
 
+const collapse = (name: string) => name.replace(/\s+/g, ' ').trim();
+
+/**
+ * Acesso aos dados. Recebe o banco ou uma transação: `createRepository(tx)` dentro de
+ * `db.transaction` faz todas as leituras e gravações enxergarem o mesmo estado.
+ */
 export function createRepository(db: Database) {
+  const one = async (sql: string, params: unknown[]) => (await db.query(sql, params))[0];
+
   return {
     // ---------- Professores ----------
-    listTeachers(): Teacher[] {
-      return (db.prepare('SELECT * FROM teachers ORDER BY name COLLATE NOCASE').all() as Row[]).map(toTeacher);
+    async listTeachers(): Promise<Teacher[]> {
+      return (await db.query('SELECT * FROM teachers ORDER BY lower(name), id')).map(toTeacher);
     },
-    getTeacher(id: number): Teacher | undefined {
-      const r = db.prepare('SELECT * FROM teachers WHERE id = ?').get(id) as Row | undefined;
+    async getTeacher(id: number): Promise<Teacher | undefined> {
+      const r = await one('SELECT * FROM teachers WHERE id = $1', [id]);
       return r ? toTeacher(r) : undefined;
     },
-    findTeacherByCode(code: string): Teacher | undefined {
-      const r = db.prepare('SELECT * FROM teachers WHERE code = ? COLLATE NOCASE').get(code) as Row | undefined;
+    async findTeacherByCode(code: string): Promise<Teacher | undefined> {
+      const r = await one('SELECT * FROM teachers WHERE lower(code) = lower($1)', [code]);
       return r ? toTeacher(r) : undefined;
     },
-    createTeacher(input: TeacherInput): Teacher {
-      const ts = now();
-      const res = db
-        .prepare(
-          'INSERT INTO teachers (name, code, area, phone, notes, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        )
-        .run(input.name, input.code, input.area, input.phone, input.notes, input.active ? 1 : 0, ts, ts);
-      return this.getTeacher(Number(res.lastInsertRowid))!;
+    async createTeacher(input: TeacherInput): Promise<Teacher> {
+      const r = await one(
+        'INSERT INTO teachers (name, code, area, phone, notes, active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [input.name, input.code, input.area, input.phone, input.notes, input.active],
+      );
+      return toTeacher(r!);
     },
-    updateTeacher(id: number, input: TeacherInput): Teacher | undefined {
-      db.prepare(
-        'UPDATE teachers SET name = ?, code = ?, area = ?, phone = ?, notes = ?, active = ?, updated_at = ? WHERE id = ?',
-      ).run(input.name, input.code, input.area, input.phone, input.notes, input.active ? 1 : 0, now(), id);
-      return this.getTeacher(id);
+    async updateTeacher(id: number, input: TeacherInput): Promise<Teacher | undefined> {
+      const r = await one(
+        'UPDATE teachers SET name = $1, code = $2, area = $3, phone = $4, notes = $5, active = $6, updated_at = now() WHERE id = $7 RETURNING *',
+        [input.name, input.code, input.area, input.phone, input.notes, input.active, id],
+      );
+      return r ? toTeacher(r) : undefined;
     },
-    setTeacherActive(id: number, active: boolean): Teacher | undefined {
-      db.prepare('UPDATE teachers SET active = ?, updated_at = ? WHERE id = ?').run(active ? 1 : 0, now(), id);
-      return this.getTeacher(id);
+    async setTeacherActive(id: number, active: boolean): Promise<Teacher | undefined> {
+      const r = await one('UPDATE teachers SET active = $1, updated_at = now() WHERE id = $2 RETURNING *', [active, id]);
+      return r ? toTeacher(r) : undefined;
     },
-    deleteTeacher(id: number, withLessons: boolean): void {
-      transaction(db, () => {
-        if (withLessons) db.prepare('DELETE FROM lessons WHERE teacher_id = ?').run(id);
-        db.prepare('DELETE FROM teachers WHERE id = ?').run(id);
-      });
+    async deleteTeacher(id: number, withLessons: boolean): Promise<void> {
+      if (withLessons) await db.query('DELETE FROM lessons WHERE teacher_id = $1', [id]);
+      await db.query('DELETE FROM teachers WHERE id = $1', [id]);
     },
 
     // ---------- Turmas ----------
-    listClasses(): SchoolClass[] {
-      return (db.prepare('SELECT * FROM classes ORDER BY name COLLATE NOCASE').all() as Row[]).map(toClass);
+    async listClasses(): Promise<SchoolClass[]> {
+      return (await db.query('SELECT * FROM classes ORDER BY lower(name), id')).map(toClass);
     },
-    getClass(id: number): SchoolClass | undefined {
-      const r = db.prepare('SELECT * FROM classes WHERE id = ?').get(id) as Row | undefined;
+    async getClass(id: number): Promise<SchoolClass | undefined> {
+      const r = await one('SELECT * FROM classes WHERE id = $1', [id]);
       return r ? toClass(r) : undefined;
     },
-    findClassByName(name: string): SchoolClass | undefined {
-      const normalized = name.replace(/\s+/g, ' ').trim();
-      const r = db
-        .prepare("SELECT * FROM classes WHERE lower(trim(name)) = lower(?)")
-        .get(normalized) as Row | undefined;
+    async findClassByName(name: string): Promise<SchoolClass | undefined> {
+      const r = await one("SELECT * FROM classes WHERE lower(regexp_replace(btrim(name), '\\s+', ' ', 'g')) = lower($1)", [collapse(name)]);
       return r ? toClass(r) : undefined;
     },
-    createClass(input: ClassInput): SchoolClass {
-      const ts = now();
-      const res = db
-        .prepare('INSERT INTO classes (name, grade, shift, notes, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(input.name.replace(/\s+/g, ' '), input.grade, input.shift, input.notes, input.active ? 1 : 0, ts, ts);
-      return this.getClass(Number(res.lastInsertRowid))!;
-    },
-    updateClass(id: number, input: ClassInput): SchoolClass | undefined {
-      db.prepare('UPDATE classes SET name = ?, grade = ?, shift = ?, notes = ?, active = ?, updated_at = ? WHERE id = ?').run(
-        input.name.replace(/\s+/g, ' '),
+    async createClass(input: ClassInput): Promise<SchoolClass> {
+      const r = await one('INSERT INTO classes (name, grade, shift, notes, active) VALUES ($1, $2, $3, $4, $5) RETURNING *', [
+        collapse(input.name),
         input.grade,
         input.shift,
         input.notes,
-        input.active ? 1 : 0,
-        now(),
-        id,
+        input.active,
+      ]);
+      return toClass(r!);
+    },
+    async updateClass(id: number, input: ClassInput): Promise<SchoolClass | undefined> {
+      const r = await one(
+        'UPDATE classes SET name = $1, grade = $2, shift = $3, notes = $4, active = $5, updated_at = now() WHERE id = $6 RETURNING *',
+        [collapse(input.name), input.grade, input.shift, input.notes, input.active, id],
       );
-      return this.getClass(id);
+      return r ? toClass(r) : undefined;
     },
-    setClassActive(id: number, active: boolean): SchoolClass | undefined {
-      db.prepare('UPDATE classes SET active = ?, updated_at = ? WHERE id = ?').run(active ? 1 : 0, now(), id);
-      return this.getClass(id);
+    async setClassActive(id: number, active: boolean): Promise<SchoolClass | undefined> {
+      const r = await one('UPDATE classes SET active = $1, updated_at = now() WHERE id = $2 RETURNING *', [active, id]);
+      return r ? toClass(r) : undefined;
     },
-    deleteClass(id: number, withLessons: boolean): void {
-      transaction(db, () => {
-        if (withLessons) db.prepare('DELETE FROM lessons WHERE class_id = ?').run(id);
-        db.prepare('DELETE FROM classes WHERE id = ?').run(id);
-      });
+    async deleteClass(id: number, withLessons: boolean): Promise<void> {
+      if (withLessons) await db.query('DELETE FROM lessons WHERE class_id = $1', [id]);
+      await db.query('DELETE FROM classes WHERE id = $1', [id]);
     },
 
     // ---------- Disciplinas ----------
-    listSubjects(): Subject[] {
-      return (db.prepare('SELECT * FROM subjects ORDER BY name COLLATE NOCASE').all() as Row[]).map(toSubject);
+    async listSubjects(): Promise<Subject[]> {
+      return (await db.query('SELECT * FROM subjects ORDER BY lower(name), id')).map(toSubject);
     },
-    getSubject(id: number): Subject | undefined {
-      const r = db.prepare('SELECT * FROM subjects WHERE id = ?').get(id) as Row | undefined;
+    async getSubject(id: number): Promise<Subject | undefined> {
+      const r = await one('SELECT * FROM subjects WHERE id = $1', [id]);
       return r ? toSubject(r) : undefined;
     },
-    findSubjectByName(name: string): Subject | undefined {
-      const r = db.prepare('SELECT * FROM subjects WHERE lower(trim(name)) = lower(?)').get(name.trim()) as Row | undefined;
+    async findSubjectByName(name: string): Promise<Subject | undefined> {
+      const r = await one('SELECT * FROM subjects WHERE lower(btrim(name)) = lower($1)', [name.trim()]);
       return r ? toSubject(r) : undefined;
     },
-    createSubject(input: SubjectInput): Subject {
-      const res = db.prepare('INSERT INTO subjects (name, color, created_at) VALUES (?, ?, ?)').run(input.name, input.color, now());
-      return this.getSubject(Number(res.lastInsertRowid))!;
+    async createSubject(input: SubjectInput): Promise<Subject> {
+      const r = await one('INSERT INTO subjects (name, color) VALUES ($1, $2) RETURNING *', [input.name, input.color]);
+      return toSubject(r!);
     },
-    updateSubject(id: number, input: SubjectInput): Subject | undefined {
-      db.prepare('UPDATE subjects SET name = ?, color = ? WHERE id = ?').run(input.name, input.color, id);
-      return this.getSubject(id);
+    async updateSubject(id: number, input: SubjectInput): Promise<Subject | undefined> {
+      const r = await one('UPDATE subjects SET name = $1, color = $2 WHERE id = $3 RETURNING *', [input.name, input.color, id]);
+      return r ? toSubject(r) : undefined;
     },
-    deleteSubject(id: number, detachLessons: boolean): void {
-      transaction(db, () => {
-        if (detachLessons) db.prepare('UPDATE lessons SET subject_id = NULL, updated_at = ? WHERE subject_id = ?').run(now(), id);
-        db.prepare('DELETE FROM subjects WHERE id = ?').run(id);
-      });
+    async deleteSubject(id: number, detachLessons: boolean): Promise<void> {
+      if (detachLessons) await db.query('UPDATE lessons SET subject_id = NULL, updated_at = now() WHERE subject_id = $1', [id]);
+      await db.query('DELETE FROM subjects WHERE id = $1', [id]);
     },
 
     // ---------- Períodos ----------
-    listPeriods(): Period[] {
-      return (db.prepare('SELECT * FROM periods ORDER BY shift, start_time, sort_order').all() as Row[]).map(toPeriod);
+    async listPeriods(): Promise<Period[]> {
+      return (await db.query('SELECT * FROM periods ORDER BY shift, start_time, sort_order')).map(toPeriod);
     },
-    replacePeriods(shift: ShiftKey, input: PeriodsReplaceInput): Period[] {
-      transaction(db, () => {
-        db.prepare('DELETE FROM periods WHERE shift = ?').run(shift);
-        const insert = db.prepare(
-          'INSERT INTO periods (shift, label, start_time, end_time, kind, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-        );
-        [...input.periods]
-          .sort((a, b) => a.start.localeCompare(b.start))
-          .forEach((p, i) => insert.run(shift, p.label, p.start, p.end, p.kind, i));
-      });
-      return this.listPeriods();
+    /** Substitui os períodos de um turno. Deve rodar dentro de uma transação. */
+    async replacePeriods(shift: ShiftKey, input: PeriodsReplaceInput): Promise<void> {
+      await db.query('DELETE FROM periods WHERE shift = $1', [shift]);
+      const sorted = [...input.periods].sort((a, b) => a.start.localeCompare(b.start));
+      for (const [i, p] of sorted.entries()) {
+        await db.query('INSERT INTO periods (shift, label, start_time, end_time, kind, sort_order) VALUES ($1, $2, $3, $4, $5, $6)', [
+          shift,
+          p.label,
+          p.start,
+          p.end,
+          p.kind,
+          i,
+        ]);
+      }
     },
 
     // ---------- Configurações ----------
-    getSettings(): Settings {
-      const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-      const map = Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)]));
+    async getSettings(): Promise<Settings> {
+      const rows = await db.query<{ key: string; value: unknown }>('SELECT key, value FROM settings');
+      const map = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Partial<Settings>;
       return {
         enabledDays: map.enabledDays ?? [1, 2, 3, 4, 5],
         enabledShifts: map.enabledShifts ?? ['manha', 'tarde'],
         lessonDuration: map.lessonDuration ?? 50,
       };
     },
-    updateSettings(input: SettingsInput): Settings {
-      transaction(db, () => {
-        const put = db.prepare(
-          'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        );
-        put.run('enabledDays', JSON.stringify(input.enabledDays));
-        put.run('enabledShifts', JSON.stringify(input.enabledShifts));
-        put.run('lessonDuration', JSON.stringify(input.lessonDuration));
-      });
-      return this.getSettings();
+    /** Grava as configurações. Deve rodar dentro de uma transação. */
+    async updateSettings(input: SettingsInput): Promise<void> {
+      const sql = 'INSERT INTO settings (key, value) VALUES ($1, $2::jsonb) ON CONFLICT (key) DO UPDATE SET value = excluded.value';
+      await db.query(sql, ['enabledDays', JSON.stringify(input.enabledDays)]);
+      await db.query(sql, ['enabledShifts', JSON.stringify(input.enabledShifts)]);
+      await db.query(sql, ['lessonDuration', JSON.stringify(input.lessonDuration)]);
     },
 
     // ---------- Aulas ----------
-    listLessons(): Lesson[] {
-      return (db.prepare('SELECT * FROM lessons ORDER BY weekday, start_time').all() as Row[]).map(toLesson);
+    async listLessons(): Promise<Lesson[]> {
+      return (await db.query('SELECT * FROM lessons ORDER BY weekday, start_time, id')).map(toLesson);
     },
-    getLesson(id: number): Lesson | undefined {
-      const r = db.prepare('SELECT * FROM lessons WHERE id = ?').get(id) as Row | undefined;
+    async getLesson(id: number): Promise<Lesson | undefined> {
+      const r = await one('SELECT * FROM lessons WHERE id = $1', [id]);
       return r ? toLesson(r) : undefined;
     },
-    countLessonsBy(column: 'teacher_id' | 'class_id' | 'subject_id', id: number): number {
-      const r = db.prepare(`SELECT COUNT(*) AS n FROM lessons WHERE ${column} = ?`).get(id) as { n: number };
-      return Number(r.n);
+    async countLessonsBy(column: 'teacher_id' | 'class_id' | 'subject_id', id: number): Promise<number> {
+      const r = await one(`SELECT COUNT(*) AS n FROM lessons WHERE ${column} = $1`, [id]);
+      return Number(r?.n ?? 0);
     },
-    createLesson(input: LessonInput): Lesson {
-      const ts = now();
-      const res = db
-        .prepare(
-          'INSERT INTO lessons (teacher_id, class_id, subject_id, weekday, start_time, end_time, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        )
-        .run(input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, ts, ts);
-      return this.getLesson(Number(res.lastInsertRowid))!;
+    async createLesson(input: LessonInput): Promise<Lesson> {
+      const r = await one(
+        'INSERT INTO lessons (teacher_id, class_id, subject_id, weekday, start_time, end_time, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes],
+      );
+      return toLesson(r!);
     },
-    updateLesson(id: number, input: LessonInput): Lesson | undefined {
-      db.prepare(
-        'UPDATE lessons SET teacher_id = ?, class_id = ?, subject_id = ?, weekday = ?, start_time = ?, end_time = ?, notes = ?, updated_at = ? WHERE id = ?',
-      ).run(input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, now(), id);
-      return this.getLesson(id);
+    async updateLesson(id: number, input: LessonInput): Promise<Lesson | undefined> {
+      const r = await one(
+        'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, updated_at = now() WHERE id = $8 RETURNING *',
+        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, id],
+      );
+      return r ? toLesson(r) : undefined;
     },
-    deleteLesson(id: number): boolean {
-      const res = db.prepare('DELETE FROM lessons WHERE id = ?').run(id);
-      return Number(res.changes) > 0;
+    async deleteLesson(id: number): Promise<boolean> {
+      return (await db.query('DELETE FROM lessons WHERE id = $1 RETURNING id', [id])).length > 0;
     },
-
-    /** Executa a escrita dentro de uma transação, garantindo que a validação e a gravação vejam o mesmo estado. */
-    inTransaction<T>(fn: () => T): T {
-      return transaction(db, fn);
+    async deleteLessonsBy(column: 'teacher_id' | 'class_id', ids: number[]): Promise<number> {
+      if (ids.length === 0) return 0;
+      return (await db.query(`DELETE FROM lessons WHERE ${column} = ANY($1::int[]) RETURNING id`, [ids])).length;
+    },
+    /**
+     * Serializa as gravações de aulas até o fim da transação atual, para que a validação de conflitos
+     * e a gravação vejam o mesmo quadro mesmo com vários usuários salvando ao mesmo tempo.
+     */
+    async lockLessons(): Promise<void> {
+      await db.query('SELECT pg_advisory_xact_lock($1)', [LESSON_LOCK_KEY]);
     },
   };
 }

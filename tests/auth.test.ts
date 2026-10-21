@@ -60,6 +60,14 @@ describe('autenticação', () => {
     expect(r.status).toBe(403);
   });
 
+  it('aceita a origem repassada por proxy (servidor de desenvolvimento e Vercel)', async () => {
+    const r = await server.anonymous('POST', '/auth/login', { email: ADMIN.email, password: ADMIN.password }, {
+      Origin: 'http://localhost:5173',
+      'X-Forwarded-Host': 'localhost:5173',
+    });
+    expect(r.status).toBe(200);
+  });
+
   it('trocar a senha encerra as sessões abertas', async () => {
     await upsertUser(server.db, 'outro@teste.com', 'Outro', 'senha-antiga-1');
     const login = await server.anonymous('POST', '/auth/login', { email: 'outro@teste.com', password: 'senha-antiga-1' });

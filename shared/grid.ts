@@ -1,6 +1,6 @@
-import { shiftsOfClass } from './labels';
-import { overlaps, toMinutes } from './time';
-import type { ClassShift, Lesson, Period, SchoolClass, Settings, ShiftKey, Weekday } from './types';
+import { shiftsOfClass } from './labels.js';
+import { overlaps, toMinutes } from './time.js';
+import type { ClassShift, Lesson, Period, SchoolClass, Settings, ShiftKey, Weekday } from './types.js';
 
 export function sortPeriods(periods: Period[]): Period[] {
   return [...periods].sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || a.sortOrder - b.sortOrder);

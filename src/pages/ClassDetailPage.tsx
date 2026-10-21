@@ -8,6 +8,7 @@ import { EntitySchedule } from '@/components/schedule/EntitySchedule';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
 import { ClassFormModal } from '@/features/ClassForm';
 import { useEntityActions } from '@/features/EntityActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { computeSlotStats } from '@shared/grid';
@@ -76,6 +77,7 @@ export function ClassDetailPage() {
             <ButtonLink to={`/imprimir/turma/${schoolClass.id}`} target="_blank" icon={<Printer className="size-4" />}>
               Imprimir
             </ButtonLink>
+            <ImportButton kind="lessons" label="Importar aulas" fixed={{ classId: schoolClass.id, label: schoolClass.name }} />
             {schoolClass.active && (
               <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => actions.createLesson({ classId: schoolClass.id })}>
                 Nova aula

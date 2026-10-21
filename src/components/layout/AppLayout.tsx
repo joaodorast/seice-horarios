@@ -3,8 +3,8 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   BookOpen,
   CalendarDays,
-  ChevronsLeft,
-  ChevronsRight,
+  ChevronLeft,
+  ChevronRight,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -17,9 +17,9 @@ import {
 import { cn } from '@/lib/cn';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { IconButton, useToast } from '@/components/ui';
+import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 import { useLogout, useSession } from '@/api/auth';
 import { initials } from '@/lib/text';
-import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 
 interface NavItem {
   to: string;
@@ -41,9 +41,9 @@ const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: 'Horários',
     items: [
-      { to: '/horarios', label: 'Quadro de horários', icon: <Table2 />, end: true },
-      { to: '/horarios/professor', label: 'Horários por professor', icon: <UserRound /> },
-      { to: '/horarios/turma', label: 'Horários por turma', icon: <CalendarDays /> },
+      { to: '/horarios', label: 'Quadro geral', icon: <Table2 />, end: true },
+      { to: '/horarios/professor', label: 'Por professor', icon: <UserRound /> },
+      { to: '/horarios/turma', label: 'Por turma', icon: <CalendarDays /> },
     ],
   },
 ];
@@ -83,35 +83,29 @@ export function AppLayout() {
           {/* Sidebar fixa (desktop) */}
           <aside
             className={cn(
-              'no-print sticky top-0 hidden h-dvh shrink-0 flex-col bg-nav transition-[width] duration-200 lg:flex',
-              collapsed ? 'w-[76px]' : 'w-[256px]',
+              'no-print sticky top-0 z-40 hidden h-dvh shrink-0 flex-col bg-nav transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] lg:flex',
+              collapsed ? 'w-[84px]' : 'w-[272px]',
             )}
             aria-label="Menu principal"
           >
             <SidebarContent collapsed={collapsed} />
-            <div className="border-t border-nav-line p-3">
-              <button
-                type="button"
-                onClick={() => setCollapsed(!collapsed)}
-                aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-                title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-                className={cn(
-                  'flex h-9 w-full items-center gap-3 rounded-md px-3 text-[13px] font-medium text-nav-text transition-colors hover:bg-white/6 hover:text-white focus-visible:outline-brand',
-                  collapsed && 'justify-center px-0',
-                )}
-              >
-                {collapsed ? <ChevronsRight className="size-[18px]" /> : <ChevronsLeft className="size-[18px]" />}
-                {!collapsed && 'Recolher menu'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+              title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+              className="absolute top-[36px] -right-3.5 z-10 grid size-7 place-items-center rounded-full border border-nav-line bg-nav-2 text-nav-text shadow-[0_2px_8px_rgb(0_0_0/0.35)] transition-colors hover:bg-brand hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            </button>
           </aside>
 
           {/* Gaveta (tablet e celular) */}
           {mobileOpen && (
             <div className="no-print fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="Menu principal">
-              <div className="absolute inset-0 animate-fade-in bg-ink/50" onClick={() => setMobileOpen(false)} />
-              <aside className="relative flex h-full w-[84%] max-w-[300px] animate-slide-in flex-col bg-nav shadow-pop">
-                <div className="absolute top-3 right-3 z-10">
+              <div className="absolute inset-0 animate-fade-in bg-ink/55 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
+              <aside className="relative flex h-full w-[86%] max-w-[300px] animate-slide-in flex-col bg-nav shadow-pop">
+                <div className="absolute top-4 right-3 z-10">
                   <IconButton label="Fechar menu" tone="onDark" size="sm" onClick={() => setMobileOpen(false)}>
                     <X className="size-[18px]" />
                   </IconButton>
@@ -133,27 +127,28 @@ export function AppLayout() {
 function SidebarContent({ collapsed }: { collapsed: boolean }) {
   return (
     <>
-      <div className={cn('flex items-center px-4 pt-5 pb-4', collapsed ? 'justify-center px-2' : '')}>
+      <div className={cn('flex h-[100px] shrink-0 items-center border-b border-nav-line', collapsed ? 'justify-center px-2' : 'px-5')}>
         <NavLink to="/" aria-label="SEICE — página inicial" className="rounded-md focus-visible:outline-brand">
           {collapsed ? (
-            <img src="/emblema-seice.png" alt="Colégio SEICE" className="size-11 object-contain" />
+            <img src="/emblema-seice.png" alt="Colégio SEICE" className="size-12 object-contain" />
           ) : (
-            <img src="/logo-seice.png" alt="Colégio SEICE — Sistema de Ensino Integrado de Campos Elíseos" className="h-auto w-[208px]" />
+            <span className="flex flex-col gap-1.5">
+              <img src="/logo-seice.png" alt="Colégio SEICE — Sistema de Ensino Integrado de Campos Elíseos" className="h-auto w-[148px]" />
+              <span className="pl-1 text-[10.5px] leading-none font-bold tracking-[0.18em] text-brand/85 uppercase">Gestão de horários</span>
+            </span>
           )}
         </NavLink>
       </div>
-      {!collapsed && (
-        <p className="mx-4 mb-2 border-b border-nav-line pb-4 text-xs font-medium text-nav-text/80">Gestão de horários</p>
-      )}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
-        {NAV.map((section) => (
-          <div key={section.group} className="mt-4 first:mt-2">
-            {!collapsed ? (
-              <p className="mb-1.5 px-3 text-xs font-semibold text-nav-text/60">{section.group}</p>
+
+      <nav className={cn('scrollbar-thin flex-1 overflow-y-auto py-3.5', collapsed ? 'px-3' : 'px-4')}>
+        {NAV.map((section, i) => (
+          <div key={section.group} className={cn(i > 0 && 'mt-4')}>
+            {collapsed ? (
+              i > 0 && <div className="mx-auto mb-3 h-px w-8 bg-nav-line" aria-hidden="true" />
             ) : (
-              <div className="mx-auto mb-2 h-px w-6 bg-nav-line" aria-hidden="true" />
+              <p className="mb-1.5 px-3 text-[11px] font-bold tracking-[0.12em] text-nav-text/55 uppercase">{section.group}</p>
             )}
-            <ul className="space-y-0.5">
+            <ul className="space-y-1">
               {section.items.map((item) => (
                 <li key={item.to}>
                   <SidebarLink item={item} collapsed={collapsed} />
@@ -163,38 +158,12 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
           </div>
         ))}
       </nav>
-      <div className="px-3 pb-2">
-        <SidebarLink item={SETTINGS_ITEM} collapsed={collapsed} />
-      </div>
-      <UserBox collapsed={collapsed} />
-    </>
-  );
-}
 
-function UserBox({ collapsed }: { collapsed: boolean }) {
-  const { data: user } = useSession();
-  const logout = useLogout();
-  const toast = useToast();
-  if (!user) return null;
-  const exit = () =>
-    logout.mutate(undefined, { onError: () => toast.error('Não foi possível sair', 'Verifique a conexão e tente novamente.') });
-  return (
-    <div className={cn('flex items-center gap-2.5 border-t border-nav-line px-3 py-3', collapsed && 'justify-center px-2')}>
-      {!collapsed && (
-        <>
-          <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-nav-2 text-[11px] font-bold text-brand">
-            {initials(user.name) || 'A'}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-white">{user.name}</span>
-            <span className="block truncate text-xs text-nav-text/80">{user.email}</span>
-          </span>
-        </>
-      )}
-      <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
-        <LogOut className="size-[18px]" />
-      </IconButton>
-    </div>
+      <div className={cn('shrink-0 border-t border-nav-line py-3', collapsed ? 'px-3' : 'px-4')}>
+        <SidebarLink item={SETTINGS_ITEM} collapsed={collapsed} />
+        <UserCard collapsed={collapsed} />
+      </div>
+    </>
   );
 }
 
@@ -207,25 +176,57 @@ function SidebarLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
       aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         cn(
-          'group relative flex h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-brand [&_svg]:size-[18px] [&_svg]:shrink-0',
+          'group flex h-10 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand [&_svg]:size-[19px] [&_svg]:shrink-0',
           collapsed && 'justify-center px-0',
-          isActive ? 'bg-nav-2 text-white' : 'text-nav-text hover:bg-white/5 hover:text-white',
+          isActive
+            ? 'bg-brand text-ink shadow-[0_6px_18px_-8px_rgb(255_199_0/0.7)]'
+            : 'text-nav-text hover:bg-white/[0.07] hover:text-white',
         )
       }
     >
       {({ isActive }) => (
         <>
-          <span
-            aria-hidden="true"
-            className={cn(
-              'absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-brand transition-opacity',
-              isActive ? 'opacity-100' : 'opacity-0',
-            )}
-          />
-          <span className={cn(isActive ? 'text-brand' : 'text-nav-text group-hover:text-white')}>{item.icon}</span>
+          <span className={cn('transition-colors', isActive ? 'text-ink' : 'text-nav-text/80 group-hover:text-brand')}>{item.icon}</span>
           {!collapsed && <span className="truncate">{item.label}</span>}
         </>
       )}
     </NavLink>
+  );
+}
+
+function UserCard({ collapsed }: { collapsed: boolean }) {
+  const { data: user } = useSession();
+  const logout = useLogout();
+  const toast = useToast();
+  if (!user) return null;
+  const exit = () => logout.mutate(undefined, { onError: () => toast.error('Não foi possível sair', 'Verifique a conexão e tente novamente.') });
+  const avatar = (
+    <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-xs font-extrabold text-ink ring-2 ring-nav">
+      {initials(user.name) || 'A'}
+    </span>
+  );
+
+  if (collapsed) {
+    return (
+      <div className="mt-3 flex flex-col items-center gap-2" title={`${user.name} · ${user.email}`}>
+        {avatar}
+        <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
+          <LogOut className="size-[18px]" />
+        </IconButton>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/[0.05] p-2.5 ring-1 ring-white/[0.06]">
+      {avatar}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-bold text-white">{user.name}</span>
+        <span className="block truncate text-xs text-nav-text/75">{user.email}</span>
+      </span>
+      <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
+        <LogOut className="size-[18px]" />
+      </IconButton>
+    </div>
   );
 }

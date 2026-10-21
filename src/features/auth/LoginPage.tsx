@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, CalendarCheck2, Eye, EyeOff, FileSpreadsheet, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX } from 'lucide-react';
-import { Spinner } from '@/components/ui';
+import { AlertTriangle, ArrowRight, CalendarCheck2, Check, Clock3, Eye, EyeOff, FileSpreadsheet, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX } from 'lucide-react';
+import { Modal, Spinner } from '@/components/ui';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useLogin } from '@/api/auth';
 import { ApiError, errorMessage } from '@/api/client';
 import { cn } from '@/lib/cn';
@@ -42,8 +43,12 @@ function LoginForm({ expired }: { expired?: boolean }) {
   const [error, setError] = useState<{ text: string; locked: boolean } | null>(null);
   const [shake, setShake] = useState(0);
   const passwordRef = useRef<HTMLInputElement>(null);
+  // Preferências deste computador: última escolha de "manter conectado" e se a pergunta deve ser feita.
+  const [remember, setRemember] = useLocalStorage('seice:manter-conectado', false);
+  const [skipAsk, setSkipAsk] = useLocalStorage('seice:nao-perguntar-conexao', false);
+  const [asking, setAsking] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!email.trim() || !password) {
@@ -51,8 +56,15 @@ function LoginForm({ expired }: { expired?: boolean }) {
       setShake((n) => n + 1);
       return;
     }
+    // Sem "manter conectado", pergunta uma vez de forma amigável (a menos que a pessoa tenha pedido para não perguntar).
+    if (!remember && !skipAsk) return setAsking(true);
+    void enter(remember);
+  }
+
+  async function enter(keep: boolean) {
+    setAsking(false);
     try {
-      await login.mutateAsync({ email, password });
+      await login.mutateAsync({ email, password, remember: keep });
     } catch (err) {
       const known = err instanceof ApiError && err.status > 0 && err.status < 500;
       setError({ text: known ? (err as ApiError).message : errorMessage(err), locked: err instanceof ApiError && err.status === 429 });
@@ -146,10 +158,12 @@ function LoginForm({ expired }: { expired?: boolean }) {
           />
         </InputField>
 
+        <RememberToggle checked={remember} onChange={setRemember} />
+
         <button
           type="submit"
           disabled={login.isPending}
-          className="group mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-ink text-[15px] font-bold text-white shadow-[0_8px_24px_-8px_rgb(29_32_37/0.55)] transition-all duration-200 hover:bg-ink-2 hover:shadow-[0_12px_28px_-8px_rgb(29_32_37/0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:translate-y-px disabled:opacity-80"
+          className="group inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-ink text-[15px] font-bold text-white shadow-[0_8px_24px_-8px_rgb(29_32_37/0.55)] transition-all duration-200 hover:bg-ink-2 hover:shadow-[0_12px_28px_-8px_rgb(29_32_37/0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:translate-y-px disabled:opacity-80"
         >
           {login.isPending ? (
             <>
@@ -164,11 +178,96 @@ function LoginForm({ expired }: { expired?: boolean }) {
         </button>
       </form>
 
+      <RememberPrompt
+        open={asking}
+        onCancel={() => setAsking(false)}
+        onChoose={(keep, dontAskAgain) => {
+          if (dontAskAgain) setSkipAsk(true);
+          if (keep) setRemember(true);
+          void enter(keep);
+        }}
+      />
+
       <p className="mt-8 flex items-start gap-2 border-t border-line pt-5 text-xs leading-relaxed text-muted">
         <ShieldCheck className="mt-px size-4 shrink-0 text-soft" />
         Acesso restrito à coordenação. Após 5 tentativas incorretas, o acesso é bloqueado por 15 minutos.
       </p>
     </div>
+  );
+}
+
+/** Opção "Manter conectado", em formato de caixa de seleção grande e fácil de tocar. */
+function RememberToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="group -mt-1 flex cursor-pointer items-center gap-3 rounded-lg px-1 py-1 select-none">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
+      <span
+        aria-hidden="true"
+        className={cn(
+          'grid size-5 shrink-0 place-items-center rounded-md border-2 transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink',
+          checked ? 'border-ink bg-ink text-brand' : 'border-line-strong bg-surface group-hover:border-soft',
+        )}
+      >
+        {checked && <Check className="size-3.5" strokeWidth={3.5} />}
+      </span>
+      <span className="text-sm">
+        <span className="font-semibold text-ink">Manter conectado neste computador</span>
+        <span className="block text-xs text-muted">Você não precisará entrar de novo por 30 dias.</span>
+      </span>
+    </label>
+  );
+}
+
+/** Pergunta amigável exibida ao entrar sem "manter conectado". */
+function RememberPrompt({
+  open,
+  onCancel,
+  onChoose,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onChoose: (keep: boolean, dontAskAgain: boolean) => void;
+}) {
+  const [dontAsk, setDontAsk] = useState(false);
+  return (
+    <Modal open={open} onClose={onCancel} size="sm" title="Manter você conectado?">
+      <div className="flex flex-col items-center text-center">
+        <span className="relative grid size-16 place-items-center rounded-2xl bg-brand-soft text-brand-ink">
+          <Clock3 className="size-8" />
+          <span className="absolute -right-1.5 -bottom-1.5 grid size-7 place-items-center rounded-full bg-ink text-brand ring-4 ring-surface">
+            <ShieldCheck className="size-4" />
+          </span>
+        </span>
+        <p className="mt-5 text-[15px] leading-relaxed text-ink-2">
+          Assim você <strong className="text-ink">não precisa digitar e-mail e senha</strong> toda vez que abrir o sistema neste computador. O acesso fica ativo
+          por 30 dias e se renova enquanto você usa.
+        </p>
+        <p className="mt-3 rounded-lg bg-subtle px-3 py-2 text-xs leading-relaxed text-muted">
+          Recomendado no computador da coordenação. Em computadores compartilhados, prefira entrar só desta vez.
+        </p>
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-[13px] text-muted select-none">
+          <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} className="size-4 accent-[var(--color-ink)]" />
+          Não perguntar de novo neste computador
+        </label>
+      </div>
+      <div className="-mx-5 mt-5 -mb-5 flex flex-col-reverse gap-2 border-t border-line bg-subtle px-5 py-3.5 sm:-mx-6 sm:flex-row sm:px-6">
+        <button
+          type="button"
+          onClick={() => onChoose(false, dontAsk)}
+          className="h-11 flex-1 rounded-lg border border-line-strong bg-surface text-sm font-semibold text-ink-2 transition-colors hover:bg-subtle"
+        >
+          Não, só desta vez
+        </button>
+        <button
+          type="button"
+          data-autofocus
+          onClick={() => onChoose(true, dontAsk)}
+          className="h-11 flex-1 rounded-lg bg-brand text-sm font-bold text-ink shadow-[inset_0_-1px_0_rgb(0_0_0/0.12)] transition-colors hover:bg-brand-hover"
+        >
+          Sim, manter conectado
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -254,7 +353,7 @@ function MobileHero() {
     <div className="relative -mx-6 mb-2 h-44 overflow-hidden bg-nav sm:-mx-10 lg:hidden">
       <UnitBackdrop active={active} className="absolute inset-0 size-full scale-105 object-cover blur-[1.5px]" />
       <div className="absolute inset-0 bg-gradient-to-b from-nav/40 via-nav/55 to-surface" />
-      <img src="/logo-seice.png" alt="Colégio SEICE" className="absolute top-5 left-6 h-auto w-[150px] drop-shadow-lg sm:left-10" />
+      <img src="/logo-seice.webp" alt="Colégio SEICE" className="absolute top-5 left-6 h-auto w-[150px] drop-shadow-lg sm:left-10" />
       <span key={active} className="absolute top-7 right-6 rounded-pill bg-nav/70 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm sm:right-10" style={{ animation: 'seice-fade-up 0.6s ease-out both' }}>
         {UNITS[active].name}
       </span>
@@ -310,7 +409,7 @@ function Showcase() {
       <div className="absolute -top-40 -right-32 size-[520px] rounded-full bg-brand/20 blur-[110px] [animation:seice-drift_16s_ease-in-out_infinite]" />
       <div className="absolute -bottom-48 -left-24 size-[460px] rounded-full bg-accent/15 blur-[120px] [animation:seice-drift_20s_ease-in-out_infinite_reverse]" />
 
-      <img src="/logo-seice.png" alt="" className="relative h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
+      <img src="/logo-seice.webp" alt="" className="relative h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
       <UnitCards active={active} swaps={swaps} />
 
       <div className="relative mt-auto mb-8 max-w-[560px]">

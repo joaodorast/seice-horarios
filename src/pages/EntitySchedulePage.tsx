@@ -6,6 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Button, ButtonLink, Card, Combobox, EmptyState, IconButton, StatusBadge } from '@/components/ui';
 import { EntitySchedule } from '@/components/schedule/EntitySchedule';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -59,8 +60,13 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
         ...(selected ? [{ label: selected.name }] : []),
       ]}
       actions={
-        selected && (
+        selected ? (
           <>
+            <ImportButton
+              kind="lessons"
+              label="Importar aulas"
+              fixed={kind === 'teacher' ? { teacherId: selected.id, label: selected.name } : { classId: selected.id, label: selected.name }}
+            />
             <ButtonLink to={`/imprimir/${kind === 'teacher' ? 'professor' : 'turma'}/${selected.id}`} target="_blank" icon={<Printer className="size-4" />}>
               Imprimir ou PDF
             </ButtonLink>
@@ -74,6 +80,8 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
               </Button>
             )}
           </>
+        ) : (
+          <ImportButton kind="lessons" label="Importar aulas" />
         )
       }
     >

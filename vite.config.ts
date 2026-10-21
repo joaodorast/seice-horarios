@@ -11,6 +11,10 @@ export default defineConfig({
       '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
     },
   },
+  build: {
+    // O leitor de planilhas (ExcelJS) é grande, mas só é baixado quando alguém abre uma importação.
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:3333' },

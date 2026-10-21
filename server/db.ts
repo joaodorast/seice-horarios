@@ -28,6 +28,15 @@ export const LESSON_LOCK_KEY = 1_578_950_657;
 
 // ---------------------------------------------------------------- Nuvem (Supabase / PostgreSQL)
 
+/** Falhas de conexão que costumam se resolver na tentativa seguinte. */
+function isTransientError(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code ?? '';
+  return (
+    ['ECONNRESET', 'ETIMEDOUT', 'EPIPE', '57P01', '08006', '08003', '08000'].includes(code) ||
+    (error instanceof Error && /Connection terminated|connection timeout|Client has encountered a connection error/i.test(error.message))
+  );
+}
+
 async function openCloud(url: string): Promise<Database> {
   const { default: pg } = await import('pg');
   const local = /@(localhost|127\.0\.0\.1)(:|\/)/.test(url);
@@ -91,12 +100,21 @@ async function openCloud(url: string): Promise<Database> {
   };
   return db;
 
-  /** Fora de transações, cada consulta usa qualquer conexão livre do pool (sem fila). */
+  /**
+   * Fora de transações, cada consulta usa qualquer conexão livre do pool (sem fila).
+   * Leituras são repetidas uma vez se a conexão cair (ex.: conexão ociosa encerrada pelo pooler);
+   * gravações nunca são repetidas, para não correr o risco de aplicá-las duas vezes.
+   */
   function wrapPool(): Database {
     return {
       kind: 'cloud',
       async query<T extends Row>(text: string, params?: unknown[]) {
-        return (await pool.query(text, params)).rows as T[];
+        try {
+          return (await pool.query(text, params)).rows as T[];
+        } catch (error) {
+          if (!/^\s*(select|with)\b/i.test(text) || !isTransientError(error)) throw error;
+          return (await pool.query(text, params)).rows as T[];
+        }
       },
       async exec(sql: string) {
         await pool.query(sql);

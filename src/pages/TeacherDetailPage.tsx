@@ -8,6 +8,7 @@ import { EntitySchedule } from '@/components/schedule/EntitySchedule';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
 import { TeacherFormModal } from '@/features/TeacherForm';
 import { useEntityActions } from '@/features/EntityActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { durationMinutes } from '@shared/time';
@@ -60,6 +61,7 @@ export function TeacherDetailPage() {
             <ButtonLink to={`/imprimir/professor/${teacher.id}`} target="_blank" icon={<Printer className="size-4" />}>
               Imprimir
             </ButtonLink>
+            <ImportButton kind="lessons" label="Importar aulas" fixed={{ teacherId: teacher.id, label: teacher.name }} />
             {teacher.active && (
               <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => actions.createLesson({ teacherId: teacher.id })}>
                 Nova aula

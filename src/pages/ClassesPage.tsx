@@ -6,6 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
 import { ClassFormModal } from '@/features/ClassForm';
 import { useEntityActions } from '@/features/EntityActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
 import { matches, plural } from '@/lib/text';
@@ -70,9 +71,12 @@ export function ClassesPage() {
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Turmas' }]}
       description={schedule.data ? `${plural(counts.ativos, 'turma ativa', 'turmas ativas')}${counts.inativos ? ` · ${counts.inativos} inativa(s)` : ''}` : undefined}
       actions={
-        <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
-          Nova turma
-        </Button>
+        <>
+          <ImportButton kind="classes" />
+          <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
+            Nova turma
+          </Button>
+        </>
       }
     >
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch}>
@@ -82,11 +86,14 @@ export function ClassesPage() {
               <EmptyState
                 icon={<GraduationCap />}
                 title="Nenhuma turma cadastrada"
-                description="Cadastre as turmas com seu turno para que a grade use os períodos corretos."
+                description="Cadastre as turmas com seu turno para que a grade use os períodos corretos, ou importe todas de uma planilha Excel ou CSV."
                 action={
-                  <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew}>
-                    Cadastrar primeira turma
-                  </Button>
+                  <>
+                    <ImportButton kind="classes" label="Importar planilha" />
+                    <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew}>
+                      Cadastrar primeira turma
+                    </Button>
+                  </>
                 }
               />
             </Card>

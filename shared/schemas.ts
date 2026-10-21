@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CLASS_SHIFTS, SHIFT_KEYS, SUBJECT_COLORS, WEEKDAYS } from './types';
 import { TIME_PATTERN, toMinutes } from './time';
+import { MAX_IMPORT_ROWS } from './import';
 
 function optionalText(max: number, label: string) {
   return z
@@ -132,3 +133,25 @@ export const settingsSchema = z.object({
     .max(180, { error: 'A duração máxima é de 180 minutos.' }),
 });
 export type SettingsInput = z.output<typeof settingsSchema>;
+
+export const importRequestSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        line: z.number().int().positive(),
+        values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]).transform((v) => (v === null ? '' : String(v)))),
+      }),
+    )
+    .min(1, { error: 'A planilha não tem linhas para importar.' })
+    .max(MAX_IMPORT_ROWS, { error: `Importe no máximo ${MAX_IMPORT_ROWS.toLocaleString('pt-BR')} linhas por vez.` }),
+  options: z
+    .object({
+      existing: z.enum(['update', 'skip']).default('update'),
+      createMissingSubjects: z.boolean().default(false),
+      replaceExisting: z.boolean().default(false),
+      fixedTeacherId: z.number().int().positive().optional(),
+      fixedClassId: z.number().int().positive().optional(),
+    })
+    .default({ existing: 'update', createMissingSubjects: false, replaceExisting: false }),
+  dryRun: z.boolean().default(false),
+});

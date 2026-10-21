@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import { openDatabase } from './db';
-import { createApp } from './app';
+import { openDatabase } from './db.js';
+import { createApp } from './app.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const envFile = join(root, '.env');

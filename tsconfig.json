@@ -33,6 +33,7 @@
     }
   },
   "include": [
+    "api",
     "src",
     "shared",
     "server",

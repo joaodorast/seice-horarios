@@ -12,6 +12,21 @@ export const ME_KEY = ['auth', 'me'] as const;
 /** Distingue sessão expirada (mostra aviso no login) de saída voluntária. */
 export const sessionNotice = { expired: false };
 
+/** Sinaliza que a animação de boas-vindas deve ser exibida (somente logo após entrar). */
+let welcomePending = false;
+const welcomeListeners = new Set<() => void>();
+export const welcomeStore = {
+  get: () => welcomePending,
+  set(value: boolean) {
+    welcomePending = value;
+    welcomeListeners.forEach((l) => l());
+  },
+  subscribe(listener: () => void) {
+    welcomeListeners.add(listener);
+    return () => welcomeListeners.delete(listener);
+  },
+};
+
 /** Usuário da sessão atual, ou null quando é preciso entrar. */
 export function useSession() {
   return useQuery({
@@ -35,6 +50,7 @@ export function useLogin() {
     mutationFn: (input: { email: string; password: string }) => request<{ user: SessionUser }>('POST', '/auth/login', input),
     onSuccess: ({ user }) => {
       sessionNotice.expired = false;
+      welcomeStore.set(true);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_KEY[0] });
       qc.setQueryData(ME_KEY, user);
     },

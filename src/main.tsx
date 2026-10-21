@@ -6,6 +6,8 @@ import { ToastProvider } from '@/components/ui';
 import { ApiError } from '@/api/client';
 import { ME_KEY, sessionNotice } from '@/api/auth';
 import { AuthGate } from '@/features/auth/AuthGate';
+import { AppErrorBoundary } from '@/components/layout/AppErrorBoundary';
+import { installResilience } from '@/lib/resilience';
 import { router } from './router';
 import './styles/index.css';
 
@@ -29,14 +31,18 @@ const queryClient: QueryClient = new QueryClient({
   },
 });
 
+installResilience();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthGate>
-          <RouterProvider router={router} />
-        </AuthGate>
-      </ToastProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthGate>
+            <RouterProvider router={router} />
+          </AuthGate>
+        </ToastProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 );

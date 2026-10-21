@@ -10,13 +10,13 @@ interface ModalProps {
   description?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   /** Impede fechar ao clicar fora (ex.: formulário com alterações). */
   dismissible?: boolean;
   initialFocus?: string;
 }
 
-const widths = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-3xl' };
+const widths = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-3xl', xl: 'sm:max-w-5xl' };
 
 /**
  * Janela modal baseada em <dialog>: o navegador cuida do foco preso, da tecla Esc e da camada superior.

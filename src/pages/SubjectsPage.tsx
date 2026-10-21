@@ -9,6 +9,7 @@ import { ImportButton } from '@/features/import/ImportDialog';
 import { useDeleteSubject, useScheduleData } from '@/api/hooks';
 import { errorMessage } from '@/api/client';
 import { useHotkey } from '@/hooks/useHotkey';
+import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { matches, plural } from '@/lib/text';
 import { formatHours } from '@/lib/format';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
@@ -48,6 +49,7 @@ export function SubjectsPage() {
 
   const openNew = useCallback(() => setEditing('new'), []);
   useHotkey('n', openNew);
+  useOpenFromUrl(openNew);
 
   const usage = useMemo(() => {
     const map = new Map<number, Usage>();

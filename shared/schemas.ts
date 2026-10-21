@@ -1,0 +1,134 @@
+import { z } from 'zod';
+import { CLASS_SHIFTS, SHIFT_KEYS, SUBJECT_COLORS, WEEKDAYS } from './types';
+import { TIME_PATTERN, toMinutes } from './time';
+
+function optionalText(max: number, label: string) {
+  return z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((v) => {
+      const t = (v ?? '').trim();
+      return t === '' ? null : t;
+    })
+    .pipe(z.string().max(max, { error: `${label} pode ter no máximo ${max} caracteres.` }).nullable());
+}
+
+const requiredText = (max: number, label: string, min = 1) =>
+  z
+    .string({ error: `Informe ${label}.` })
+    .trim()
+    .min(min, { error: min > 1 ? `${capitalize(label)} deve ter pelo menos ${min} caracteres.` : `Informe ${label}.` })
+    .max(max, { error: `${capitalize(label)} pode ter no máximo ${max} caracteres.` });
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const time = (label: string) =>
+  z.string({ error: `Informe o horário de ${label}.` }).regex(TIME_PATTERN, { error: `Horário de ${label} inválido (use HH:MM).` });
+
+export const teacherSchema = z.object({
+  name: requiredText(120, 'o nome completo', 3),
+  code: optionalText(30, 'A matrícula'),
+  area: optionalText(80, 'A área de atuação'),
+  phone: optionalText(20, 'O telefone').refine(
+    (v) => v === null || (/^[\d\s()+-]+$/.test(v) && v.replace(/\D/g, '').length >= 8),
+    { error: 'Informe um telefone válido, com DDD. Ex.: (21) 99999-0000.' },
+  ),
+  notes: optionalText(1000, 'As observações'),
+  active: z.boolean().default(true),
+});
+export type TeacherInput = z.output<typeof teacherSchema>;
+export type TeacherFormValues = z.input<typeof teacherSchema>;
+
+export const classSchema = z.object({
+  name: requiredText(40, 'a identificação da turma'),
+  grade: requiredText(60, 'o ano, série ou etapa'),
+  shift: z.enum(CLASS_SHIFTS, { error: 'Selecione o turno.' }),
+  notes: optionalText(1000, 'As observações'),
+  active: z.boolean().default(true),
+});
+export type ClassInput = z.output<typeof classSchema>;
+export type ClassFormValues = z.input<typeof classSchema>;
+
+export const subjectSchema = z.object({
+  name: requiredText(60, 'o nome da disciplina'),
+  color: z.enum(SUBJECT_COLORS).default('slate'),
+});
+export type SubjectInput = z.output<typeof subjectSchema>;
+
+export const statusSchema = z.object({ active: z.boolean() });
+
+const weekday = z.coerce
+  .number()
+  .int()
+  .refine((v): v is (typeof WEEKDAYS)[number] => (WEEKDAYS as readonly number[]).includes(v), { error: 'Dia da semana inválido.' });
+
+export const lessonSchema = z
+  .object({
+    teacherId: z.coerce.number({ error: 'Selecione o professor.' }).int().positive({ error: 'Selecione o professor.' }),
+    classId: z.coerce.number({ error: 'Selecione a turma.' }).int().positive({ error: 'Selecione a turma.' }),
+    subjectId: z
+      .union([z.coerce.number().int().positive(), z.null(), z.literal('')])
+      .optional()
+      .transform((v) => (v === '' || v === undefined ? null : v)),
+    weekday,
+    start: time('início'),
+    end: time('término'),
+    notes: optionalText(500, 'As observações'),
+  })
+  .superRefine((v, ctx) => {
+    if (TIME_PATTERN.test(v.start) && TIME_PATTERN.test(v.end) && toMinutes(v.end) <= toMinutes(v.start)) {
+      ctx.addIssue({ code: 'custom', path: ['end'], message: 'O término deve ser depois do início.' });
+    }
+  });
+export type LessonInput = z.output<typeof lessonSchema>;
+
+export const periodSchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+    label: requiredText(30, 'o nome do período'),
+    start: time('início'),
+    end: time('término'),
+    kind: z.enum(['aula', 'intervalo']),
+  })
+  .superRefine((v, ctx) => {
+    if (TIME_PATTERN.test(v.start) && TIME_PATTERN.test(v.end) && toMinutes(v.end) <= toMinutes(v.start)) {
+      ctx.addIssue({ code: 'custom', path: ['end'], message: 'O término deve ser depois do início.' });
+    }
+  });
+
+export const periodsReplaceSchema = z
+  .object({ periods: z.array(periodSchema).max(20, { error: 'Limite de 20 períodos por turno.' }) })
+  .superRefine((v, ctx) => {
+    const sorted = [...v.periods].map((p, i) => ({ ...p, i })).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+    for (let k = 1; k < sorted.length; k++) {
+      if (toMinutes(sorted[k].start) < toMinutes(sorted[k - 1].end)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['periods', sorted[k].i, 'start'],
+          message: `Sobrepõe o período "${sorted[k - 1].label}" (${sorted[k - 1].start}–${sorted[k - 1].end}).`,
+        });
+      }
+    }
+  });
+export type PeriodsReplaceInput = z.output<typeof periodsReplaceSchema>;
+
+export const shiftParamSchema = z.enum(SHIFT_KEYS);
+
+export const settingsSchema = z.object({
+  enabledDays: z
+    .array(weekday)
+    .min(1, { error: 'Habilite pelo menos um dia da semana.' })
+    .transform((days) => [...new Set(days)].sort()),
+  enabledShifts: z
+    .array(z.enum(SHIFT_KEYS))
+    .min(1, { error: 'Habilite pelo menos um turno.' })
+    .transform((s) => SHIFT_KEYS.filter((k) => s.includes(k))),
+  lessonDuration: z.coerce
+    .number()
+    .int()
+    .min(20, { error: 'A duração mínima é de 20 minutos.' })
+    .max(180, { error: 'A duração máxima é de 180 minutos.' }),
+});
+export type SettingsInput = z.output<typeof settingsSchema>;

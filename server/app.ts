@@ -2,12 +2,14 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZodType } from 'zod';
-import type { Database } from './db';
-import { createRepository, type Repository } from './repository';
-import { ImportFailure, runImport } from './import';
+import type { Database } from './db.js';
+import { createRepository, type Repository } from './repository.js';
+import { ImportFailure, runImport } from './import.js';
+import { AuthError, createAuth, sameOriginGuard } from './auth.js';
 import {
   classSchema,
   importRequestSchema,
+  loginSchema,
   lessonSchema,
   periodsReplaceSchema,
   settingsSchema,
@@ -16,10 +18,10 @@ import {
   subjectSchema,
   teacherSchema,
   type LessonInput,
-} from '../shared/schemas';
-import { hasBlockingIssues, validateLesson } from '../shared/conflicts';
-import { IMPORT_KINDS, type ImportKind } from '../shared/import';
-import type { LessonIssue } from '../shared/types';
+} from '../shared/schemas.js';
+import { hasBlockingIssues, validateLesson } from '../shared/conflicts.js';
+import { IMPORT_KINDS, type ImportKind } from '../shared/import.js';
+import type { LessonIssue } from '../shared/types.js';
 
 export class HttpError extends Error {
   constructor(
@@ -71,18 +73,51 @@ function isConnectionError(error: unknown) {
 
 export function createApp(db: Database, options: { staticDir?: string } = {}) {
   const repo = createRepository(db);
+  const auth = createAuth(db);
   const app = express();
   app.disable('x-powered-by');
-  // Importações de planilhas trazem milhares de linhas; o restante da API trabalha com corpos pequenos.
-  app.use('/api/import', express.json({ limit: '8mb' }));
+  // Atrás de proxy (Vercel), para reconhecer HTTPS e marcar o cookie de sessão como seguro.
+  app.set('trust proxy', true);
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('X-Frame-Options', 'DENY');
+    next();
+  });
+  // Importações de planilhas trazem milhares de linhas (a Vercel aceita corpos de até 4,5 MB).
+  app.use('/api/import', express.json({ limit: '4mb' }));
   app.use(express.json({ limit: '200kb' }));
 
   const api = express.Router();
+  api.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
+  api.use(sameOriginGuard);
 
   api.get('/health', async (_req, res) => {
     await db.query('SELECT 1');
     res.json({ ok: true, database: db.kind });
   });
+
+  // ---------------- Acesso ----------------
+  api.post('/auth/login', async (req, res) => {
+    const { email, password } = parse(loginSchema, req.body);
+    res.json({ user: await auth.login(req, res, email, password) });
+  });
+
+  api.post('/auth/logout', (req, res) => {
+    auth.logout(req, res);
+    res.status(204).end();
+  });
+
+  api.get('/auth/me', async (req, res) => {
+    const user = await auth.sessionUser(req);
+    if (!user) throw new HttpError(401, 'unauthorized', 'Entre com seu e-mail e senha.');
+    res.json({ user });
+  });
+
+  api.use(auth.middleware);
 
   // ---------------- Professores ----------------
   api.get('/teachers', async (_req, res) => {
@@ -350,6 +385,10 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   }
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof AuthError) {
+      res.status(error.status).json({ error: { code: error.code, message: error.message } });
+      return;
+    }
     if (error instanceof HttpError) {
       res.status(error.status).json({ error: { code: error.code, message: error.message, ...error.extra } });
       return;

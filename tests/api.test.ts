@@ -157,6 +157,16 @@ describe('API SEICE', () => {
     expect(ok.body).toEqual({ enabledDays: [1, 2, 6], enabledShifts: ['manha', 'tarde'], lessonDuration: 45 });
   });
 
+  it('lê vários conjuntos de dados numa única requisição', async () => {
+    const all = await call('GET', '/data?include=teachers,classes,subjects,periods,settings,lessons');
+    expect(all.status).toBe(200);
+    expect(Object.keys(all.body).sort()).toEqual(['classes', 'lessons', 'periods', 'settings', 'subjects', 'teachers']);
+    expect(all.body.settings.enabledDays).toBeDefined();
+    expect((await call('GET', '/data?include=teachers,senhas')).status).toBe(400);
+    expect((await call('GET', '/data')).status).toBe(400);
+    expect((await server.anonymous('GET', '/data?include=teachers')).status).toBe(401);
+  });
+
   it('responde 404 em rota desconhecida', async () => {
     expect((await call('GET', '/nada')).status).toBe(404);
   });

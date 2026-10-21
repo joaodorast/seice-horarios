@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ADMIN, startTestServer, type TestServer } from './helpers.js';
 import { hashPassword, upsertUser, verifyPassword } from '../server/auth.js';
 
@@ -85,6 +85,35 @@ describe('autenticação', () => {
     const blocked = await attempt('senha-correta-9');
     expect(blocked.status).toBe(429);
     expect(blocked.body.error.message).toMatch(/bloqueado/);
+  });
+
+  describe('manter conectado', () => {
+    afterEach(() => vi.useRealTimers());
+
+    const login = (remember?: boolean) =>
+      server.anonymous('POST', '/auth/login', { email: ADMIN.email, password: ADMIN.password, ...(remember === undefined ? {} : { remember }) });
+
+    it('sem a opção, o cookie é de sessão (some ao fechar o navegador)', async () => {
+      const res = await login();
+      expect(res.headers.get('set-cookie')).not.toMatch(/Max-Age/);
+    });
+
+    it('com a opção, o cookie vale 30 dias', async () => {
+      const res = await login(true);
+      expect(res.headers.get('set-cookie')).toMatch(/Max-Age=2592000/);
+    });
+
+    it('a sessão lembrada se renova sozinha com o uso e a comum expira em 12 horas', async () => {
+      const cookieOf = (r: { headers: Headers }) => r.headers.get('set-cookie')!.split(';')[0];
+      const remembered = cookieOf(await login(true));
+      const regular = cookieOf(await login(false));
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(Date.now() + 2 * 86400_000);
+      const renewed = await server.anonymous('GET', '/auth/me', undefined, { Cookie: remembered });
+      expect(renewed.status).toBe(200);
+      expect(renewed.headers.get('set-cookie')).toMatch(/Max-Age=2592000/);
+      expect((await server.anonymous('GET', '/auth/me', undefined, { Cookie: regular })).status).toBe(401);
+    });
   });
 
   it('logout apaga o cookie', async () => {

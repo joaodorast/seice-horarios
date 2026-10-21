@@ -8,6 +8,7 @@ import { LessonChip } from '@/components/schedule/LessonChip';
 import { EmptySlot } from '@/components/schedule/WeekGrid';
 import { OutsideGrid } from '@/components/schedule/EntitySchedule';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
+import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { useHotkey } from '@/hooks/useHotkey';
@@ -34,6 +35,7 @@ export function ScheduleOverviewPage() {
       actions={
         <>
           <PrintMenu />
+          <ImportButton kind="lessons" label="Importar aulas" />
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={newLesson} disabled={!actions.ready} title="Atalho: N">
             Nova aula
           </Button>

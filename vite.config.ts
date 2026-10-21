@@ -17,9 +17,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:3333' },
+    // changeOrigin desligado: a API recebe o mesmo endereço que o navegador usa (necessário para a
+    // proteção contra requisições de outros sites e para o cookie de sessão).
+    proxy: { '/api': { target: 'http://localhost:3333', changeOrigin: false, xfwd: true } },
   },
   preview: {
-    proxy: { '/api': 'http://localhost:3333' },
+    proxy: { '/api': { target: 'http://localhost:3333', changeOrigin: false, xfwd: true } },
   },
 });

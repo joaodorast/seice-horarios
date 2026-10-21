@@ -5,11 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#202328" />
     <meta name="description" content="Gestão de professores, turmas e quadros de horários do Colégio SEICE." />
+    <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="preload" href="/emblema-seice.webp" as="image" />
     <title>SEICE · Gestão de horários</title>
+    <style>
+      /* Tela de abertura exibida enquanto o sistema carrega (substituída pelo React). */
+      body { margin: 0; }
+      #boot { min-height: 100vh; background: #202328; display: grid; place-items: center; font-family: system-ui, sans-serif; color: #b8bec8; text-align: center; padding: 24px; box-sizing: border-box; }
+      #boot img { width: 56px; height: 56px; animation: boot-pulse 1.4s ease-in-out infinite; }
+      #boot p { display: none; margin: 18px 0 0; font-size: 14px; line-height: 1.5; }
+      #boot.slow p { display: block; }
+      #boot button { margin-top: 14px; height: 40px; padding: 0 18px; border: 0; border-radius: 8px; background: #ffc700; color: #1d2025; font-weight: 700; cursor: pointer; }
+      @keyframes boot-pulse { 50% { opacity: 0.45; transform: scale(0.94); } }
+      @media (prefers-reduced-motion: reduce) { #boot img { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot" role="status" aria-live="polite">
+        <div>
+          <img src="/emblema-seice.webp" alt="Carregando o SEICE" />
+          <p>O sistema está demorando para abrir.<br />Verifique a conexão com a internet.<br /><button type="button" onclick="location.reload()">Tentar novamente</button></p>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Se o sistema não iniciar em 15 segundos, mostra uma orientação em vez de uma tela parada.
+      setTimeout(function () { var b = document.getElementById('boot'); if (b) b.className = 'slow'; }, 15000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

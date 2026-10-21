@@ -36,7 +36,7 @@ export function Page({ title, description, breadcrumbs, actions, children, width
             <IconButton label="Abrir menu" className="-ml-2 lg:hidden" onClick={openNav}>
               <MenuIcon className="size-5" />
             </IconButton>
-            <img src="/emblema-seice.png" alt="" className="size-7 object-contain lg:hidden" />
+            <img src="/emblema-seice.webp" alt="" className="size-7 object-contain lg:hidden" />
             {breadcrumbs && breadcrumbs.length > 0 && (
               <nav aria-label="Você está em" className="min-w-0">
                 <ol className="flex min-w-0 items-center gap-1 text-[13px] text-muted">

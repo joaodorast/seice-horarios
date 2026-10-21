@@ -107,7 +107,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
     <article className="rounded-xl bg-white p-8 shadow-raise print:break-after-page print:rounded-none print:p-0 print:shadow-none print:last:break-after-auto">
       <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-4">
         <div className="flex items-center gap-4">
-          <img src="/logo-seice.png" alt="Colégio SEICE" className="h-14 w-auto print:h-12" />
+          <img src="/logo-seice.webp" alt="Colégio SEICE" className="h-14 w-auto print:h-12" />
         </div>
         <div className="text-right">
           <p className="text-[11px] font-semibold text-muted">Colégio SEICE · Sistema de Ensino Integrado de Campos Elíseos</p>

@@ -159,4 +159,5 @@ export const importRequestSchema = z.object({
 export const loginSchema = z.object({
   email: z.string({ error: 'Informe o e-mail.' }).trim().min(1, { error: 'Informe o e-mail.' }).max(200),
   password: z.string({ error: 'Informe a senha.' }).min(1, { error: 'Informe a senha.' }).max(200),
+  remember: z.boolean().default(false),
 });

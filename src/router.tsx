@@ -15,6 +15,7 @@ export const router = createBrowserRouter([
       { path: 'professores/:id', lazy: () => import('@/pages/TeacherDetailPage').then((m) => ({ Component: m.TeacherDetailPage })) },
       { path: 'turmas', lazy: () => import('@/pages/ClassesPage').then((m) => ({ Component: m.ClassesPage })) },
       { path: 'turmas/:id', lazy: () => import('@/pages/ClassDetailPage').then((m) => ({ Component: m.ClassDetailPage })) },
+      { path: 'disciplinas', lazy: () => import('@/pages/SubjectsPage').then((m) => ({ Component: m.SubjectsPage })) },
       { path: 'horarios', lazy: () => import('@/pages/ScheduleOverviewPage').then((m) => ({ Component: m.ScheduleOverviewPage })) },
       { path: 'horarios/professor/:id?', lazy: () => import('@/pages/EntitySchedulePage').then((m) => ({ Component: m.TeacherSchedulePage })) },
       { path: 'horarios/turma/:id?', lazy: () => import('@/pages/EntitySchedulePage').then((m) => ({ Component: m.ClassSchedulePage })) },

@@ -9,6 +9,7 @@ import { useEntityActions } from '@/features/EntityActions';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { useLessons, useTeachers } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
+import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
 import { durationMinutes } from '@shared/time';
 import type { Lesson, Teacher } from '@shared/types';
@@ -40,6 +41,7 @@ export function TeachersPage() {
 
   const openNew = useCallback(() => setEditing('new'), []);
   useHotkey('n', openNew);
+  useOpenFromUrl(openNew);
 
   const load = (lessons.data ?? []).reduce((map, l: Lesson) => {
     const cur = map.get(l.teacherId) ?? { count: 0, minutes: 0, classes: new Set<number>() };

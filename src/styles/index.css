@@ -120,6 +120,76 @@
   }
 }
 
+/* ------------------------------------------------------------------ Login e boas-vindas */
+
+@keyframes seice-rise {
+  from { opacity: 0; transform: translateY(105%) rotate(4deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes seice-fade-up {
+  from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes seice-emblem {
+  0% { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+  60% { opacity: 1; transform: scale(1.06) rotate(1deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes seice-ring {
+  0% { opacity: 0.75; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+@keyframes seice-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes seice-splash-exit {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 100% 0); }
+}
+@keyframes seice-app-enter {
+  from { opacity: 0.4; transform: translateY(18px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes seice-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -6%) scale(1.08); }
+}
+@keyframes seice-cell {
+  0%, 8% { opacity: 0; transform: scale(0.85); }
+  14%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: scale(0.96); }
+}
+@keyframes seice-conflict {
+  0%, 52% { opacity: 0; transform: translateY(6px) scale(0.95); }
+  56%, 74% { opacity: 1; transform: none; }
+  80%, 100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes seice-card-out {
+  0% { z-index: 3; transform: rotate(3deg); filter: none; }
+  45% { z-index: 3; transform: translate(-165px, -14px) rotate(-15deg); }
+  55% { z-index: 0; transform: translate(-150px, -6px) rotate(-13deg); filter: brightness(0.85); }
+  100% { z-index: 1; transform: translate(-30px, 12px) rotate(-7deg) scale(0.93); filter: brightness(0.72); }
+}
+@keyframes seice-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+
+@utility animate-shake {
+  animation: seice-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

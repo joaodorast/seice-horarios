@@ -49,7 +49,7 @@ export function WelcomeSplash({ user, onDone }: { user: SessionUser; onDone: () 
         <span className="absolute size-28 rounded-full border-2 border-brand/70" style={{ animation: 'seice-ring 1.6s cubic-bezier(0.2, 0.7, 0.3, 1) 0.15s both' }} />
         <span className="absolute size-28 rounded-full border border-brand/40" style={{ animation: 'seice-ring 1.9s cubic-bezier(0.2, 0.7, 0.3, 1) 0.45s both' }} />
         <span className="grid size-24 place-items-center rounded-full bg-white shadow-[0_0_0_6px_rgb(255_199_0/0.18),0_20px_50px_-12px_rgb(0_0_0/0.6)]" style={{ animation: 'seice-emblem 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) both' }}>
-          <img src="/emblema-seice.png" alt="" className="size-[72px] object-contain" />
+          <img src="/emblema-seice.webp" alt="" className="size-[72px] object-contain" />
         </span>
       </div>
 

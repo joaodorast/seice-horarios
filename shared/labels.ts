@@ -1,4 +1,4 @@
-import type { ClassShift, ShiftKey, Weekday } from './types';
+import type { ClassShift, ShiftKey, Weekday } from './types.js';
 
 export const WEEKDAY_LABEL: Record<Weekday, string> = {
   1: 'Segunda-feira',

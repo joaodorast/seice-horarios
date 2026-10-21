@@ -1,0 +1,182 @@
+@import '@fontsource-variable/manrope';
+@import 'tailwindcss';
+
+/*
+ * Tokens de design do SEICE.
+ * Base neutra (grafite + cinzas frios), com as cores da logo usadas de forma seletiva:
+ * amarelo para ações principais, laranja em pequenos detalhes, verde para estados positivos,
+ * azul-arroxeado (o globo) para informação e rosa-claro em realces discretos.
+ */
+@theme {
+  --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Neutros */
+  --color-canvas: #eceef1;
+  --color-surface: #ffffff;
+  --color-subtle: #f6f7f9;
+  --color-line: #dfe2e7;
+  --color-line-strong: #c9ced6;
+  --color-muted: #6a707b;
+  --color-soft: #8b919c;
+  --color-ink: #1d2025;
+  --color-ink-2: #3a3f47;
+
+  /* Navegação (grafite da logo) */
+  --color-nav: #202328;
+  --color-nav-2: #2b2f35;
+  --color-nav-line: #363b42;
+  --color-nav-text: #b8bec8;
+
+  /* Marca */
+  --color-brand: #ffc700;
+  --color-brand-hover: #f2bb00;
+  --color-brand-soft: #fff6d1;
+  --color-brand-ink: #5c4600;
+  --color-accent: #ec7a1f;
+  --color-accent-soft: #fdeedf;
+
+  /* Semânticas */
+  --color-success: #1f8a3d;
+  --color-success-soft: #e3f4e7;
+  --color-info: #5562a8;
+  --color-info-soft: #e9ebf7;
+  --color-danger: #c53030;
+  --color-danger-soft: #fdeaea;
+  --color-warning: #b45f06;
+  --color-warning-soft: #fdf1e2;
+  --color-blush: #f3e3ee;
+
+  /* Paleta das disciplinas (fundo, borda e texto) */
+  --color-sub-amber: #f2b705;
+  --color-sub-amber-bg: #fff7dc;
+  --color-sub-amber-ink: #5e4700;
+  --color-sub-orange: #ec7a1f;
+  --color-sub-orange-bg: #fdeee0;
+  --color-sub-orange-ink: #7a3a06;
+  --color-sub-green: #2f9a4a;
+  --color-sub-green-bg: #e5f4e9;
+  --color-sub-green-ink: #17562a;
+  --color-sub-indigo: #5f6cc0;
+  --color-sub-indigo-bg: #eaecf9;
+  --color-sub-indigo-ink: #2f3778;
+  --color-sub-rose: #d0699b;
+  --color-sub-rose-bg: #f9e7f0;
+  --color-sub-rose-ink: #7a2c52;
+  --color-sub-sky: #2f8fc2;
+  --color-sub-sky-bg: #e3f1f9;
+  --color-sub-sky-ink: #164e6d;
+  --color-sub-teal: #1d9488;
+  --color-sub-teal-bg: #e0f3f1;
+  --color-sub-teal-ink: #0e5049;
+  --color-sub-violet: #8b5cc4;
+  --color-sub-violet-bg: #f0e9f9;
+  --color-sub-violet-ink: #4b2a74;
+  --color-sub-slate: #6a707b;
+  --color-sub-slate-bg: #eef0f3;
+  --color-sub-slate-ink: #30353c;
+  --color-sub-lime: #7a9a12;
+  --color-sub-lime-bg: #f1f6dd;
+  --color-sub-lime-ink: #3e4f07;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --shadow-raise: 0 1px 2px rgb(29 32 37 / 0.06), 0 0 0 1px rgb(29 32 37 / 0.04);
+  --shadow-pop: 0 12px 32px -8px rgb(29 32 37 / 0.22), 0 0 0 1px rgb(29 32 37 / 0.06);
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-pop-in: pop-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  --animate-slide-in: slide-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-toast-in: toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes slide-in {
+    from { transform: translateX(-100%); }
+    to { transform: none; }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans;
+    font-feature-settings: 'tnum' 0;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+  input[type='time']::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Impressão: a página de impressão define seu próprio layout; aqui garantimos fundo branco e cores fiéis. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

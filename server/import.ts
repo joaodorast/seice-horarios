@@ -1,6 +1,6 @@
 import type { ZodError } from 'zod';
-import type { Database } from './db';
-import { createRepository, type Repository } from './repository';
+import type { Database } from './db.js';
+import { createRepository, type Repository } from './repository.js';
 import {
   IMPORT_SPECS,
   clean,
@@ -21,13 +21,13 @@ import {
   type ImportRowInput,
   type ImportRowResult,
   type ImportRowStatus,
-} from '../shared/import';
-import { classSchema, periodsReplaceSchema, subjectSchema, teacherSchema, type ClassInput, type TeacherInput } from '../shared/schemas';
-import { validateLesson } from '../shared/conflicts';
-import { periodsForClassShift } from '../shared/grid';
-import { SHIFT_LABEL, WEEKDAY_SHORT } from '../shared/labels';
-import { formatRange, toMinutes } from '../shared/time';
-import { SUBJECT_COLORS, type Lesson, type SchoolClass, type ShiftKey, type Subject, type SubjectColor, type Teacher, type Weekday } from '../shared/types';
+} from '../shared/import.js';
+import { classSchema, periodsReplaceSchema, subjectSchema, teacherSchema, type ClassInput, type TeacherInput } from '../shared/schemas.js';
+import { validateLesson } from '../shared/conflicts.js';
+import { periodsForClassShift } from '../shared/grid.js';
+import { SHIFT_LABEL, WEEKDAY_SHORT } from '../shared/labels.js';
+import { formatRange, toMinutes } from '../shared/time.js';
+import { SUBJECT_COLORS, type Lesson, type SchoolClass, type ShiftKey, type Subject, type SubjectColor, type Teacher, type Weekday } from '../shared/types.js';
 
 /** Erro que impede a importação inteira (ex.: professor fixo inexistente). */
 export class ImportFailure extends Error {}
@@ -40,6 +40,15 @@ interface Ctx {
   results: ImportRowResult[];
   removed: number;
   createdSubjects: string[];
+  /** Modo protegido: cada linha grava dentro de um savepoint, isolando recusas inesperadas do banco. */
+  safe: boolean;
+}
+
+/** Erro do banco no caminho rápido: a importação é refeita no modo protegido. */
+class FastPathFailure extends Error {
+  constructor(public cause: unknown) {
+    super('Falha no caminho rápido da importação.');
+  }
 }
 
 /**
@@ -48,14 +57,24 @@ interface Ctx {
  */
 export async function runImport(db: Database, kind: ImportKind, request: ImportRequest): Promise<ImportReport> {
   let ctx: Ctx | undefined;
+  const run = async (safe: boolean) => {
+    try {
+      await db.transaction(async (tx) => {
+        ctx = { tx, repo: createRepository(tx), results: [], removed: 0, createdSubjects: [], safe };
+        await HANDLERS[kind](ctx, request.rows, request.options ?? {});
+        if (request.dryRun) throw new DryRunRollback();
+      });
+    } catch (error) {
+      if (!(error instanceof DryRunRollback)) throw error;
+    }
+  };
+  // Como cada linha é validada antes de gravar, recusas do banco são raras: grava direto (uma ida ao banco
+  // por linha) e, se o banco recusar algo, desfaz tudo e refaz linha a linha com savepoints.
   try {
-    await db.transaction(async (tx) => {
-      ctx = { tx, repo: createRepository(tx), results: [], removed: 0, createdSubjects: [] };
-      await HANDLERS[kind](ctx, request.rows, request.options ?? {});
-      if (request.dryRun) throw new DryRunRollback();
-    });
+    await run(false);
   } catch (error) {
-    if (!(error instanceof DryRunRollback)) throw error;
+    if (!(error instanceof FastPathFailure)) throw error;
+    await run(true);
   }
   const results = [...ctx!.results].sort((a, b) => a.line - b.line);
   const summary: Record<ImportRowStatus, number> = { create: 0, update: 0, skip: 0, error: 0 };
@@ -69,8 +88,19 @@ function push(ctx: Ctx, line: number, status: ImportRowStatus, label: string, me
   ctx.results.push({ line, status, label, messages, warnings });
 }
 
-/** Grava uma linha isoladamente: se o banco recusar, desfaz só ela e a transação continua. */
+/**
+ * Grava uma linha. No caminho rápido, uma recusa do banco interrompe e reinicia a importação no modo
+ * protegido; no modo protegido, a linha recusada é desfeita sozinha e a transação continua.
+ */
 async function attempt(ctx: Ctx, fn: () => Promise<void>): Promise<string | null> {
+  if (!ctx.safe) {
+    try {
+      await fn();
+      return null;
+    } catch (error) {
+      throw new FastPathFailure(error);
+    }
+  }
   await ctx.tx.exec('SAVEPOINT import_row');
   try {
     await fn();

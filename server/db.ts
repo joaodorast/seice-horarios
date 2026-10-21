@@ -1,11 +1,11 @@
-import { MIGRATIONS } from './migrations';
+import { MIGRATIONS } from './migrations.js';
 
 export type Row = Record<string, unknown>;
 
 /**
  * Interface mínima de acesso ao PostgreSQL usada pelo repositório.
- * Em uso real, o banco é sempre o Supabase (via `pg`). O PostgreSQL embutido em memória (PGlite)
- * existe apenas para os testes automatizados, que assim rodam o mesmo SQL sem tocar na nuvem.
+ * Em uso real, o banco é sempre o Supabase (via `pg`). Os testes usam um PostgreSQL em memória
+ * (PGlite, ver tests/helpers.ts) com o mesmo SQL, sem tocar na nuvem.
  */
 export interface Database {
   query<T extends Row = Row>(text: string, params?: unknown[]): Promise<T[]>;
@@ -31,13 +31,16 @@ export const LESSON_LOCK_KEY = 1_578_950_657;
 async function openCloud(url: string): Promise<Database> {
   const { default: pg } = await import('pg');
   const local = /@(localhost|127\.0\.0\.1)(:|\/)/.test(url);
+  const serverless = Boolean(process.env.VERCEL);
   const pool = new pg.Pool({
     connectionString: url,
     // O Supabase exige conexão criptografada; o certificado do pooler é emitido pela CA própria do Supabase.
     ssl: local ? undefined : { rejectUnauthorized: false },
     // Abaixo do limite de conexões do usuário no banco (5), para conviver com outros sistemas no mesmo projeto.
-    max: Number(process.env.SEICE_DB_POOL ?? 4),
-    idleTimeoutMillis: 30_000,
+    // Na Vercel cada instância da função atende poucas requisições por vez e o pooler do Supabase
+    // (modo transação, porta 6543) multiplexa as conexões entre as instâncias.
+    max: Number(process.env.SEICE_DB_POOL ?? (serverless ? 2 : 4)),
+    idleTimeoutMillis: serverless ? 10_000 : 30_000,
     connectionTimeoutMillis: 15_000,
     application_name: 'seice-horarios',
     // Todas as conexões enxergam apenas o schema do SEICE.
@@ -106,48 +109,20 @@ async function openCloud(url: string): Promise<Database> {
   }
 }
 
-// ---------------------------------------------------------------- Embutido em memória (somente testes)
-
-async function openEmbedded(): Promise<Database> {
-  const { PGlite } = await import('@electric-sql/pglite');
-  const pglite = await PGlite.create();
-  await pglite.exec(`CREATE SCHEMA IF NOT EXISTS ${SCHEMA}; SET search_path TO ${SCHEMA};`);
-
-  type Runner = Pick<typeof pglite, 'query' | 'exec'>;
-  const wrap = (runner: Runner): Database => ({
-    kind: 'embedded',
-    async query<T extends Row>(text: string, params?: unknown[]) {
-      return (await runner.query<T>(text, params)).rows;
-    },
-    async exec(sql: string) {
-      await runner.exec(sql);
-    },
-    transaction: () => {
-      throw new Error('Transações aninhadas não são suportadas.');
-    },
-    close: async () => undefined,
-  });
-
-  return {
-    ...wrap(pglite),
-    transaction: (fn) => pglite.transaction((tx) => fn(wrap(tx))),
-    close: () => pglite.close(),
-  };
-}
-
 // ---------------------------------------------------------------- Abertura e migrações
 
-/** Conecta ao Supabase pela URL PostgreSQL e aplica as migrações pendentes. */
-export async function openDatabase(url: string): Promise<Database> {
-  return prepare(await openCloud(url));
+/**
+ * Conecta ao Supabase pela URL PostgreSQL. Por padrão aplica as migrações pendentes; nas funções
+ * serverless (Vercel) isso é dispensado, pois as migrações são aplicadas uma vez com `npm run db:migrate`.
+ */
+export async function openDatabase(url: string, options: { migrate?: boolean } = {}): Promise<Database> {
+  const db = await openCloud(url);
+  if (options.migrate === false) return db;
+  return prepareDatabase(db);
 }
 
-/** Banco PostgreSQL descartável em memória, com o mesmo esquema da nuvem. Uso exclusivo dos testes. */
-export async function openTestDatabase(): Promise<Database> {
-  return prepare(await openEmbedded());
-}
-
-async function prepare(db: Database): Promise<Database> {
+/** Aplica as migrações pendentes; fecha a conexão se algo falhar. */
+export async function prepareDatabase(db: Database): Promise<Database> {
   try {
     await migrate(db);
   } catch (error) {

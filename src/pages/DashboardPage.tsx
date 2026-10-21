@@ -169,7 +169,7 @@ function SetupGuide({ data, onNew }: { data: ScheduleData; onNew: (m: 'teacher' 
       optional: true,
       title: 'Cadastre as disciplinas',
       text: 'Opcional — dá cor às aulas e permite filtrar o quadro por disciplina.',
-      action: <ButtonLink size="sm" to="/configuracoes?aba=disciplinas">Cadastrar disciplinas</ButtonLink>,
+      action: <ButtonLink size="sm" to="/disciplinas">Cadastrar disciplinas</ButtonLink>,
     },
     {
       done: data.lessons.length > 0,

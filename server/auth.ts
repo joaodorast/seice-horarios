@@ -216,7 +216,9 @@ export function sameOriginGuard(req: Request, res: Response, next: NextFunction)
     } catch {
       host = '';
     }
-    if (host !== req.headers.host) {
+    // Atrás de proxy (Vercel ou o servidor de desenvolvimento do Vite), o endereço original vem em X-Forwarded-Host.
+    const forwarded = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim();
+    if (host !== req.headers.host && host !== forwarded) {
       res.status(403).json({ error: { code: 'forbidden_origin', message: 'Requisição recusada: origem não autorizada.' } });
       return;
     }

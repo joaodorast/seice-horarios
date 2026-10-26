@@ -162,7 +162,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   api.post('/teachers', async (req, res) => {
     const input = parse(teacherSchema, req.body);
     await assertTeacherCodeFree(input.code);
-    res.status(201).json(await repo.createTeacher(input));
+    res.status(201).json(await db.transaction((tx) => createRepository(tx).createTeacher(input)));
   });
 
   api.put('/teachers/:id', async (req, res) => {
@@ -170,7 +170,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
     const input = parse(teacherSchema, req.body);
     await assertTeacherCodeFree(input.code, id);
-    res.json(await repo.updateTeacher(id, input));
+    res.json(await db.transaction((tx) => createRepository(tx).updateTeacher(id, input)));
   });
 
   api.patch('/teachers/:id/status', async (req, res) => {

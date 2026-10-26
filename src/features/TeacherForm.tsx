@@ -5,6 +5,7 @@ import type { Teacher } from '@shared/types';
 import { Alert, Button, Field, Input, Modal, Switch, Textarea, useToast } from '@/components/ui';
 import { useSaveTeacher, useTeachers } from '@/api/hooks';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
+import { SubjectPicker } from '@/features/SubjectPicker';
 import { ImagePlus } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatPhone } from '@/lib/text';
@@ -53,6 +54,7 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
       phone: teacher?.phone ?? '',
       notes: teacher?.notes ?? '',
       active: teacher?.active ?? true,
+      subjectIds: teacher?.subjectIds ?? [],
     },
   });
 
@@ -103,8 +105,17 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
           />
         </Field>
       </div>
-      <Field label="Disciplina ou área de atuação" optional error={errors.area?.message}>
-        <Input {...register('area')} placeholder="Ex.: Matemática, Ciências da Natureza" maxLength={80} />
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-semibold text-ink-2">
+          Disciplinas que leciona <span className="text-xs font-medium text-soft">opcional</span>
+        </span>
+        <Controller control={control} name="subjectIds" render={({ field }) => <SubjectPicker value={field.value ?? []} onChange={field.onChange} onNavigate={onClose} />} />
+        <p className="text-xs text-muted">
+          Marque todas. Ao lançar uma aula, o sistema sugere a disciplina certa para cada horário, e aprende sozinho com as aulas salvas.
+        </p>
+      </div>
+      <Field label="Área de atuação" optional error={errors.area?.message} hint="Informação livre, só para consulta. Ex.: Ciências Humanas.">
+        <Input {...register('area')} placeholder="Ex.: Ciências Humanas" maxLength={80} />
       </Field>
       <Field label="Observações" optional error={errors.notes?.message}>
         <Textarea {...register('notes')} rows={3} maxLength={1000} placeholder="Disponibilidade, preferências de horário, informações úteis à coordenação" />

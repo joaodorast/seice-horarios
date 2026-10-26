@@ -15,12 +15,12 @@ export const DEMO_LOGIN = { email: 'teste@seice.com', password: 'teste1234', nam
 
 const rows = (list: Record<string, string>[]) => list.map((values, i) => ({ line: i + 2, values }));
 
-const TEACHERS = [
+const TEACHERS: Record<string, string>[] = [
   { name: 'Ana Paula Souza', code: 'T-01', area: 'Matemática' },
   { name: 'Bruno Lima', code: 'T-02', area: 'Língua Portuguesa' },
   { name: 'Carla Mendes', code: 'T-03', area: 'Ciências' },
   { name: 'Diego Ferreira', code: 'T-04', area: 'História' },
-  { name: 'Eduarda Costa', code: 'T-05', area: 'Geografia' },
+  { name: 'Eduarda Costa', code: 'T-05', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida' },
   { name: 'Fábio Nogueira', code: 'T-06', area: 'Inglês' },
   { name: 'Gabriela Rocha', code: 'T-07', area: 'Artes' },
   { name: 'Henrique Alves', code: 'T-08', area: 'Educação Física' },
@@ -42,12 +42,16 @@ const SUBJECTS = [
   { name: 'Inglês', color: 'Violeta' },
   { name: 'Artes', color: 'Laranja' },
   { name: 'Educação Física', color: 'Verde-limão' },
+  { name: 'Projeto de Vida', color: 'Azul-arroxeado' },
 ];
 
 /** Grade parcial: deixa horários vagos de propósito, para dar o que testar no lançamento de aulas. */
 function lessonPlan() {
-  const teacherOf = Object.fromEntries(TEACHERS.map((t) => [t.area, t.name]));
-  const rotation = ['Matemática', 'Língua Portuguesa', 'Ciências', 'História', 'Geografia', 'Inglês', 'Artes', 'Educação Física'];
+  const teacherOf: Record<string, string> = Object.fromEntries(TEACHERS.map((t) => [t.area, t.name]));
+  // Eduarda dá duas disciplinas: Geografia e Projeto de Vida.
+  teacherOf['Geografia'] = 'Eduarda Costa';
+  teacherOf['Projeto de Vida'] = 'Eduarda Costa';
+  const rotation = ['Matemática', 'Língua Portuguesa', 'Ciências', 'História', 'Geografia', 'Inglês', 'Artes', 'Educação Física', 'Projeto de Vida'];
   const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
   const plan: Record<string, string>[] = [];
   CLASSES.forEach((c, ci) => {
@@ -64,9 +68,10 @@ function lessonPlan() {
 
 const db = await openTestDatabase();
 await upsertUser(db, DEMO_LOGIN.email, DEMO_LOGIN.name, DEMO_LOGIN.password);
+// Disciplinas antes dos professores: a coluna "Disciplinas" dos professores usa os nomes cadastrados.
+await runImport(db, 'subjects', { rows: rows(SUBJECTS), options: {} });
 await runImport(db, 'teachers', { rows: rows(TEACHERS), options: {} });
 await runImport(db, 'classes', { rows: rows(CLASSES), options: {} });
-await runImport(db, 'subjects', { rows: rows(SUBJECTS), options: {} });
 const lessons = await runImport(db, 'lessons', { rows: rows(lessonPlan()), options: {} });
 
 createApp(db).app.listen(DEMO_PORT, () => {

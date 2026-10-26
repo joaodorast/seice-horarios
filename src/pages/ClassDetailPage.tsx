@@ -17,6 +17,7 @@ import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { cn } from '@/lib/cn';
 import { Info, Stat } from './TeacherDetailPage';
 import { Avatar } from './TeachersPage';
+import { GUIDES } from '@/lib/guides';
 
 export function ClassDetailPage() {
   const { id } = useParams();
@@ -64,6 +65,7 @@ export function ClassDetailPage() {
   return (
     <Page
       title={schoolClass ? `Turma ${schoolClass.name}` : 'Turma'}
+      guide={GUIDES.classDetail}
       width="wide"
       titleAddon={schoolClass && <StatusBadge active={schoolClass.active} />}
       breadcrumbs={[{ label: 'Turmas', to: '/turmas' }, { label: schoolClass?.name ?? '…' }]}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
 import { load } from './batch';
-import type { ClassInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
+import type { ClassInput, LessonBatchInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
 import type { ImportKind, ImportReport, ImportRequest } from '@shared/import';
 import type { Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
 
@@ -188,6 +188,18 @@ export function useSaveLesson() {
     mutationFn: ({ id, input }: { id?: number; input: LessonInput }) =>
       id ? request<LessonResult>('PUT', `/lessons/${id}`, input) : request<LessonResult>('POST', '/lessons', input),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.lessons }),
+  });
+}
+
+/** Aplica várias mudanças de aulas de uma vez (substituir, trocar horários, passar para outro professor). */
+export function useLessonBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (batch: LessonBatchInput) => request<{ removed: number; updated: Lesson[]; created: Lesson[] }>('POST', '/lessons/batch', batch),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: keys.lessons });
+      qc.invalidateQueries({ queryKey: keys.teachers });
+    },
   });
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { AlertTriangle, ArrowRight, CalendarCheck2, Check, Clock3, Eye, EyeOff, FileSpreadsheet, Info, LockKeyhole, Mail, Printer, ShieldCheck, ShieldX, X } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { DEMO_LOGIN, useIsDemo } from '@/api/environment';
 import { useLogin } from '@/api/auth';
 import { ApiError, errorMessage } from '@/api/client';
 import { cn } from '@/lib/cn';
@@ -47,6 +48,7 @@ function LoginForm({ expired }: { expired?: boolean }) {
   const [remember, setRemember] = useLocalStorage('seice:manter-conectado', false);
   const [skipAsk, setSkipAsk] = useLocalStorage('seice:nao-perguntar-conexao', false);
   const [asking, setAsking] = useState(false);
+  const demo = useIsDemo();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +86,25 @@ function LoginForm({ expired }: { expired?: boolean }) {
       </p>
       <h1 className="text-[2rem] leading-tight font-extrabold tracking-[-0.035em] text-ink">Bem-vindo de volta</h1>
       <p className="mt-2 text-[15px] text-muted">Entre com seu e-mail institucional para acessar os quadros de horários.</p>
+
+      {demo && (
+        <div role="note" className="mt-6 rounded-xl border border-brand/60 bg-brand-soft px-4 py-3.5 text-sm text-brand-ink">
+          <p className="font-bold">Ambiente de teste</p>
+          <p className="mt-0.5 text-[13px]">
+            Dados fictícios em memória. Entre com <strong>{DEMO_LOGIN.email}</strong> e a senha <strong>{DEMO_LOGIN.password}</strong>.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(DEMO_LOGIN.email);
+              setPassword(DEMO_LOGIN.password);
+            }}
+            className="mt-2.5 inline-flex h-8 items-center rounded-md bg-ink px-3 text-xs font-bold text-white hover:bg-ink-2"
+          >
+            Preencher login de teste
+          </button>
+        </div>
+      )}
 
       {expired && !error && (
         <div role="status" className="mt-6 flex items-start gap-2.5 rounded-lg bg-info-soft px-3.5 py-3 text-sm text-[#2f3778]">

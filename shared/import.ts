@@ -61,18 +61,20 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     columns: [
       { key: 'name', label: 'Nome', required: true, aliases: ['nome', 'nome completo', 'professor', 'professora', 'docente', 'nome do professor'], hint: 'Nome completo (mínimo 3 letras).' },
       { key: 'code', label: 'Matrícula', aliases: ['matricula', 'codigo', 'cod', 'registro', 'id', 'mat'], hint: 'Identifica o professor nas próximas importações.' },
-      { key: 'area', label: 'Área de atuação', aliases: ['area', 'area de atuacao', 'disciplina', 'especialidade', 'formacao', 'materia'], hint: 'Ex.: Matemática.' },
+      { key: 'area', label: 'Área de atuação', aliases: ['area', 'area de atuacao', 'especialidade', 'formacao'], hint: 'Ex.: Ciências Humanas.' },
+      { key: 'subjects', label: 'Disciplinas', aliases: ['disciplinas', 'disciplina', 'materias', 'materia', 'leciona', 'componentes'], hint: 'Uma ou mais, separadas por vírgula. Ex.: Geografia, Projeto de Vida.' },
       { key: 'phone', label: 'Telefone', aliases: ['telefone', 'celular', 'fone', 'whatsapp', 'contato', 'tel'], hint: 'Com DDD. Ex.: (21) 99999-0000.' },
       { key: 'notes', label: 'Observações', aliases: ['observacoes', 'observacao', 'obs', 'notas', 'comentarios'], hint: 'Texto livre.' },
       { key: 'active', label: 'Situação', aliases: ['situacao', 'status', 'ativo', 'ativa'], hint: 'Ativo ou Inativo. Em branco: Ativo.', options: YES_NO },
     ],
     examples: [
-      { name: 'Ana Paula Souza', code: 'P-001', area: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
-      { name: 'Bruno Lima', code: 'P-002', area: 'Língua Portuguesa', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
+      { name: 'Ana Paula Souza', code: 'P-001', area: 'Exatas', subjects: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
+      { name: 'Bruno Lima', code: 'P-002', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
     ],
     notes: [
       'Professores já cadastrados são reconhecidos pela matrícula ou, sem ela, pelo nome.',
       'Ao atualizar, células em branco mantêm o valor atual do cadastro.',
+      'Na coluna Disciplinas, use nomes já cadastrados em Disciplinas, separados por vírgula.',
     ],
   },
   classes: {

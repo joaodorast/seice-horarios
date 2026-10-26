@@ -35,6 +35,8 @@ export interface Teacher {
   updatedAt: string;
   /** Data da foto atual (usada para atualizar a imagem em cache), ou null sem foto. */
   photoUpdatedAt: string | null;
+  /** Disciplinas que o professor leciona (pode ser mais de uma). */
+  subjectIds: number[];
 }
 
 export interface SchoolClass {

@@ -6,6 +6,7 @@ import { useScheduleData } from '@/api/hooks';
 import { CalendarSettings } from '@/features/settings/CalendarSettings';
 import { PeriodSettings } from '@/features/settings/PeriodSettings';
 import { ImportButton } from '@/features/import/ImportDialog';
+import { GUIDES } from '@/lib/guides';
 
 type Tab = 'calendario' | 'periodos';
 
@@ -21,6 +22,7 @@ export function SettingsPage() {
   return (
     <Page
       title="Configurações"
+      guide={GUIDES.settings}
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Configurações' }]}
       description="Defina o calendário escolar e os horários de cada turno. Alterações aqui nunca apagam aulas já cadastradas."
       actions={<ImportButton kind="periods" label="Importar horários dos turnos" />}

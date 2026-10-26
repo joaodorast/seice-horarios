@@ -42,7 +42,7 @@ export function PrintPage() {
   }, [docTitle]);
 
   return (
-    <div className="min-h-dvh bg-canvas print:bg-white">
+    <div className="min-h-app bg-canvas print:bg-white">
       <div className="no-print sticky top-0 z-10 border-b border-line bg-surface">
         <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-3 px-4 py-3">
           <Link

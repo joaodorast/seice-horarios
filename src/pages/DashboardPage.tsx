@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { NEW_PARAM } from '@/hooks/useOpenFromUrl';
 import {
@@ -6,8 +6,10 @@ import {
   ArrowUpRight,
   CalendarOff,
   CheckCircle2,
+  CalendarPlus,
   CircleDashed,
   Clock,
+  FileUp,
   GraduationCap,
   Plus,
   Table2,
@@ -28,6 +30,10 @@ import type { Weekday } from '@shared/types';
 import { cn } from '@/lib/cn';
 import { plural } from '@/lib/text';
 import { todayLabel } from '@/lib/format';
+import { useSession } from '@/api/auth';
+import { ImportDialog } from '@/features/import/ImportDialog';
+import type { SlotStats } from '@shared/grid';
+import { GUIDES } from '@/lib/guides';
 
 export function DashboardPage() {
   const schedule = useScheduleData();
@@ -39,8 +45,9 @@ export function DashboardPage() {
   return (
     <Page
       title="Dashboard"
+      guide={GUIDES.dashboard}
       width="wide"
-      description={todayLabel()}
+      description="Visão geral do Colégio SEICE: cadastros, preenchimento da grade e o que precisa de atenção."
       actions={
         <>
           <Button icon={<Plus className="size-4" />} onClick={() => onNew('teacher')}>
@@ -49,9 +56,6 @@ export function DashboardPage() {
           <Button icon={<Plus className="size-4" />} onClick={() => onNew('class')}>
             Nova turma
           </Button>
-          <ButtonLink to="/horarios" variant="primary" icon={<Table2 className="size-4" />}>
-            Organizar horários
-          </ButtonLink>
         </>
       }
     >
@@ -75,6 +79,7 @@ function Dashboard({ data, index, onNew }: { data: ScheduleData; index: Schedule
 
   return (
     <div className="flex flex-col gap-6">
+      <Welcome data={data} slots={slots} conflicts={conflicts.length} />
       {!setupDone && <SetupGuide data={data} onNew={onNew} />}
 
       <Card className="grid grid-cols-2 divide-line overflow-hidden sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
@@ -104,6 +109,115 @@ function Dashboard({ data, index, onNew }: { data: ScheduleData; index: Schedule
 
       <Today data={data} index={index} />
     </div>
+  );
+}
+
+function greeting(date: Date) {
+  const h = date.getHours();
+  return h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+}
+
+/** Situação da escola em uma frase, sem jargão: o que está bem e o que falta. */
+function statusSentence(data: ScheduleData, slots: SlotStats, conflicts: number): { text: string; tone: 'ok' | 'warn' | 'alert' | 'start' } {
+  if (!data.teachers.length || !data.classes.length) {
+    return { text: 'Vamos começar: cadastre os professores e as turmas para montar o quadro de horários.', tone: 'start' };
+  }
+  if (conflicts) {
+    return { text: `Atenção: ${plural(conflicts, 'conflito de horário precisa', 'conflitos de horário precisam')} de correção.`, tone: 'alert' };
+  }
+  if (slots.totalSlots && slots.emptySlots) {
+    const pct = Math.round((slots.filledSlots / slots.totalSlots) * 100);
+    return { text: `A grade está ${pct}% preenchida. Faltam ${plural(slots.emptySlots, 'horário', 'horários')} para completar, e não há conflitos.`, tone: 'warn' };
+  }
+  return { text: 'A grade está completa e sem conflitos. Tudo em ordem!', tone: 'ok' };
+}
+
+/** Abertura do Dashboard: saudação, situação da escola em linguagem simples e atalhos para as tarefas do dia. */
+function Welcome({ data, slots, conflicts }: { data: ScheduleData; slots: SlotStats; conflicts: number }) {
+  const { data: user } = useSession();
+  const actions = useScheduleActions();
+  const navigate = useNavigate();
+  const [importing, setImporting] = useState(false);
+  const now = new Date();
+  const name = user?.name.trim().split(/\s+/)[0] ?? '';
+  const status = statusSentence(data, slots, conflicts);
+  const pct = slots.totalSlots ? Math.round((slots.filledSlots / slots.totalSlots) * 100) : 0;
+  const today = now.getDay();
+  const canLaunch = actions.ready && data.teachers.some((t) => t.active) && data.classes.some((c) => c.active);
+
+  return (
+    <section aria-labelledby="boas-vindas" className="relative overflow-hidden rounded-2xl bg-nav text-white shadow-[0_24px_48px_-28px_rgb(29_32_37/0.7)]">
+      <div className="bg-grid absolute inset-0 [mask-image:radial-gradient(ellipse_at_20%_30%,black_10%,transparent_70%)]" aria-hidden="true" />
+      <div className="absolute -top-28 -left-20 size-80 rounded-full bg-brand/20 blur-[90px]" aria-hidden="true" />
+      <img src="/emblema-seice.webp" alt="" aria-hidden="true" className="pointer-events-none absolute -right-10 -bottom-14 size-64 opacity-[0.06] grayscale" />
+
+      <div className="relative grid gap-7 p-6 sm:p-8 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+        <div className="min-w-0">
+          <p className="text-xs font-bold tracking-[0.16em] text-brand uppercase">{todayLabel()}</p>
+          <h2 id="boas-vindas" className="mt-2 font-display text-[2rem] leading-tight font-semibold tracking-[-0.02em] sm:text-[2.5rem]">
+            {greeting(now)}
+            {name && (
+              <>
+                , <span className="text-brand">{name}</span>
+              </>
+            )}
+          </h2>
+          <p className="mt-3 max-w-[58ch] text-[15px] leading-relaxed text-nav-text">{status.text}</p>
+          {slots.totalSlots > 0 && (
+            <div className="mt-5 max-w-md">
+              <div className="flex items-baseline justify-between text-xs font-semibold text-nav-text">
+                <span>Preenchimento da grade</span>
+                <span className="tabular text-sm font-bold text-white">{pct}%</span>
+              </div>
+              <div
+                className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10"
+                role="progressbar"
+                aria-label="Preenchimento da grade"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className={cn('h-full rounded-full transition-[width] duration-700', status.tone === 'alert' ? 'bg-[#ff8f80]' : 'bg-brand')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <ul className="grid gap-3 sm:grid-cols-3 xl:w-[540px]">
+          <QuickAction icon={<CalendarPlus />} title="Lançar aula" text="Escolha turma, professor e horário" onClick={() => actions.createLesson()} disabled={!canLaunch} />
+          <QuickAction
+            icon={<Table2 />}
+            title="Quadro de hoje"
+            text="Veja as aulas do dia por turno"
+            onClick={() => navigate(today >= 1 && today <= 6 ? `/horarios?dia=${today}` : '/horarios')}
+          />
+          <QuickAction icon={<FileUp />} title="Importar planilha" text="Aulas a partir de Excel ou CSV" onClick={() => setImporting(true)} />
+        </ul>
+      </div>
+      <ImportDialog kind="lessons" open={importing} onClose={() => setImporting(false)} />
+    </section>
+  );
+}
+
+function QuickAction({ icon, title, text, onClick, disabled }: { icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="group flex h-full w-full flex-col items-start gap-3 rounded-xl border border-white/10 bg-white/[0.05] p-4 text-left transition-[background-color,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:bg-white/[0.09] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-45"
+      >
+        <span className="grid size-10 place-items-center rounded-lg bg-brand text-ink transition-transform duration-200 group-hover:scale-105 [&>svg]:size-5">{icon}</span>
+        <span>
+          <span className="block text-[15px] font-bold text-white">{title}</span>
+          <span className="mt-0.5 block text-[13px] leading-snug text-nav-text">{text}</span>
+        </span>
+      </button>
+    </li>
   );
 }
 

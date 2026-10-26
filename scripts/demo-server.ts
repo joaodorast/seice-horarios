@@ -1,0 +1,76 @@
+/**
+ * Ambiente de TESTE do SEICE: o mesmo sistema, com um banco PostgreSQL em memória (PGlite) e dados fictícios.
+ * Não se conecta ao Supabase: nada feito aqui chega ao sistema real. Ao encerrar, tudo é descartado;
+ * ao iniciar de novo, os dados de exemplo voltam ao estado original.
+ *
+ * Uso: `npm run demo` e acesse http://localhost:5180 com teste@seice.com / teste1234.
+ */
+import { openTestDatabase } from '../tests/helpers.js';
+import { createApp } from '../server/app.js';
+import { upsertUser } from '../server/auth.js';
+import { runImport } from '../server/import.js';
+
+export const DEMO_PORT = Number(process.env.SEICE_DEMO_PORT ?? 3402);
+export const DEMO_LOGIN = { email: 'teste@seice.com', password: 'teste1234', name: 'Usuário de Teste' };
+
+const rows = (list: Record<string, string>[]) => list.map((values, i) => ({ line: i + 2, values }));
+
+const TEACHERS = [
+  { name: 'Ana Paula Souza', code: 'T-01', area: 'Matemática' },
+  { name: 'Bruno Lima', code: 'T-02', area: 'Língua Portuguesa' },
+  { name: 'Carla Mendes', code: 'T-03', area: 'Ciências' },
+  { name: 'Diego Ferreira', code: 'T-04', area: 'História' },
+  { name: 'Eduarda Costa', code: 'T-05', area: 'Geografia' },
+  { name: 'Fábio Nogueira', code: 'T-06', area: 'Inglês' },
+  { name: 'Gabriela Rocha', code: 'T-07', area: 'Artes' },
+  { name: 'Henrique Alves', code: 'T-08', area: 'Educação Física' },
+];
+
+const CLASSES = [
+  { name: '6º A', grade: '6º ano', shift: 'Manhã' },
+  { name: '7º A', grade: '7º ano', shift: 'Manhã' },
+  { name: '8º A', grade: '8º ano', shift: 'Tarde' },
+  { name: '9º A', grade: '9º ano', shift: 'Tarde' },
+];
+
+const SUBJECTS = [
+  { name: 'Matemática', color: 'Azul' },
+  { name: 'Língua Portuguesa', color: 'Rosa' },
+  { name: 'Ciências', color: 'Verde' },
+  { name: 'História', color: 'Amarelo' },
+  { name: 'Geografia', color: 'Verde-água' },
+  { name: 'Inglês', color: 'Violeta' },
+  { name: 'Artes', color: 'Laranja' },
+  { name: 'Educação Física', color: 'Verde-limão' },
+];
+
+/** Grade parcial: deixa horários vagos de propósito, para dar o que testar no lançamento de aulas. */
+function lessonPlan() {
+  const teacherOf = Object.fromEntries(TEACHERS.map((t) => [t.area, t.name]));
+  const rotation = ['Matemática', 'Língua Portuguesa', 'Ciências', 'História', 'Geografia', 'Inglês', 'Artes', 'Educação Física'];
+  const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+  const plan: Record<string, string>[] = [];
+  CLASSES.forEach((c, ci) => {
+    days.forEach((day, di) => {
+      for (let slot = 1; slot <= 4; slot++) {
+        if ((ci + di + slot) % 4 === 0) continue;
+        const area = rotation[(ci * 2 + di * 3 + slot) % rotation.length];
+        plan.push({ class: c.name, teacher: teacherOf[area], subject: area, weekday: day, slot: `${slot}º horário` });
+      }
+    });
+  });
+  return plan;
+}
+
+const db = await openTestDatabase();
+await upsertUser(db, DEMO_LOGIN.email, DEMO_LOGIN.name, DEMO_LOGIN.password);
+await runImport(db, 'teachers', { rows: rows(TEACHERS), options: {} });
+await runImport(db, 'classes', { rows: rows(CLASSES), options: {} });
+await runImport(db, 'subjects', { rows: rows(SUBJECTS), options: {} });
+const lessons = await runImport(db, 'lessons', { rows: rows(lessonPlan()), options: {} });
+
+createApp(db).app.listen(DEMO_PORT, () => {
+  console.log('\n  SEICE — AMBIENTE DE TESTE (dados fictícios em memória, nada vai para o sistema real)');
+  console.log(`  ${TEACHERS.length} professores · ${CLASSES.length} turmas · ${SUBJECTS.length} disciplinas · ${lessons.summary.create} aulas`);
+  console.log(`  Acesse http://localhost:5180  ·  login: ${DEMO_LOGIN.email} / ${DEMO_LOGIN.password}\n`);
+});

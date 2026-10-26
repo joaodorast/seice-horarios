@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, Copy, LayoutGrid, Settings2, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, Clock, Copy, LayoutGrid, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Alert, Button, Combobox, Field, Input, Modal, Segmented, Textarea, useToast, type ComboOption } from '@/components/ui';
 import { useSaveLesson, type ScheduleData } from '@/api/hooks';
 import { ApiError, errorMessage } from '@/api/client';
-import { lessonSchema } from '@shared/schemas';
+import { lessonSchema, type LessonInput } from '@shared/schemas';
 import { hasBlockingIssues, validateLesson } from '@shared/conflicts';
 import { periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { overlaps, TIME_PATTERN, toMinutes } from '@shared/time';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { periodRange, selectPeriod, suggestSubject } from '@shared/suggest';
+import { ConflictResolver, type Occupant } from './ConflictResolver';
 import type { Lesson, LessonIssue, Period, Weekday } from '@shared/types';
 
 export interface LessonPrefill {
@@ -210,6 +211,22 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
   const errorsList = issues.filter((i) => i.severity === 'error');
   const warningsList = issues.filter((i) => i.severity === 'warning');
 
+  // Horário ocupado (e nenhum outro impedimento): em vez de travar, oferece substituir ou trocar.
+  const onlyOccupied = errorsList.length > 0 && errorsList.every((i) => (i.code === 'teacher-overlap' || i.code === 'class-overlap') && i.relatedLessonId);
+  const occupants: Occupant[] = useMemo(() => {
+    const map = new Map<number, Occupant>();
+    for (const i of errorsList) {
+      const lesson = i.relatedLessonId ? data.lessons.find((l) => l.id === i.relatedLessonId) : undefined;
+      if (!lesson) continue;
+      const o = map.get(lesson.id) ?? { lesson, classConflict: false, teacherConflict: false };
+      if (i.code === 'class-overlap') o.classConflict = true;
+      if (i.code === 'teacher-overlap') o.teacherConflict = true;
+      map.set(lesson.id, o);
+    }
+    return [...map.values()];
+  }, [errorsList, data.lessons]);
+  const [resolving, setResolving] = useState<LessonInput | null>(null);
+
   const teacherOptions: ComboOption[] = data.teachers.map((t) => ({
     value: t.id,
     label: t.name,
@@ -256,7 +273,10 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
       setFieldErrors(errs);
       return;
     }
-    if (blocking) return;
+    if (blocking) {
+      if (onlyOccupied) setResolving(parsed.data);
+      return;
+    }
     try {
       const result = await save.mutateAsync({ id: editingId, input: parsed.data });
       const desc = `${data.classes.find((c) => c.id === parsed.data.classId)?.name} · ${WEEKDAY_LABEL[parsed.data.weekday]}, ${parsed.data.start}–${parsed.data.end}`;
@@ -490,7 +510,17 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
       {/* Conflitos e avisos */}
       <div className="mt-5 flex flex-col gap-2" aria-live="polite">
         {errorsList.length > 0 && (
-          <Alert tone="danger" title={errorsList.length === 1 ? 'Há um conflito a resolver antes de salvar' : `Há ${errorsList.length} problemas a resolver antes de salvar`}>
+          <Alert
+            tone="danger"
+            title={onlyOccupied ? 'Este horário já está ocupado' : errorsList.length === 1 ? 'Há um conflito a resolver antes de salvar' : `Há ${errorsList.length} problemas a resolver antes de salvar`}
+            action={
+              onlyOccupied && (
+                <Button size="sm" variant="dark" icon={<ArrowLeftRight className="size-4" />} onClick={() => void submit(false)}>
+                  Ver opções
+                </Button>
+              )
+            }
+          >
             <ul className="mt-1 space-y-1.5">
               {errorsList.map((issue, i) => (
                 <li key={`${issue.code}-${i}`}>
@@ -540,10 +570,20 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
             Salvar e adicionar outra
           </Button>
         )}
-        <Button type="submit" variant="primary" loading={save.isPending} disabled={blocking}>
-          {request.mode === 'edit' ? 'Salvar alterações' : 'Salvar aula'}
+        <Button type="submit" variant="primary" loading={save.isPending} disabled={blocking && !onlyOccupied}>
+          {blocking && onlyOccupied ? 'Substituir ou trocar…' : request.mode === 'edit' ? 'Salvar alterações' : 'Salvar aula'}
         </Button>
       </div>
+
+      <ConflictResolver
+        open={resolving !== null}
+        data={data}
+        draft={resolving ?? ({} as LessonInput)}
+        original={request.mode === 'edit' ? request.lesson : undefined}
+        occupants={occupants}
+        onCancel={() => setResolving(null)}
+        onDone={onClose}
+      />
     </form>
   );
 }

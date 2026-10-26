@@ -14,6 +14,7 @@ import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { durationMinutes } from '@shared/time';
 import { SHIFT_LABEL } from '@shared/labels';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
+import { SubjectChips } from '@/features/SubjectPicker';
 import { formatHours } from '@/lib/format';
 import { GUIDES } from '@/lib/guides';
 
@@ -89,6 +90,7 @@ export function TeacherDetailPage() {
                 <TeacherPhotoField teacher={teacher} />
                 <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <Info label="Matrícula">{teacher.code}</Info>
+                  <Info label="Disciplinas">{teacher.subjectIds.length > 0 && <SubjectChips ids={teacher.subjectIds} max={6} />}</Info>
                   <Info label="Área de atuação">{teacher.area}</Info>
                   <Info label="Telefone">
                     {teacher.phone && (

@@ -32,7 +32,7 @@ export function RouteErrorPage() {
   }, [error, outdated]);
   if (outdated) return <ErrorScreen updating />;
   return (
-    <div className="grid min-h-dvh place-items-center bg-canvas p-6">
+    <div className="grid min-h-app place-items-center bg-canvas p-6">
       <Card className="w-full max-w-md">
         <EmptyState
           icon={<RotateCw />}

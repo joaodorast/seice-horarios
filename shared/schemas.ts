@@ -38,6 +38,12 @@ export const teacherSchema = z.object({
   ),
   notes: optionalText(1000, 'As observações'),
   active: z.boolean().default(true),
+  /** Disciplinas que o professor leciona. */
+  subjectIds: z
+    .array(z.number().int().positive())
+    .max(30, { error: 'Selecione no máximo 30 disciplinas.' })
+    .default([])
+    .transform((ids) => [...new Set(ids)].sort((a, b) => a - b)),
 });
 export type TeacherInput = z.output<typeof teacherSchema>;
 export type TeacherFormValues = z.input<typeof teacherSchema>;

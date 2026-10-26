@@ -33,6 +33,8 @@ export interface Teacher {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Data da foto atual (usada para atualizar a imagem em cache), ou null sem foto. */
+  photoUpdatedAt: string | null;
 }
 
 export interface SchoolClass {

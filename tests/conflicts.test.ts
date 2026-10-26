@@ -6,7 +6,7 @@ import type { Lesson, Period, SchoolClass, Teacher } from '../shared/types.js';
 
 const ts = '2026-01-01T00:00:00.000Z';
 const teacher = (id: number, active = true): Teacher => ({
-  id, name: `Prof ${id}`, code: null, area: null, phone: null, notes: null, active, createdAt: ts, updatedAt: ts,
+  id, name: `Prof ${id}`, code: null, area: null, phone: null, notes: null, active, createdAt: ts, updatedAt: ts, photoUpdatedAt: null,
 });
 const klass = (id: number, shift: SchoolClass['shift'] = 'manha', active = true): SchoolClass => ({
   id, name: `T${id}`, grade: '6º ano', shift, notes: null, active, createdAt: ts, updatedAt: ts,

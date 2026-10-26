@@ -18,6 +18,9 @@ export function Menu({
   align = 'right',
   trigger,
   size = 'sm',
+  triggerIcon,
+  tone = 'default',
+  direction = 'down',
 }: {
   items: MenuItem[];
   label?: string;
@@ -25,6 +28,11 @@ export function Menu({
   /** Conteúdo de um botão com texto; sem ele, o gatilho é um ícone de reticências. */
   trigger?: ReactNode;
   size?: 'sm' | 'md';
+  /** Ícone do gatilho (padrão: reticências). */
+  triggerIcon?: ReactNode;
+  tone?: 'default' | 'onDark';
+  /** Abre para cima (útil no rodapé da sidebar). */
+  direction?: 'down' | 'up';
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -77,12 +85,13 @@ export function Menu({
           ref={buttonRef}
           label={label}
           size={size}
+          tone={tone}
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
           onClick={() => setOpen((o) => !o)}
         >
-          <MoreHorizontal className="size-[18px]" />
+          {triggerIcon ?? <MoreHorizontal className="size-[18px]" />}
         </IconButton>
       )}
       {open && (
@@ -90,7 +99,8 @@ export function Menu({
           id={menuId}
           role="menu"
           className={cn(
-            'absolute z-40 mt-1 min-w-48 animate-pop-in rounded-lg bg-surface p-1 shadow-pop',
+            'absolute z-40 min-w-48 animate-pop-in rounded-lg bg-surface p-1 shadow-pop',
+            direction === 'up' ? 'bottom-full mb-2' : 'mt-1',
             align === 'right' ? 'right-0' : 'left-0',
           )}
         >

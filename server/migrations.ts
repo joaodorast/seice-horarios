@@ -165,9 +165,28 @@ CREATE TABLE teacher_photos (
 );
 `;
 
+const TEACHER_SUBJECTS = /* sql */ `
+-- Disciplinas que cada professor leciona (um professor pode ter várias).
+CREATE TABLE teacher_subjects (
+  teacher_id  integer NOT NULL REFERENCES teachers (id) ON DELETE CASCADE,
+  subject_id  integer NOT NULL REFERENCES subjects (id) ON DELETE CASCADE,
+  PRIMARY KEY (teacher_id, subject_id)
+);
+CREATE INDEX teacher_subjects_subject_idx ON teacher_subjects (subject_id);
+
+-- Aprende com o que já existe: as aulas lançadas e a área de atuação com o mesmo nome de uma disciplina.
+INSERT INTO teacher_subjects (teacher_id, subject_id)
+  SELECT DISTINCT teacher_id, subject_id FROM lessons WHERE subject_id IS NOT NULL
+  ON CONFLICT DO NOTHING;
+INSERT INTO teacher_subjects (teacher_id, subject_id)
+  SELECT t.id, s.id FROM teachers t JOIN subjects s ON lower(btrim(s.name)) = lower(btrim(t.area))
+  ON CONFLICT DO NOTHING;
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
   { version: 2, name: 'usuarios_e_sessoes', sql: AUTH_SCHEMA },
   { version: 3, name: 'fotos_dos_professores', sql: TEACHER_PHOTOS },
+  { version: 4, name: 'disciplinas_dos_professores', sql: TEACHER_SUBJECTS },
 ];

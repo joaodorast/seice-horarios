@@ -26,7 +26,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { error
 
 export function ErrorScreen({ updating }: { updating?: boolean }) {
   return (
-    <div className="grid min-h-dvh place-items-center bg-nav px-6 text-center text-white">
+    <div className="grid min-h-app place-items-center bg-nav px-6 text-center text-white">
       <div className="max-w-sm">
         <span className="mx-auto grid size-16 place-items-center rounded-full bg-white">
           <img src="/emblema-seice.webp" alt="" className="size-12 object-contain" />

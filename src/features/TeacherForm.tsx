@@ -3,7 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { teacherSchema, type TeacherFormValues, type TeacherInput } from '@shared/schemas';
 import type { Teacher } from '@shared/types';
 import { Alert, Button, Field, Input, Modal, Switch, Textarea, useToast } from '@/components/ui';
-import { useSaveTeacher } from '@/api/hooks';
+import { useSaveTeacher, useTeachers } from '@/api/hooks';
+import { TeacherPhotoField } from '@/features/TeacherPhoto';
+import { ImagePlus } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatPhone } from '@/lib/text';
 import { useState } from 'react';
@@ -75,6 +77,7 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {formError && <Alert tone="danger" title={formError} />}
+      <PhotoSection teacher={teacher} />
       <Field label="Nome completo" required error={errors.name?.message}>
         <Input {...register('name')} autoComplete="off" placeholder="Ex.: Maria Aparecida dos Santos" maxLength={120} />
       </Field>
@@ -127,5 +130,25 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Foto no formulário: disponível ao editar; no cadastro novo, explica que vem logo depois. */
+function PhotoSection({ teacher }: { teacher: Teacher | null }) {
+  // A lista é a fonte mais recente: a foto atualiza aqui assim que é salva, sem fechar o formulário.
+  const fresh = useTeachers().data?.find((t) => t.id === teacher?.id) ?? teacher;
+  if (!fresh) {
+    return (
+      <p className="flex items-center gap-2.5 rounded-lg bg-subtle px-3.5 py-2.5 text-[13.5px] text-muted">
+        <ImagePlus className="size-4 shrink-0 text-soft" />
+        Depois de cadastrar, você poderá adicionar a foto do professor.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl bg-subtle px-4 py-3.5">
+      <p className="mb-3 text-[13px] font-semibold text-ink-2">Foto do professor</p>
+      <TeacherPhotoField teacher={fresh} layout="inline" />
+    </div>
   );
 }

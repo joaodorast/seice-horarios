@@ -24,11 +24,14 @@ function toTeacher(r: Row): Teacher {
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
     photoUpdatedAt: r.photo_updated_at ? iso(r.photo_updated_at) : null,
+    subjectIds: Array.isArray(r.subject_ids) ? (r.subject_ids as unknown[]).map(Number) : [],
   };
 }
 
 /** Professores com a data da foto (se houver), sem carregar a imagem em si. */
-const TEACHER_SELECT = 'SELECT t.*, p.updated_at AS photo_updated_at FROM teachers t LEFT JOIN teacher_photos p ON p.teacher_id = t.id';
+const TEACHER_SELECT = `SELECT t.*, p.updated_at AS photo_updated_at,
+  (SELECT COALESCE(array_agg(ts.subject_id ORDER BY ts.subject_id), '{}') FROM teacher_subjects ts WHERE ts.teacher_id = t.id) AS subject_ids
+  FROM teachers t LEFT JOIN teacher_photos p ON p.teacher_id = t.id`;
 
 export interface TeacherPhoto {
   mime: string;
@@ -111,6 +114,7 @@ export function createRepository(db: Database) {
         input.notes,
         input.active,
       ]);
+      await this.setTeacherSubjects(Number(r!.id), input.subjectIds);
       return (await this.getTeacher(Number(r!.id)))!;
     },
     async updateTeacher(id: number, input: TeacherInput): Promise<Teacher | undefined> {
@@ -123,7 +127,22 @@ export function createRepository(db: Database) {
         input.active,
         id,
       ]);
+      await this.setTeacherSubjects(id, input.subjectIds);
       return this.getTeacher(id);
+    },
+    /** Substitui as disciplinas do professor (ids inexistentes são ignorados). */
+    async setTeacherSubjects(id: number, subjectIds: number[]): Promise<void> {
+      await db.query('DELETE FROM teacher_subjects WHERE teacher_id = $1', [id]);
+      if (subjectIds.length === 0) return;
+      await db.query(
+        'INSERT INTO teacher_subjects (teacher_id, subject_id) SELECT $1, s.id FROM subjects s WHERE s.id = ANY($2::int[]) ON CONFLICT DO NOTHING',
+        [id, subjectIds],
+      );
+    },
+    /** Registra que o professor leciona a disciplina (usado ao salvar aulas). */
+    async linkTeacherSubject(teacherId: number, subjectId: number | null): Promise<void> {
+      if (!subjectId) return;
+      await db.query('INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [teacherId, subjectId]);
     },
     async setTeacherActive(id: number, active: boolean): Promise<Teacher | undefined> {
       await db.query('UPDATE teachers SET active = $1, updated_at = now() WHERE id = $2', [active, id]);
@@ -266,6 +285,7 @@ export function createRepository(db: Database) {
         'INSERT INTO lessons (teacher_id, class_id, subject_id, weekday, start_time, end_time, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes],
       );
+      await this.linkTeacherSubject(input.teacherId, input.subjectId);
       return toLesson(r!);
     },
     async updateLesson(id: number, input: LessonInput): Promise<Lesson | undefined> {
@@ -273,6 +293,7 @@ export function createRepository(db: Database) {
         'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, updated_at = now() WHERE id = $8 RETURNING *',
         [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, id],
       );
+      if (r) await this.linkTeacherSubject(input.teacherId, input.subjectId);
       return r ? toLesson(r) : undefined;
     },
     async deleteLesson(id: number): Promise<boolean> {

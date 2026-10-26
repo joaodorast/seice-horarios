@@ -19,6 +19,8 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { IconButton, useToast } from '@/components/ui';
 import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 import { UpdateNotice } from './UpdateNotice';
+import { useIsDemo } from '@/api/environment';
+import { FlaskConical } from 'lucide-react';
 import { useLogout, useSession } from '@/api/auth';
 import { initials } from '@/lib/text';
 
@@ -117,12 +119,26 @@ export function AppLayout() {
           )}
 
           <div className="flex min-w-0 flex-1 flex-col">
+            <DemoBanner />
             <Outlet />
           </div>
         </div>
         <UpdateNotice />
       </ScheduleActionsProvider>
     </LayoutContext.Provider>
+  );
+}
+
+/** Faixa fixa no ambiente de teste (npm run demo), para nunca ser confundido com o sistema real. */
+function DemoBanner() {
+  if (!useIsDemo()) return null;
+  return (
+    <div role="note" className="no-print flex items-center justify-center gap-2 bg-brand px-4 py-1.5 text-center text-[13px] font-semibold text-ink">
+      <FlaskConical className="size-4 shrink-0" />
+      <span>
+        Ambiente de teste · dados fictícios em memória. <span className="font-normal">Nada feito aqui chega ao sistema real.</span>
+      </span>
+    </div>
   );
 }
 

@@ -16,6 +16,7 @@ import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { cn } from '@/lib/cn';
 import { durationMinutes } from '@shared/time';
 import type { Subject } from '@shared/types';
+import { GUIDES } from '@/lib/guides';
 
 type UsageFilter = 'todas' | 'em-uso' | 'sem-aulas';
 
@@ -94,6 +95,7 @@ export function SubjectsPage() {
   return (
     <Page
       title="Disciplinas"
+      guide={GUIDES.subjects}
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Disciplinas' }]}
       description={
         schedule.data
@@ -261,9 +263,9 @@ function RowActions({ subject, onEdit, onDelete, compact }: { subject: Subject; 
           <IconButton label={`Ver ${subject.name} no quadro`} size="sm" onClick={() => navigate(`/horarios?disciplina=${subject.id}`)}>
             <Table2 className="size-4" />
           </IconButton>
-          <IconButton label={`Editar ${subject.name}`} size="sm" onClick={onEdit}>
-            <Pencil className="size-4" />
-          </IconButton>
+          <Button size="sm" icon={<Pencil className="size-4" />} onClick={onEdit}>
+            Editar
+          </Button>
         </>
       )}
       <Menu

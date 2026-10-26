@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn';
 import { computeSlotStats } from '@shared/grid';
 import { SHIFT_LABEL } from '@shared/labels';
 import { CLASS_SHIFTS, type ClassShift, type SchoolClass } from '@shared/types';
+import { GUIDES } from '@/lib/guides';
 
 type StatusFilter = 'ativos' | 'inativos' | 'todos';
 
@@ -70,6 +71,7 @@ export function ClassesPage() {
   return (
     <Page
       title="Turmas"
+      guide={GUIDES.classes}
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Turmas' }]}
       description={schedule.data ? `${plural(counts.ativos, 'turma ativa', 'turmas ativas')}${counts.inativos ? ` · ${counts.inativos} inativa(s)` : ''}` : undefined}
       actions={
@@ -281,9 +283,9 @@ function ClassRowActions({
           <IconButton label={`Ver horário da turma ${schoolClass.name}`} size="sm" onClick={() => navigate(`/horarios/turma/${schoolClass.id}`)}>
             <CalendarDays className="size-4" />
           </IconButton>
-          <IconButton label={`Editar turma ${schoolClass.name}`} size="sm" onClick={onEdit}>
-            <Pencil className="size-4" />
-          </IconButton>
+          <Button size="sm" icon={<Pencil className="size-4" />} onClick={onEdit}>
+            Editar
+          </Button>
         </>
       )}
       <Menu

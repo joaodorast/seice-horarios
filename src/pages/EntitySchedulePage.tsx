@@ -13,6 +13,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { SHIFT_LABEL } from '@shared/labels';
 import { durationMinutes } from '@shared/time';
 import { formatHours } from '@/lib/format';
+import { GUIDES } from '@/lib/guides';
 
 /** Página "Horários por professor" ou "Horários por turma": escolha rápida + grade + impressão. */
 export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
@@ -53,6 +54,7 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
   return (
     <Page
       title={title}
+      guide={kind === 'teacher' ? GUIDES.teacherSchedule : GUIDES.classSchedule}
       width="wide"
       breadcrumbs={[
         { label: 'Quadro de horários', to: '/horarios' },

@@ -13,6 +13,7 @@ import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
 import { durationMinutes } from '@shared/time';
 import type { Lesson, Teacher } from '@shared/types';
+import { GUIDES } from '@/lib/guides';
 
 type StatusFilter = 'ativos' | 'inativos' | 'todos';
 
@@ -73,6 +74,7 @@ export function TeachersPage() {
   return (
     <Page
       title="Professores"
+      guide={GUIDES.teachers}
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Professores' }]}
       description={teachers.data ? `${plural(counts.ativos, 'professor ativo', 'professores ativos')}${counts.inativos ? ` · ${counts.inativos} inativo(s)` : ''}` : undefined}
       actions={
@@ -278,9 +280,9 @@ function RowActions({
           <IconButton label={`Ver horário de ${teacher.name}`} size="sm" onClick={() => navigate(`/horarios/professor/${teacher.id}`)}>
             <CalendarDays className="size-4" />
           </IconButton>
-          <IconButton label={`Editar ${teacher.name}`} size="sm" onClick={onEdit}>
-            <Pencil className="size-4" />
-          </IconButton>
+          <Button size="sm" icon={<Pencil className="size-4" />} onClick={onEdit}>
+            Editar
+          </Button>
         </>
       )}
       <Menu

@@ -17,15 +17,34 @@ if (!url) {
 
 const port = Number(process.env.PORT ?? 3333);
 
-let db: Awaited<ReturnType<typeof openDatabase>>;
-try {
-  db = await openDatabase(url);
-} catch (error) {
-  console.error('\n  SEICE — não foi possível conectar ao banco de dados na nuvem.');
-  console.error(`  ${(error as Error).message}`);
-  console.error('  Confira a DATABASE_URL no arquivo .env e a conexão com a internet.\n');
-  process.exit(1);
+/** Erros que não se resolvem tentando de novo (credenciais ou banco inexistente). */
+const PERMANENT = new Set(['28P01', '28000', '3D000', 'ENOTFOUND']);
+const MAX_ATTEMPTS = 12;
+
+/**
+ * Conecta ao banco na nuvem tentando de novo em falhas passageiras (rede oscilando, pooler ocupado),
+ * com espera crescente de 2 s a 15 s, por cerca de 2 minutos no total.
+ */
+async function connect(databaseUrl: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await openDatabase(databaseUrl);
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? '';
+      const last = attempt >= MAX_ATTEMPTS || PERMANENT.has(code);
+      console.error(`\n  SEICE — não foi possível conectar ao banco de dados (tentativa ${attempt}): ${(error as Error).message}`);
+      if (last) {
+        console.error('  Confira a DATABASE_URL no arquivo .env e a conexão com a internet.\n');
+        process.exit(1);
+      }
+      const wait = Math.min(2000 * 1.5 ** (attempt - 1), 15_000);
+      console.error(`  Tentando de novo em ${Math.round(wait / 1000)} s…`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
 }
+
+const db = await connect(url);
 
 const { app } = createApp(db, { staticDir: join(root, 'dist') });
 const host = (() => {

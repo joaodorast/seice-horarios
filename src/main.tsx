@@ -8,6 +8,7 @@ import { ME_KEY, sessionNotice } from '@/api/auth';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { AppErrorBoundary } from '@/components/layout/AppErrorBoundary';
 import { installResilience } from '@/lib/resilience';
+import { installTextScale } from '@/lib/textScale';
 import { router } from './router';
 import './styles/index.css';
 
@@ -32,6 +33,7 @@ const queryClient: QueryClient = new QueryClient({
 });
 
 installResilience();
+installTextScale();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

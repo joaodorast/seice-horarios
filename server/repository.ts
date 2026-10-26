@@ -23,7 +23,17 @@ function toTeacher(r: Row): Teacher {
     active: Boolean(r.active),
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
+    photoUpdatedAt: r.photo_updated_at ? iso(r.photo_updated_at) : null,
   };
+}
+
+/** Professores com a data da foto (se houver), sem carregar a imagem em si. */
+const TEACHER_SELECT = 'SELECT t.*, p.updated_at AS photo_updated_at FROM teachers t LEFT JOIN teacher_photos p ON p.teacher_id = t.id';
+
+export interface TeacherPhoto {
+  mime: string;
+  data: Buffer;
+  updatedAt: string;
 }
 
 function toClass(r: Row): SchoolClass {
@@ -82,33 +92,56 @@ export function createRepository(db: Database) {
   return {
     // ---------- Professores ----------
     async listTeachers(): Promise<Teacher[]> {
-      return (await db.query('SELECT * FROM teachers ORDER BY lower(name), id')).map(toTeacher);
+      return (await db.query(`${TEACHER_SELECT} ORDER BY lower(t.name), t.id`)).map(toTeacher);
     },
     async getTeacher(id: number): Promise<Teacher | undefined> {
-      const r = await one('SELECT * FROM teachers WHERE id = $1', [id]);
+      const r = await one(`${TEACHER_SELECT} WHERE t.id = $1`, [id]);
       return r ? toTeacher(r) : undefined;
     },
     async findTeacherByCode(code: string): Promise<Teacher | undefined> {
-      const r = await one('SELECT * FROM teachers WHERE lower(code) = lower($1)', [code]);
+      const r = await one(`${TEACHER_SELECT} WHERE lower(t.code) = lower($1)`, [code]);
       return r ? toTeacher(r) : undefined;
     },
     async createTeacher(input: TeacherInput): Promise<Teacher> {
-      const r = await one(
-        'INSERT INTO teachers (name, code, area, phone, notes, active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [input.name, input.code, input.area, input.phone, input.notes, input.active],
-      );
-      return toTeacher(r!);
+      const r = await one('INSERT INTO teachers (name, code, area, phone, notes, active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [
+        input.name,
+        input.code,
+        input.area,
+        input.phone,
+        input.notes,
+        input.active,
+      ]);
+      return (await this.getTeacher(Number(r!.id)))!;
     },
     async updateTeacher(id: number, input: TeacherInput): Promise<Teacher | undefined> {
-      const r = await one(
-        'UPDATE teachers SET name = $1, code = $2, area = $3, phone = $4, notes = $5, active = $6, updated_at = now() WHERE id = $7 RETURNING *',
-        [input.name, input.code, input.area, input.phone, input.notes, input.active, id],
-      );
-      return r ? toTeacher(r) : undefined;
+      await db.query('UPDATE teachers SET name = $1, code = $2, area = $3, phone = $4, notes = $5, active = $6, updated_at = now() WHERE id = $7', [
+        input.name,
+        input.code,
+        input.area,
+        input.phone,
+        input.notes,
+        input.active,
+        id,
+      ]);
+      return this.getTeacher(id);
     },
     async setTeacherActive(id: number, active: boolean): Promise<Teacher | undefined> {
-      const r = await one('UPDATE teachers SET active = $1, updated_at = now() WHERE id = $2 RETURNING *', [active, id]);
-      return r ? toTeacher(r) : undefined;
+      await db.query('UPDATE teachers SET active = $1, updated_at = now() WHERE id = $2', [active, id]);
+      return this.getTeacher(id);
+    },
+    async getTeacherPhoto(id: number): Promise<TeacherPhoto | undefined> {
+      const r = await one('SELECT mime, data, updated_at FROM teacher_photos WHERE teacher_id = $1', [id]);
+      return r ? { mime: String(r.mime), data: Buffer.from(r.data as Uint8Array), updatedAt: iso(r.updated_at) } : undefined;
+    },
+    async setTeacherPhoto(id: number, mime: string, data: Buffer): Promise<void> {
+      await db.query(
+        `INSERT INTO teacher_photos (teacher_id, mime, data) VALUES ($1, $2, $3)
+         ON CONFLICT (teacher_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = now()`,
+        [id, mime, data],
+      );
+    },
+    async deleteTeacherPhoto(id: number): Promise<boolean> {
+      return (await db.query('DELETE FROM teacher_photos WHERE teacher_id = $1 RETURNING teacher_id', [id])).length > 0;
     },
     async deleteTeacher(id: number, withLessons: boolean): Promise<void> {
       if (withLessons) await db.query('DELETE FROM lessons WHERE teacher_id = $1', [id]);

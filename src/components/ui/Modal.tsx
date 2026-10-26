@@ -68,7 +68,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       )}
     >
       {open && (
-        <div className="flex max-h-[92dvh] flex-col rounded-t-2xl bg-surface shadow-pop sm:max-h-[88dvh] sm:rounded-xl">
+        <div className="flex max-h-[calc(92dvh/var(--ui-zoom,1))] flex-col rounded-t-2xl bg-surface shadow-pop sm:max-h-[calc(88dvh/var(--ui-zoom,1))] sm:rounded-xl">
           <header className="flex items-start gap-4 border-b border-line px-5 pt-5 pb-4 sm:px-6">
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-lg font-bold tracking-[-0.015em] text-ink">

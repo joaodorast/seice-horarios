@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Clock, Copy, LayoutGrid, Settings2 } from 'lucide-react';
+import { Clock, Copy, LayoutGrid, Settings2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Alert, Button, Combobox, Field, Input, Modal, Segmented, Textarea, useToast, type ComboOption } from '@/components/ui';
 import { useSaveLesson, type ScheduleData } from '@/api/hooks';
@@ -11,7 +11,7 @@ import { periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { overlaps, TIME_PATTERN, toMinutes } from '@shared/time';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
-import { normalize } from '@/lib/text';
+import { periodRange, selectPeriod, suggestSubject } from '@shared/suggest';
 import type { Lesson, LessonIssue, Period, Weekday } from '@shared/types';
 
 export interface LessonPrefill {
@@ -37,6 +37,8 @@ interface FormState {
   start: string;
   end: string;
   notes: string;
+  /** "auto": a disciplina acompanha a sugestão; "manual": escolhida pela pessoa e nunca trocada pelo sistema. */
+  subjectSource: 'auto' | 'manual';
 }
 
 function initialState(req: EditorRequest, data: ScheduleData): FormState {
@@ -52,6 +54,7 @@ function initialState(req: EditorRequest, data: ScheduleData): FormState {
       start: l.start,
       end: l.end,
       notes: l.notes ?? '',
+      subjectSource: 'manual',
     };
   }
   const p = req.prefill ?? {};
@@ -66,13 +69,15 @@ function initialState(req: EditorRequest, data: ScheduleData): FormState {
     start,
     end,
     notes: p.notes ?? '',
+    subjectSource: p.subjectId !== undefined && p.subjectId !== null ? 'manual' : 'auto',
   };
 }
 
+/** O horário corresponde a um ou mais períodos seguidos da grade da turma (ex.: aula dupla)? */
 function matchesPeriod(data: ScheduleData, classId: number | null, start: string, end: string) {
-  return data.periods.some(
-    (p) => p.kind === 'aula' && p.start === start && p.end === end && (classId === null || classShiftKeys(data, classId).includes(p.shift)),
-  );
+  const shifts = classId === null ? data.settings.enabledShifts : classShiftKeys(data, classId);
+  const periods = periodsForShifts(data.periods, shifts as typeof data.settings.enabledShifts).filter((p) => p.kind === 'aula');
+  return periodRange(periods, start, end) !== null;
 }
 
 function classShiftKeys(data: ScheduleData, classId: number) {
@@ -156,6 +161,33 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
 
   const otherLessons = useMemo(() => data.lessons.filter((l) => l.id !== editingId), [data.lessons, editingId]);
 
+  const suggestion = useMemo(
+    () =>
+      suggestSubject({
+        teacher,
+        subjects: data.subjects,
+        lessons: data.lessons,
+        classId: form.classId,
+        weekday: form.weekday,
+        start: form.start,
+        end: form.end,
+        excludeLessonId: editingId,
+      }),
+    [teacher, data.subjects, data.lessons, form.classId, form.weekday, form.start, form.end, editingId],
+  );
+
+  // Enquanto a disciplina não for escolhida pela pessoa, ela acompanha a sugestão (professor, turma, dia e horário).
+  useEffect(() => {
+    if (form.subjectSource === 'auto' && form.subjectId !== suggestion.subjectId) {
+      setForm((f) => ({ ...f, subjectId: suggestion.subjectId }));
+    }
+  }, [form.subjectSource, form.subjectId, suggestion.subjectId]);
+
+  const chooseSubject = (id: number | null) => {
+    setForm((f) => ({ ...f, subjectId: id, subjectSource: 'manual' }));
+    setServerIssues(null);
+  };
+
   function periodStatus(p: Period) {
     const sameDay = otherLessons.filter((l) => l.weekday === form.weekday && overlaps(l.start, l.end, p.start, p.end));
     const classBusy = form.classId !== null && sameDay.some((l) => l.classId === form.classId);
@@ -192,11 +224,16 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
     disabled: !c.active && c.id !== form.classId,
     disabledReason: 'Turma inativa',
   }));
-  const subjectOptions: ComboOption[] = data.subjects.map((s) => ({
-    value: s.id,
-    label: s.name,
-    leading: <span className={cn('size-2.5 shrink-0 rounded-full', SUBJECT_STYLE[s.color].dot)} aria-hidden="true" />,
-  }));
+  const teacherFirstName = teacher?.name.trim().split(/\s+/)[0] ?? '';
+  const subjectOptions: ComboOption[] = [...data.subjects]
+    .sort((a, b) => Number(suggestion.candidates.includes(b.id)) - Number(suggestion.candidates.includes(a.id)))
+    .map((s) => ({
+      value: s.id,
+      label: s.name,
+      description: suggestion.candidates.includes(s.id) ? `Disciplina de ${teacherFirstName}` : undefined,
+      leading: <span className={cn('size-2.5 shrink-0 rounded-full', SUBJECT_STYLE[s.color].dot)} aria-hidden="true" />,
+    }));
+  const candidateSubjects = suggestion.candidates.map((id) => data.subjects.find((s) => s.id === id)).filter((s) => s !== undefined);
 
   async function submit(another: boolean) {
     setTouched(true);
@@ -228,7 +265,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
         toast.info('Aula fora da grade', 'Ela aparece na lista "Fora da grade" do quadro até que os períodos sejam ajustados.');
       }
       if (another) {
-        setForm((f) => ({ ...f, start: '', end: '', notes: '' }));
+        setForm((f) => ({ ...f, start: '', end: '', notes: '', subjectSource: 'auto' }));
         setTouched(false);
       } else {
         onClose();
@@ -244,7 +281,11 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
     }
   }
 
-  const selectedPeriodId = availablePeriods.find((p) => p.start === form.start && p.end === form.end)?.id;
+  const selectedRange = form.start ? periodRange(availablePeriods, form.start, form.end) : null;
+  const selectedIds = new Set(selectedRange?.map((p) => p.id) ?? []);
+  const lastSelected = selectedRange?.[selectedRange.length - 1];
+  const nextContiguous = lastSelected ? availablePeriods[availablePeriods.indexOf(lastSelected) + 1] : undefined;
+  const canExtend = Boolean(nextContiguous && lastSelected && nextContiguous.start === lastSelected.end);
 
   return (
     <form
@@ -271,13 +312,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
             <Combobox
               options={teacherOptions}
               value={form.teacherId}
-              onChange={(v) => {
-                set('teacherId', v);
-                // Sugere a disciplina pela área de atuação do professor, se ainda não houver uma escolhida.
-                const area = data.teachers.find((t) => t.id === v)?.area;
-                const match = area ? data.subjects.find((s) => normalize(s.name) === normalize(area)) : undefined;
-                if (match && form.subjectId === null) setForm((f) => ({ ...f, subjectId: match.id }));
-              }}
+              onChange={(v) => set('teacherId', v)}
               placeholder="Selecione o professor"
               emptyText="Nenhum professor encontrado"
               autoFocusTarget={Boolean(form.classId) && !form.teacherId}
@@ -301,12 +336,21 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
             <Combobox
               options={subjectOptions}
               value={form.subjectId}
-              onChange={(v) => set('subjectId', v)}
+              onChange={chooseSubject}
               placeholder={data.subjects.length ? 'Selecione a disciplina' : 'Sem disciplinas cadastradas'}
               clearable
               disabled={data.subjects.length === 0}
             />
           </Field>
+          <SubjectHelp
+            teacherName={teacherFirstName}
+            candidates={candidateSubjects}
+            selected={form.subjectId}
+            auto={form.subjectSource === 'auto'}
+            reason={suggestion.reason}
+            onPick={chooseSubject}
+            learning={Boolean(teacher && form.subjectId !== null && !suggestion.candidates.includes(form.subjectId))}
+          />
           <Field label="Observações" optional error={fieldErrors.notes}>
             <Textarea
               rows={2}
@@ -366,7 +410,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
                 >
                   {availablePeriods.map((p, i) => {
                     const status = periodStatus(p);
-                    const selected = p.id === selectedPeriodId;
+                    const selected = selectedIds.has(p.id);
                     const showShift = i === 0 || availablePeriods[i - 1].shift !== p.shift;
                     const shiftCount = new Set(availablePeriods.map((x) => x.shift)).size;
                     return (
@@ -379,7 +423,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
                           role="radio"
                           aria-checked={selected}
                           onClick={() => {
-                            setForm((f) => ({ ...f, start: p.start, end: p.end }));
+                            setForm((f) => ({ ...f, ...selectPeriod(availablePeriods, { start: f.start, end: f.end }, p) }));
                             setServerIssues(null);
                             setFieldErrors((e) => ({ ...e, period: '', start: '', end: '' }));
                           }}
@@ -412,6 +456,26 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
                   <Input type="time" value={form.end} onChange={(e) => set('end', e.target.value)} className="tabular" />
                 </Field>
               </div>
+            )}
+            {form.timeMode === 'period' && selectedRange && (
+              <p className="text-[13px] text-muted" role="status">
+                {selectedRange.length > 1 ? (
+                  <>
+                    <strong className="text-ink">Aula de {selectedRange.length} períodos</strong> · {form.start}–{form.end}.{' '}
+                    <button
+                      type="button"
+                      className="font-semibold text-ink underline underline-offset-2"
+                      onClick={() => setForm((f) => ({ ...f, start: selectedRange[0].start, end: selectedRange[0].end }))}
+                    >
+                      Voltar para um período
+                    </button>
+                  </>
+                ) : canExtend && nextContiguous ? (
+                  <>
+                    Aula dupla? Clique também em <strong className="text-ink">{nextContiguous.label}</strong> ({nextContiguous.start}–{nextContiguous.end}).
+                  </>
+                ) : null}
+              </p>
             )}
             {fieldErrors.period && form.timeMode === 'period' && (
               <p className="text-[13px] font-medium text-danger">{fieldErrors.period}</p>
@@ -502,5 +566,69 @@ function Tag({ tone, children }: { tone: 'danger' | 'success'; children: string 
     >
       {children}
     </span>
+  );
+}
+
+/** Explica a disciplina escolhida e oferece as do professor como escolha rápida. */
+function SubjectHelp({
+  teacherName,
+  candidates,
+  selected,
+  auto,
+  reason,
+  onPick,
+  learning,
+}: {
+  teacherName: string;
+  candidates: { id: number; name: string; color: keyof typeof SUBJECT_STYLE }[];
+  selected: number | null;
+  auto: boolean;
+  reason: 'unica' | 'horario' | null;
+  onPick: (id: number) => void;
+  learning: boolean;
+}) {
+  if (!teacherName) return null;
+  const several = candidates.length > 1;
+  return (
+    <div className="-mt-2 flex flex-col gap-2">
+      {several && (
+        <div className="rounded-lg bg-subtle px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-ink-2">
+            {teacherName} leciona {candidates.length} disciplinas. Qual será nesta aula?
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {candidates.map((c) => {
+              const on = c.id === selected;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onPick(c.id)}
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                    on ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface text-ink-2 hover:bg-surface hover:border-soft',
+                  )}
+                >
+                  <span className={cn('size-2 rounded-full', SUBJECT_STYLE[c.color].dot)} aria-hidden="true" />
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {auto && selected !== null && reason && (
+        <p className="flex items-start gap-1.5 text-xs text-muted">
+          <Sparkles className="mt-px size-3.5 shrink-0 text-brand-ink" />
+          {reason === 'unica'
+            ? `Preenchida automaticamente: é a disciplina de ${teacherName}.`
+            : `Sugerida pelo horário: ${teacherName} dá esta disciplina para a turma em horário colado ou no mesmo horário de outro dia. Confira.`}
+        </p>
+      )}
+      {learning && (
+        <p className="text-xs text-muted">Ao salvar, esta disciplina passa a constar no cadastro de {teacherName}.</p>
+      )}
+    </div>
   );
 }

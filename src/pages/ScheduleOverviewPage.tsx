@@ -18,6 +18,7 @@ import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { lessonsInPeriod, lessonsOutsideGrid, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import type { Lesson, Period, SchoolClass, ShiftKey, Weekday } from '@shared/types';
+import { GUIDES } from '@/lib/guides';
 
 export function ScheduleOverviewPage() {
   const schedule = useScheduleData();
@@ -29,6 +30,7 @@ export function ScheduleOverviewPage() {
   return (
     <Page
       title="Quadro de horários"
+      guide={GUIDES.schedule}
       width="wide"
       breadcrumbs={[{ label: 'Início', to: '/' }, { label: 'Quadro de horários' }]}
       description="Visão consolidada da escola por dia e turno. Clique em um horário vazio para alocar uma aula ou em uma aula para ver detalhes."

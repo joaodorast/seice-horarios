@@ -71,6 +71,23 @@ function isConnectionError(error: unknown) {
   );
 }
 
+const PHOTO_MAX_BYTES = 300_000;
+/** Assinaturas dos formatos aceitos: confere o conteúdo, não só o tipo declarado. */
+const PHOTO_SIGNATURES: Record<string, (b: Buffer) => boolean> = {
+  'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+};
+
+function decodePhoto(dataUrl: unknown): { mime: string; data: Buffer } {
+  const match = typeof dataUrl === 'string' ? /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl) : null;
+  if (!match) throw new HttpError(422, 'invalid_photo', 'Envie uma imagem nos formatos WEBP, JPEG ou PNG.');
+  const data = Buffer.from(match[2], 'base64');
+  if (data.length > PHOTO_MAX_BYTES) throw new HttpError(413, 'photo_too_large', 'A foto ficou grande demais. Escolha outra imagem.');
+  if (!PHOTO_SIGNATURES[match[1]](data)) throw new HttpError(422, 'invalid_photo', 'O arquivo enviado não é uma imagem válida.');
+  return { mime: match[1], data };
+}
+
 export function createApp(db: Database, options: { staticDir?: string } = {}) {
   const repo = createRepository(db);
   const auth = createAuth(db);
@@ -86,6 +103,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
   // Importações de planilhas trazem milhares de linhas (a Vercel aceita corpos de até 4,5 MB).
   app.use('/api/import', express.json({ limit: '4mb' }));
+  // Fotos chegam já reduzidas pelo navegador; o limite folgado cobre a codificação base64.
+  app.use(/^\/api\/teachers\/\d+\/photo$/, express.json({ limit: '1mb' }));
   app.use(express.json({ limit: '200kb' }));
 
   const api = express.Router();
@@ -174,6 +193,31 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }
     await db.transaction((tx) => createRepository(tx).deleteTeacher(id, withLessons));
     res.status(204).end();
+  });
+
+  // ---------------- Fotos dos professores ----------------
+  api.get('/teachers/:id/photo', async (req, res) => {
+    const photo = await repo.getTeacherPhoto(idParam(req));
+    if (!photo) throw new HttpError(404, 'not_found', 'Este professor não tem foto.');
+    // O endereço da foto muda a cada troca (?v=data), então ela pode ficar em cache no navegador.
+    res.setHeader('Cache-Control', req.query.v ? 'private, max-age=31536000, immutable' : 'private, no-cache');
+    res.setHeader('ETag', `"${Date.parse(photo.updatedAt)}"`);
+    res.type(photo.mime).send(photo.data);
+  });
+
+  api.put('/teachers/:id/photo', async (req, res) => {
+    const id = idParam(req);
+    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    const { mime, data } = decodePhoto(req.body?.dataUrl);
+    await repo.setTeacherPhoto(id, mime, data);
+    res.json(await repo.getTeacher(id));
+  });
+
+  api.delete('/teachers/:id/photo', async (req, res) => {
+    const id = idParam(req);
+    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    await repo.deleteTeacherPhoto(id);
+    res.json(await repo.getTeacher(id));
   });
 
   // ---------------- Turmas ----------------

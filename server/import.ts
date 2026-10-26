@@ -141,6 +141,7 @@ const nameKey = (name: string) => fold(name);
 
 async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
   const all = await ctx.repo.listTeachers();
+  const subjectByName = new Map((await ctx.repo.listSubjects()).map((s) => [nameKey(s.name), s]));
   const byCode = new Map(all.filter((t) => t.code).map((t) => [fold(t.code!), t]));
   const byName = groupBy(all, (t) => nameKey(t.name));
   const seen = new Map<string, number>();
@@ -154,6 +155,14 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
 
     const active = parseActive(v('active'));
     if (active === null) errors.push('Situação: use Ativo ou Inativo.');
+
+    // Disciplinas: nomes separados por vírgula, ponto e vírgula ou barra; os desconhecidos viram aviso.
+    const subjectNames = v('subjects').split(/[,;/]/).map((n) => n.trim()).filter(Boolean);
+    const subjectIds = subjectNames.map((n) => subjectByName.get(nameKey(n))?.id).filter((id): id is number => id !== undefined);
+    const unknownSubjects = subjectNames.filter((n) => !subjectByName.has(nameKey(n)));
+    const warnings = unknownSubjects.length
+      ? [`Disciplina${unknownSubjects.length > 1 ? 's' : ''} não cadastrada${unknownSubjects.length > 1 ? 's' : ''}: ${unknownSubjects.join(', ')}. Cadastre em Disciplinas e importe de novo.`]
+      : [];
 
     const key = code ? `c:${fold(code)}` : `n:${nameKey(name)}`;
     if (seen.has(key)) errors.push(`Professor repetido na planilha (já aparece na linha ${seen.get(key)}).`);
@@ -184,8 +193,10 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
           phone: v('phone') || match.phone,
           notes: v('notes') || match.notes,
           active: active ?? match.active,
+          // Coluna vazia mantém as disciplinas atuais; preenchida, soma as novas às que já existiam.
+          subjectIds: [...new Set([...match.subjectIds, ...subjectIds])],
         }
-      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true };
+      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true, subjectIds };
     const parsed = teacherSchema.safeParse(raw);
     if (!parsed.success) {
       push(ctx, row.line, 'error', label, zodMessages(parsed.error, 'teachers'));
@@ -199,9 +210,11 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
     }
 
     if (match) {
-      const same = (['name', 'code', 'area', 'phone', 'notes', 'active'] as const).every((k) => input[k] === match![k]);
+      const same =
+        (['name', 'code', 'area', 'phone', 'notes', 'active'] as const).every((k) => input[k] === match![k]) &&
+        input.subjectIds.join(',') === [...match.subjectIds].sort((a, b) => a - b).join(',');
       if (same) {
-        push(ctx, row.line, 'skip', match.name, ['Já cadastrado com os mesmos dados.']);
+        push(ctx, row.line, 'skip', match.name, ['Já cadastrado com os mesmos dados.'], warnings);
         continue;
       }
     }
@@ -214,7 +227,7 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
       if (!target) byName.set(nameKey(saved!.name), [...(byName.get(nameKey(saved!.name)) ?? []), saved!]);
     });
     if (failure) push(ctx, row.line, 'error', label, [failure]);
-    else push(ctx, row.line, target ? 'update' : 'create', input.name);
+    else push(ctx, row.line, target ? 'update' : 'create', input.name, [], warnings);
   }
 }
 

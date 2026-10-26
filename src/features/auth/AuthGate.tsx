@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { ErrorState } from '@/components/ui';
 import { goodbyeStore, sessionNotice, useSession, welcomeStore } from '@/api/auth';
 import { errorMessage } from '@/api/client';
@@ -13,6 +13,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const goodbye = useSyncExternalStore(goodbyeStore.subscribe, goodbyeStore.get);
   const finishWelcome = useCallback(() => welcomeStore.set(false), []);
   const finishGoodbye = useCallback(() => goodbyeStore.set(null), []);
+  const unreachable = Boolean(session.error) && session.data === undefined;
+
+  // Servidor fora do ar: tenta de novo sozinho a cada 5 s e entra assim que ele voltar.
+  useEffect(() => {
+    if (!unreachable) return;
+    const id = window.setInterval(() => void session.refetch(), 5000);
+    return () => window.clearInterval(id);
+  }, [unreachable, session.refetch]);
 
   let content: ReactNode;
   if (session.isPending) {
@@ -22,11 +30,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <span className="sr-only">Verificando acesso…</span>
       </div>
     );
-  } else if (session.error && session.data === undefined) {
+  } else if (unreachable) {
     content = (
       <div className="grid min-h-dvh place-items-center bg-canvas px-4">
         <div className="rounded-xl bg-surface shadow-raise">
           <ErrorState message={errorMessage(session.error)} onRetry={() => session.refetch()} />
+          <p className="flex items-center justify-center gap-2 border-t border-line px-6 py-3 text-xs text-muted" role="status">
+            <span className="size-1.5 animate-pulse rounded-full bg-warning" aria-hidden="true" />
+            Tentando reconectar automaticamente…
+          </p>
         </div>
       </div>
     );

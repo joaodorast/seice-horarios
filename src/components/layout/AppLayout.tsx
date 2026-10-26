@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   BookOpen,
   CalendarDays,
+  Check,
+  Type,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
@@ -16,7 +18,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { IconButton, useToast } from '@/components/ui';
+import { IconButton, Menu, useToast } from '@/components/ui';
+import { TEXT_SCALE_LABEL, textScaleStore, type TextScale } from '@/lib/textScale';
 import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 import { UpdateNotice } from './UpdateNotice';
 import { useIsDemo } from '@/api/environment';
@@ -82,11 +85,11 @@ export function AppLayout() {
         >
           Ir para o conteúdo
         </a>
-        <div className="flex min-h-dvh">
+        <div className="flex min-h-app">
           {/* Sidebar fixa (desktop) */}
           <aside
             className={cn(
-              'no-print sticky top-0 z-40 hidden h-dvh shrink-0 flex-col bg-nav transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] lg:flex',
+              'no-print sticky top-0 z-40 hidden h-app shrink-0 flex-col bg-nav transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] lg:flex',
               collapsed ? 'w-[84px]' : 'w-[272px]',
             )}
             aria-label="Menu principal"
@@ -228,6 +231,7 @@ function UserCard({ collapsed }: { collapsed: boolean }) {
     return (
       <div className="mt-3 flex flex-col items-center gap-2" title={`${user.name} · ${user.email}`}>
         {avatar}
+        <TextScaleMenu align="left" />
         <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
           <LogOut className="size-[18px]" />
         </IconButton>
@@ -242,9 +246,29 @@ function UserCard({ collapsed }: { collapsed: boolean }) {
         <span className="block truncate text-[13px] font-bold text-white">{user.name}</span>
         <span className="block truncate text-xs text-nav-text/75">{user.email}</span>
       </span>
+      <TextScaleMenu />
       <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>
         <LogOut className="size-[18px]" />
       </IconButton>
     </div>
+  );
+}
+
+/** Escolha do tamanho do texto (Automático cresce sozinho em monitores grandes). */
+function TextScaleMenu({ align = 'right' }: { align?: 'left' | 'right' }) {
+  const scale = useSyncExternalStore(textScaleStore.subscribe, textScaleStore.get);
+  return (
+    <Menu
+      label="Tamanho do texto"
+      tone="onDark"
+      direction="up"
+      align={align}
+      triggerIcon={<Type className="size-[18px]" />}
+      items={(Object.keys(TEXT_SCALE_LABEL) as TextScale[]).map((key) => ({
+        label: key === 'auto' ? 'Automático (ajusta à tela)' : TEXT_SCALE_LABEL[key],
+        icon: key === scale ? <Check /> : <span className="size-4" />,
+        onSelect: () => textScaleStore.set(key),
+      }))}
+    />
   );
 }

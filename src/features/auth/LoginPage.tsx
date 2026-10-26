@@ -14,7 +14,7 @@ export function LoginPage({ expired }: { expired?: boolean }) {
   }, []);
 
   return (
-    <div className="flex min-h-dvh bg-surface lg:h-dvh lg:overflow-hidden">
+    <div className="flex min-h-app bg-surface lg:h-app lg:overflow-hidden">
       <Showcase />
       <main className="relative flex flex-1 flex-col px-6 pb-8 sm:px-10 lg:overflow-y-auto lg:px-14 lg:pt-8">
         <MobileHero />
@@ -271,10 +271,10 @@ function RememberPrompt({
         onCancel();
       }}
       onMouseDown={(e) => e.target === ref.current && onCancel()}
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[520px] overflow-hidden rounded-[22px] bg-surface p-0 text-ink shadow-[0_32px_64px_-16px_rgb(29_32_37/0.45)] backdrop:bg-ink/55 backdrop:backdrop-blur-[3px] open:animate-pop-in"
+      className="m-auto max-h-[calc(100dvh/var(--ui-zoom,1)-2rem)] w-[calc(100%-2rem)] max-w-[520px] overflow-hidden rounded-[22px] bg-surface p-0 text-ink shadow-[0_32px_64px_-16px_rgb(29_32_37/0.45)] backdrop:bg-ink/55 backdrop:backdrop-blur-[3px] open:animate-pop-in"
     >
       {open && (
-        <div className="scrollbar-thin relative max-h-[calc(100dvh-2rem)] overflow-y-auto px-7 pt-9 pb-7 text-center sm:px-11">
+        <div className="scrollbar-thin relative max-h-[calc(100dvh/var(--ui-zoom,1)-2rem)] overflow-y-auto px-7 pt-9 pb-7 text-center sm:px-11">
           <button
             type="button"
             onClick={onCancel}
@@ -492,7 +492,7 @@ function Showcase() {
       <div className="relative flex items-start justify-between gap-8">
         <img src="/logo-seice.webp" alt="" className="h-auto w-[190px] drop-shadow-[0_8px_20px_rgb(0_0_0/0.45)]" />
         <div className="pt-1 pr-3">
-          <UnitCards active={active} swaps={swaps} width="clamp(132px, 21vh, 214px)" />
+          <UnitCards active={active} swaps={swaps} width="clamp(132px, calc(21vh / var(--ui-zoom, 1)), 214px)" />
         </div>
       </div>
 

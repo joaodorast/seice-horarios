@@ -15,6 +15,7 @@ import { durationMinutes } from '@shared/time';
 import { SHIFT_LABEL } from '@shared/labels';
 import { Avatar } from './TeachersPage';
 import { formatHours } from '@/lib/format';
+import { GUIDES } from '@/lib/guides';
 
 export function TeacherDetailPage() {
   const { id } = useParams();
@@ -48,6 +49,7 @@ export function TeacherDetailPage() {
   return (
     <Page
       title={teacher?.name ?? 'Professor'}
+      guide={GUIDES.teacherDetail}
       width="wide"
       titleAddon={teacher && <StatusBadge active={teacher.active} />}
       breadcrumbs={[{ label: 'Professores', to: '/professores' }, { label: teacher?.name ?? '…' }]}

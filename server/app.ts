@@ -9,6 +9,7 @@ import { AuthError, createAuth, sameOriginGuard } from './auth.js';
 import {
   classSchema,
   importRequestSchema,
+  lessonBatchSchema,
   loginSchema,
   lessonSchema,
   periodsReplaceSchema,
@@ -419,6 +420,32 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const result = await writeLesson(async (tx) => {
       const warnings = await validateOrThrow(tx, input, id);
       return { lesson: (await tx.updateLesson(id, input))!, warnings };
+    });
+    res.json(result);
+  });
+
+  // Reorganização do quadro: tudo ou nada, validando cada passo sobre o quadro já atualizado pelos anteriores.
+  api.post('/lessons/batch', async (req, res) => {
+    const batch = parse(lessonBatchSchema, req.body);
+    if (!batch.removeIds.length && !batch.updates.length && !batch.creates.length) {
+      throw new HttpError(422, 'empty_batch', 'Nenhuma alteração para aplicar.');
+    }
+    const result = await writeLesson(async (tx) => {
+      for (const id of batch.removeIds) {
+        if (!(await tx.deleteLesson(id))) throw new HttpError(409, 'stale', 'Uma das aulas foi alterada por outra pessoa. Feche e abra o quadro novamente.');
+      }
+      const updated = [];
+      for (const { id, input } of batch.updates) {
+        if (!(await tx.getLesson(id))) throw new HttpError(409, 'stale', 'Uma das aulas foi alterada por outra pessoa. Feche e abra o quadro novamente.');
+        await validateOrThrow(tx, input, id);
+        updated.push((await tx.updateLesson(id, input))!);
+      }
+      const created = [];
+      for (const input of batch.creates) {
+        await validateOrThrow(tx, input);
+        created.push(await tx.createLesson(input));
+      }
+      return { removed: batch.removeIds.length, updated, created };
     });
     res.json(result);
   });

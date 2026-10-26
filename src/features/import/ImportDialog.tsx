@@ -613,7 +613,7 @@ function ReportTable({ report, initialFilter }: { report: ImportReport; initialF
       {list.length === 0 ? (
         <p className="rounded-lg bg-subtle px-4 py-6 text-center text-sm text-muted">Nenhuma linha nesta situação.</p>
       ) : (
-        <div className="scrollbar-thin max-h-[42dvh] overflow-auto rounded-lg ring-1 ring-line">
+        <div className="scrollbar-thin max-h-[calc(42dvh/var(--ui-zoom,1))] overflow-auto rounded-lg ring-1 ring-line">
           <table className="w-full text-[13px]">
             <thead className="sticky top-0 bg-subtle">
               <tr className="text-left text-xs text-muted">

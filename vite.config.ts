@@ -17,29 +17,29 @@ function versionFile(): Plugin {
   };
 }
 
-/** Endereço da API local (configurável para rodar mais de uma cópia do sistema ao mesmo tempo). */
-const apiTarget = process.env.SEICE_API_URL ?? 'http://localhost:3333';
+export default defineConfig(({ mode }) => {
+  // Modo "demo" (npm run demo): ambiente de teste com dados fictícios, em portas próprias.
+  const demo = mode === 'demo';
+  /** Endereço da API local (configurável para rodar mais de uma cópia do sistema ao mesmo tempo). */
+  const apiTarget = process.env.SEICE_API_URL ?? (demo ? 'http://localhost:3402' : 'http://localhost:3333');
+  // changeOrigin desligado: a API recebe o mesmo endereço que o navegador usa (necessário para a
+  // proteção contra requisições de outros sites e para o cookie de sessão).
+  const proxy = { '/api': { target: apiTarget, changeOrigin: false, xfwd: true } };
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), versionFile()],
-  define: { __APP_VERSION__: JSON.stringify(appVersion) },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
+  return {
+    plugins: [react(), tailwindcss(), versionFile()],
+    define: { __APP_VERSION__: JSON.stringify(appVersion) },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
+      },
     },
-  },
-  build: {
-    // O leitor de planilhas (ExcelJS) é grande, mas só é baixado quando alguém abre uma importação.
-    chunkSizeWarningLimit: 1000,
-  },
-  server: {
-    port: 5173,
-    // changeOrigin desligado: a API recebe o mesmo endereço que o navegador usa (necessário para a
-    // proteção contra requisições de outros sites e para o cookie de sessão).
-    proxy: { '/api': { target: apiTarget, changeOrigin: false, xfwd: true } },
-  },
-  preview: {
-    proxy: { '/api': { target: apiTarget, changeOrigin: false, xfwd: true } },
-  },
+    build: {
+      // O leitor de planilhas (ExcelJS) é grande, mas só é baixado quando alguém abre uma importação.
+      chunkSizeWarningLimit: 1000,
+    },
+    server: { port: demo ? 5180 : 5173, strictPort: demo, proxy },
+    preview: { proxy },
+  };
 });

@@ -25,14 +25,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
   let content: ReactNode;
   if (session.isPending) {
     content = (
-      <div className="grid min-h-dvh place-items-center bg-nav" role="status">
+      <div className="grid min-h-app place-items-center bg-nav" role="status">
         <img src="/emblema-seice.webp" alt="" className="size-14 animate-pulse object-contain opacity-90" />
         <span className="sr-only">Verificando acesso…</span>
       </div>
     );
   } else if (unreachable) {
     content = (
-      <div className="grid min-h-dvh place-items-center bg-canvas px-4">
+      <div className="grid min-h-app place-items-center bg-canvas px-4">
         <div className="rounded-xl bg-surface shadow-raise">
           <ErrorState message={errorMessage(session.error)} onRetry={() => session.refetch()} />
           <p className="flex items-center justify-center gap-2 border-t border-line px-6 py-3 text-xs text-muted" role="status">

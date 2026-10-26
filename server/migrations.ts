@@ -155,8 +155,19 @@ CREATE TABLE app_config (
 );
 `;
 
+const TEACHER_PHOTOS = /* sql */ `
+-- Fotos dos professores (já reduzidas no navegador para cerca de 20 KB). Apagadas junto com o professor.
+CREATE TABLE teacher_photos (
+  teacher_id  integer PRIMARY KEY REFERENCES teachers (id) ON DELETE CASCADE,
+  mime        text NOT NULL CHECK (mime IN ('image/webp', 'image/jpeg', 'image/png')),
+  data        bytea NOT NULL CHECK (octet_length(data) <= 300000),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
   { version: 2, name: 'usuarios_e_sessoes', sql: AUTH_SCHEMA },
+  { version: 3, name: 'fotos_dos_professores', sql: TEACHER_PHOTOS },
 ];

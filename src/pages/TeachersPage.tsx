@@ -11,6 +11,7 @@ import { useLessons, useTeachers } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
+import { teacherPhotoUrl } from '@/lib/image';
 import { durationMinutes } from '@shared/time';
 import type { Lesson, Teacher } from '@shared/types';
 import { GUIDES } from '@/lib/guides';
@@ -179,7 +180,7 @@ export function TeachersPage() {
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <Avatar name={t.name} muted={!t.active} />
+                                <Avatar name={t.name} muted={!t.active} photo={teacherPhotoUrl(t)} />
                                 <div className="min-w-0">
                                   <Link
                                     to={`/professores/${t.id}`}
@@ -226,7 +227,7 @@ export function TeachersPage() {
                       const l = load.get(t.id);
                       return (
                         <li key={t.id} className="flex items-center gap-3 px-4 py-3">
-                          <Avatar name={t.name} muted={!t.active} />
+                          <Avatar name={t.name} muted={!t.active} photo={teacherPhotoUrl(t)} />
                           <Link to={`/professores/${t.id}`} className="min-w-0 flex-1">
                             <span className="block truncate font-semibold">{t.name}</span>
                             <span className="block truncate text-xs text-muted">
@@ -302,15 +303,26 @@ function RowActions({
   );
 }
 
-export function Avatar({ name, muted, size = 'md' }: { name: string; muted?: boolean; size?: 'md' | 'lg' }) {
+export function Avatar({ name, muted, size = 'md', photo }: { name: string; muted?: boolean; size?: 'md' | 'lg'; photo?: string }) {
+  const box = size === 'lg' ? 'size-14 text-lg' : 'size-9 text-xs';
+  if (photo) {
+    const px = size === 'lg' ? 56 : 36;
+    return (
+      <img
+        src={photo}
+        alt=""
+        width={px}
+        height={px}
+        loading="lazy"
+        decoding="async"
+        className={`${box} shrink-0 rounded-full object-cover ring-1 ring-line ${muted ? 'opacity-55 grayscale' : ''}`}
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"
-      className={
-        (size === 'lg' ? 'size-14 text-lg ' : 'size-9 text-xs ') +
-        'grid shrink-0 place-items-center rounded-full font-bold ' +
-        (muted ? 'bg-ink/[0.06] text-muted' : 'bg-nav text-brand')
-      }
+      className={`${box} grid shrink-0 place-items-center rounded-full font-bold ${muted ? 'bg-ink/[0.06] text-muted' : 'bg-nav text-brand'}`}
     >
       {initials(name)}
     </span>

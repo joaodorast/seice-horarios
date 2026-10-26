@@ -91,6 +91,17 @@ export const lessonSchema = z
   });
 export type LessonInput = z.output<typeof lessonSchema>;
 
+/**
+ * Reorganização do quadro numa única operação (ex.: substituir uma aula, trocar horários ou passar uma aula
+ * para outro professor). Ordem de aplicação: remoções, alterações e, por fim, novas aulas.
+ */
+export const lessonBatchSchema = z.object({
+  removeIds: z.array(z.number().int().positive()).max(20).default([]),
+  updates: z.array(z.object({ id: z.number().int().positive(), input: lessonSchema })).max(20).default([]),
+  creates: z.array(lessonSchema).max(20).default([]),
+});
+export type LessonBatchInput = z.output<typeof lessonBatchSchema>;
+
 export const periodSchema = z
   .object({
     id: z.number().int().positive().optional(),

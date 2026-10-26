@@ -7,11 +7,12 @@ import { Badge, Button, Card, EmptyState, IconButton, Menu, SearchInput, Segment
 import { TeacherFormModal } from '@/features/TeacherForm';
 import { useEntityActions } from '@/features/EntityActions';
 import { ImportButton } from '@/features/import/ImportDialog';
-import { useLessons, useTeachers } from '@/api/hooks';
+import { useLessons, useSubjects, useTeachers } from '@/api/hooks';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
 import { teacherPhotoUrl } from '@/lib/image';
+import { SubjectChips } from '@/features/SubjectPicker';
 import { durationMinutes } from '@shared/time';
 import type { Lesson, Teacher } from '@shared/types';
 import { GUIDES } from '@/lib/guides';
@@ -21,6 +22,8 @@ type StatusFilter = 'ativos' | 'inativos' | 'todos';
 export function TeachersPage() {
   const teachers = useTeachers();
   const lessons = useLessons();
+  const subjects = useSubjects();
+  const subjectName = (id: number) => subjects.data?.find((s) => s.id === id)?.name;
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [editing, setEditing] = useState<Teacher | null | 'new'>(null);
@@ -66,7 +69,7 @@ export function TeachersPage() {
     (t) =>
       (status === 'todos' || (status === 'ativos' ? t.active : !t.active)) &&
       (!area || (t.area && normalize(t.area) === normalize(area))) &&
-      matches([t.name, t.code, t.area, t.phone], query),
+      matches([t.name, t.code, t.area, t.phone, ...t.subjectIds.map(subjectName)], query),
   );
   const hasFilters = Boolean(query || area || status !== 'ativos');
 
@@ -111,7 +114,7 @@ export function TeachersPage() {
                 <SearchInput
                   value={query}
                   onChange={(v) => setParam('q', v)}
-                  placeholder="Pesquisar por nome, matrícula ou área"
+                  placeholder="Pesquisar por nome, matrícula ou disciplina"
                   label="Pesquisar professores"
                   className="lg:w-80"
                 />
@@ -162,7 +165,7 @@ export function TeachersPage() {
                     <thead>
                       <tr className="border-b border-line text-left text-xs text-muted">
                         <th scope="col" className="px-4 py-2.5 font-semibold">Professor</th>
-                        <th scope="col" className="px-4 py-2.5 font-semibold">Área de atuação</th>
+                        <th scope="col" className="px-4 py-2.5 font-semibold">Disciplinas</th>
                         <th scope="col" className="hidden px-4 py-2.5 font-semibold lg:table-cell">Telefone</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Carga semanal</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Situação</th>
@@ -193,7 +196,9 @@ export function TeachersPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-ink-2">{t.area ?? <span className="text-soft">—</span>}</td>
+                            <td className="px-4 py-3">
+                              <SubjectChips ids={t.subjectIds} max={2} fallback={t.area} />
+                            </td>
                             <td className="tabular hidden px-4 py-3 text-ink-2 lg:table-cell">{t.phone ?? <span className="text-soft">—</span>}</td>
                             <td className="px-4 py-3">
                               {l ? (
@@ -231,7 +236,7 @@ export function TeachersPage() {
                           <Link to={`/professores/${t.id}`} className="min-w-0 flex-1">
                             <span className="block truncate font-semibold">{t.name}</span>
                             <span className="block truncate text-xs text-muted">
-                              {[t.area, l ? plural(l.count, 'aula', 'aulas') : 'Sem aulas', !t.active && 'Inativo'].filter(Boolean).join(' · ')}
+                              {[t.subjectIds.map(subjectName).filter(Boolean).join(', ') || t.area, l ? plural(l.count, 'aula', 'aulas') : 'Sem aulas', !t.active && 'Inativo'].filter(Boolean).join(' · ')}
                             </span>
                           </Link>
                           <RowActions

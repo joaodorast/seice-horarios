@@ -13,7 +13,7 @@ import { useScheduleData } from '@/api/hooks';
 import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { durationMinutes } from '@shared/time';
 import { SHIFT_LABEL } from '@shared/labels';
-import { Avatar } from './TeachersPage';
+import { TeacherPhotoField } from '@/features/TeacherPhoto';
 import { formatHours } from '@/lib/format';
 import { GUIDES } from '@/lib/guides';
 
@@ -85,8 +85,8 @@ export function TeacherDetailPage() {
         {(data) =>
           teacher && (
             <div className="flex flex-col gap-6">
-              <Card className="grid gap-x-8 gap-y-4 p-5 md:grid-cols-[auto_1fr_auto]">
-                <Avatar name={teacher.name} muted={!teacher.active} size="lg" />
+              <Card className="grid items-center gap-x-8 gap-y-5 p-5 md:grid-cols-[auto_1fr_auto]">
+                <TeacherPhotoField teacher={teacher} />
                 <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <Info label="Matrícula">{teacher.code}</Info>
                   <Info label="Área de atuação">{teacher.area}</Info>

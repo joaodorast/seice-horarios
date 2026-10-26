@@ -82,6 +82,22 @@ export function useDeleteTeacher() {
   });
 }
 
+export function useSetTeacherPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dataUrl }: { id: number; dataUrl: string }) => request<Teacher>('PUT', `/teachers/${id}/photo`, { dataUrl }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.teachers }),
+  });
+}
+
+export function useRemoveTeacherPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => request<Teacher>('DELETE', `/teachers/${id}/photo`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.teachers }),
+  });
+}
+
 // -------- Turmas --------
 export function useSaveClass() {
   const qc = useQueryClient();

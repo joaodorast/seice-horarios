@@ -17,6 +17,7 @@ import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { cn } from '@/lib/cn';
 import { Info, Stat } from './TeacherDetailPage';
 import { Avatar } from './TeachersPage';
+import { teacherPhotoUrl } from '@/lib/image';
 import { GUIDES } from '@/lib/guides';
 
 export function ClassDetailPage() {
@@ -143,7 +144,7 @@ export function ClassDetailPage() {
                       if (!t) return null;
                       return (
                         <li key={teacherId} className="flex items-start gap-3 px-5 py-3">
-                          <Avatar name={t.name} muted={!t.active} />
+                          <Avatar name={t.name} muted={!t.active} photo={teacherPhotoUrl(t)} />
                           <div className="min-w-0 flex-1">
                             <Link to={`/professores/${t.id}`} className="block truncate text-sm font-semibold hover:underline underline-offset-2">
                               {t.name}

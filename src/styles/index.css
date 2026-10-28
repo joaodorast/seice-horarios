@@ -25,15 +25,15 @@
   --color-current: currentColor;
 
   /* Neutros */
-  --color-canvas: #eceef1;
+  --color-canvas: #e3e6eb;
   --color-surface: #ffffff;
-  --color-subtle: #f6f7f9;
-  --color-line: #dfe2e7;
-  --color-line-strong: #c9ced6;
-  --color-muted: #6a707b;
-  --color-soft: #8b919c;
+  --color-subtle: #f0f2f5;
+  --color-line: #d2d7de;
+  --color-line-strong: #b6bdc8;
+  --color-muted: #545a64;
+  --color-soft: #737a85;
   --color-ink: #1d2025;
-  --color-ink-2: #3a3f47;
+  --color-ink-2: #2e333a;
 
   /* Navegação (grafite da logo) */
   --color-nav: #202328;
@@ -62,34 +62,34 @@
 
   /* Paleta das disciplinas (fundo, borda e texto) */
   --color-sub-amber: #f2b705;
-  --color-sub-amber-bg: #fff7dc;
+  --color-sub-amber-bg: #fdedb3;
   --color-sub-amber-ink: #5e4700;
   --color-sub-orange: #ec7a1f;
-  --color-sub-orange-bg: #fdeee0;
+  --color-sub-orange-bg: #fbdabd;
   --color-sub-orange-ink: #7a3a06;
   --color-sub-green: #2f9a4a;
-  --color-sub-green-bg: #e5f4e9;
+  --color-sub-green-bg: #cbe9d3;
   --color-sub-green-ink: #17562a;
   --color-sub-indigo: #5f6cc0;
-  --color-sub-indigo-bg: #eaecf9;
+  --color-sub-indigo-bg: #d6dbf4;
   --color-sub-indigo-ink: #2f3778;
   --color-sub-rose: #d0699b;
-  --color-sub-rose-bg: #f9e7f0;
+  --color-sub-rose-bg: #f3cfe1;
   --color-sub-rose-ink: #7a2c52;
   --color-sub-sky: #2f8fc2;
-  --color-sub-sky-bg: #e3f1f9;
+  --color-sub-sky-bg: #c9e3f3;
   --color-sub-sky-ink: #164e6d;
   --color-sub-teal: #1d9488;
-  --color-sub-teal-bg: #e0f3f1;
+  --color-sub-teal-bg: #c6e9e4;
   --color-sub-teal-ink: #0e5049;
   --color-sub-violet: #8b5cc4;
-  --color-sub-violet-bg: #f0e9f9;
+  --color-sub-violet-bg: #e1d3f3;
   --color-sub-violet-ink: #4b2a74;
   --color-sub-slate: #6a707b;
-  --color-sub-slate-bg: #eef0f3;
+  --color-sub-slate-bg: #dde2e9;
   --color-sub-slate-ink: #30353c;
   --color-sub-lime: #7a9a12;
-  --color-sub-lime-bg: #f1f6dd;
+  --color-sub-lime-bg: #e1edb7;
   --color-sub-lime-ink: #3e4f07;
 
   --radius-xs: 4px;

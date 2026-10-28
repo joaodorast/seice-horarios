@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { CalendarClock, Coffee, FilterX, Plus, Printer, X } from 'lucide-react';
+import { CalendarClock, CalendarRange, Coffee, FilterX, Plus, Printer, X } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
 import { Alert, Button, ButtonLink, Card, Combobox, EmptyState, Menu, Segmented } from '@/components/ui';
@@ -75,6 +75,8 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const days = data.settings.enabledDays;
   const shifts = data.settings.enabledShifts;
 
+  // "dia=semana" mostra a semana inteira em uma tela só.
+  const week = params.get('dia') === 'semana';
   const day = (() => {
     const v = Number(params.get('dia'));
     return (days.includes(v as Weekday) ? v : todayOr(days)) as Weekday;
@@ -118,11 +120,15 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const periods = periodsForShifts(data.periods, [shift]);
   const lessonPeriods = periods.filter((p) => p.kind === 'aula');
 
-  const dayLessons = useMemo(() => data.lessons.filter((l) => l.weekday === day && lessonFilter(l)), [data.lessons, day, teacherId, classId, subjectId]);
+  const dayLessons = useMemo(
+    () => data.lessons.filter((l) => (week ? days.includes(l.weekday) : l.weekday === day) && lessonFilter(l)),
+    [data.lessons, week, days, day, teacherId, classId, subjectId],
+  );
+  const viewDays = week ? days : [day];
 
   const rows: SchoolClass[] = data.classes
     .filter((c) => shiftsOfClass(c.shift).includes(shift))
-    .filter((c) => c.active || data.lessons.some((l) => l.classId === c.id && l.weekday === day))
+    .filter((c) => c.active || data.lessons.some((l) => l.classId === c.id && viewDays.includes(l.weekday)))
     .filter((c) => !classId || c.id === classId)
     .filter((c) => !narrowing || dayLessons.some((l) => l.classId === c.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
@@ -131,13 +137,14 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const countByShift = new Map<ShiftKey, number>(
     shifts.map((s) => [
       s,
-      data.lessons.filter((l) => l.weekday === day && lessonFilter(l) && periodsForShifts(data.periods, [s]).some((p) => p.kind === 'aula' && lessonsInPeriod([l], day, p).length)).length,
+      data.lessons.filter((l) => viewDays.includes(l.weekday) && lessonFilter(l) && periodsForShifts(data.periods, [s]).some((p) => p.kind === 'aula' && lessonsInPeriod([l], l.weekday, p).length)).length,
     ]),
   );
 
   let emptyCount = 0;
   if (!narrowing) {
-    for (const c of rows.filter((r) => r.active)) for (const p of lessonPeriods) if (!lessonsInPeriod(dayLessons.filter((l) => l.classId === c.id), day, p).length) emptyCount++;
+    for (const d of viewDays)
+      for (const c of rows.filter((r) => r.active)) for (const p of lessonPeriods) if (!lessonsInPeriod(dayLessons.filter((l) => l.classId === c.id), d, p).length) emptyCount++;
   }
 
   const visibleCount = dayLessons.filter((l) => rows.some((r) => r.id === l.classId)).length;
@@ -197,9 +204,12 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
             label="Dia da semana"
             className="w-full xl:w-auto"
             fill
-            value={day}
-            onChange={(v) => set('dia', v)}
-            options={days.map((d) => ({ value: d, label: <><span className="sm:hidden">{WEEKDAY_SHORT[d]}</span><span className="hidden sm:inline">{WEEKDAY_LABEL[d].replace('-feira', '')}</span></>, count: countByDay.get(d) }))}
+            value={week ? 0 : day}
+            onChange={(v) => set('dia', v === 0 ? 'semana' : v)}
+            options={[
+              ...days.map((d) => ({ value: d as number, label: <><span className="sm:hidden">{WEEKDAY_SHORT[d]}</span><span className="hidden sm:inline">{WEEKDAY_LABEL[d].replace('-feira', '')}</span></>, count: countByDay.get(d) })),
+              { value: 0, label: <span className="inline-flex items-center gap-1.5 font-bold"><CalendarRange className="size-4" />Semana inteira</span> },
+            ]}
           />
           {shifts.length > 1 && (
             <Segmented label="Turno" value={shift} onChange={(v) => set('turno', v)} options={shifts.map((s) => ({ value: s, label: SHIFT_LABEL[s], count: countByShift.get(s) }))} />
@@ -234,7 +244,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-bold">
-          {WEEKDAY_LABEL[day]} · {SHIFT_LABEL[shift]}
+          {week ? 'Semana inteira' : WEEKDAY_LABEL[day]} · {SHIFT_LABEL[shift]}
         </h2>
         <p className="text-[13px] text-muted">
           <strong className="tabular font-semibold text-ink">{visibleCount}</strong> {visibleCount === 1 ? 'aula' : 'aulas'}
@@ -276,10 +286,14 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
           />
         </Card>
       ) : (
+        week ? (
+          <WeekMatrix rows={rows} periods={periods} days={days} lessons={dayLessons} index={index} narrowing={narrowing} />
+        ) : (
         <>
           <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
           <MatrixMobile rows={rows} periods={lessonPeriods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
         </>
+        )
       )}
 
       {outside.length > 0 && <OutsideGrid lessons={outside} index={index} perspective="overview" onOpen={actions.openLesson} />}
@@ -359,6 +373,123 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Semana inteira em uma tela: horários nas linhas, dias nas colunas e, em cada quadro, uma linha por turma. */
+function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
+  const actions = useScheduleActions();
+  const today = new Date().getDay();
+  return (
+    <div className="overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin">
+      <table className="w-full min-w-[900px] table-fixed border-separate border-spacing-0">
+        <caption className="sr-only">Quadro de horários da semana inteira: horários nas linhas e dias nas colunas</caption>
+        <colgroup>
+          <col className="w-[104px]" />
+          {days.map((d) => (
+            <col key={d} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" className="sticky left-0 z-10 bg-nav px-3 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
+              Horário
+            </th>
+            {days.map((d) => (
+              <th key={d} scope="col" className={cn('border-l border-nav-line px-3 py-3 text-left text-[14px] font-bold', d === today ? 'bg-brand text-ink' : 'bg-nav text-white')}>
+                <span className="xl:hidden">{WEEKDAY_SHORT[d]}</span>
+                <span className="hidden xl:inline">{WEEKDAY_LABEL[d]}</span>
+                {d === today && <span className="ml-2 text-[11px] font-extrabold uppercase">hoje</span>}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {periods.map((p) =>
+            p.kind === 'intervalo' ? (
+              <tr key={p.id}>
+                <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-3 py-1 text-left text-xs font-bold text-ink-2">
+                  {p.start}–{p.end}
+                </th>
+                <td colSpan={days.length} className="border-b border-l border-line-strong bg-canvas px-3 py-1 text-xs font-bold text-ink-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Coffee className="size-3.5" /> {p.label}
+                  </span>
+                </td>
+              </tr>
+            ) : (
+              <tr key={p.id}>
+                <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
+                  <span className="block text-[14px] font-bold text-ink">{p.label}</span>
+                  <span className="tabular block text-xs font-semibold text-ink-2">
+                    {p.start}–{p.end}
+                  </span>
+                </th>
+                {days.map((d) => (
+                  <td key={d} className={cn('border-b border-l border-line-strong p-1.5 align-top', d === today ? 'bg-brand-soft/40' : 'bg-subtle/70')}>
+                    <div className="flex flex-col gap-1">
+                      {rows.map((c) => {
+                        const ls = lessonsInPeriod(lessons.filter((l) => l.classId === c.id), d, p);
+                        if (ls.length === 0) {
+                          if (narrowing) return null;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              disabled={!c.active}
+                              onClick={() => actions.createLesson({ classId: c.id, weekday: d, start: p.start, end: p.end })}
+                              className="group flex h-[38px] items-center gap-2 rounded-md border border-dashed border-line-strong px-1.5 text-left text-xs text-muted hover:border-ink/40 hover:bg-surface hover:text-ink disabled:pointer-events-none"
+                              aria-label={`Adicionar aula: turma ${c.name}, ${WEEKDAY_LABEL[d]}, ${p.label}`}
+                            >
+                              <ClassTag name={c.name} muted />
+                              <span className="font-semibold">vago</span>
+                              <Plus className="ml-auto size-3.5 opacity-0 group-hover:opacity-100" />
+                            </button>
+                          );
+                        }
+                        return ls.map((l) => {
+                          const subject = l.subjectId ? index.subjectById.get(l.subjectId) : undefined;
+                          const style = subject ? SUBJECT_STYLE[subject.color] : undefined;
+                          const teacher = index.teacherById.get(l.teacherId);
+                          const conflict = index.conflictLessonIds.has(l.id);
+                          return (
+                            <button
+                              key={l.id}
+                              type="button"
+                              onClick={() => actions.openLesson(l)}
+                              title={`${c.name} · ${subject?.name ?? 'Sem disciplina'} · ${teacher?.name ?? ''} · ${l.start}–${l.end}`}
+                              className={cn(
+                                'flex min-h-[38px] items-center gap-2 rounded-md px-1.5 py-1 text-left ring-1 ring-inset transition-shadow hover:shadow-raise',
+                                style ? `${style.chip} ${style.ring}` : 'bg-surface ring-line-strong',
+                                conflict && 'ring-2 ring-danger',
+                              )}
+                            >
+                              <ClassTag name={c.name} />
+                              <span className="min-w-0 flex-1 leading-tight">
+                                <span className="block truncate text-[12.5px] font-bold">{subject?.name ?? 'Sem disciplina'}</span>
+                                <span className="block truncate text-[11.5px] font-medium opacity-90">{teacher?.name ?? '—'}</span>
+                              </span>
+                            </button>
+                          );
+                        });
+                      })}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ),
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ClassTag({ name, muted }: { name: string; muted?: boolean }) {
+  return (
+    <span className={cn('grid h-6 min-w-[38px] shrink-0 place-items-center rounded px-1 text-[11.5px] font-extrabold', muted ? 'bg-line text-ink-2' : 'bg-ink-2 text-white')}>
+      {name}
+    </span>
   );
 }
 

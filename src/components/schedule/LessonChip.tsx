@@ -52,20 +52,21 @@ export function LessonChip({ lesson, index, perspective, period, onClick, dimmed
       }}
       aria-label={`Aula: ${label}`}
       className={cn(
-        'group/chip relative flex w-full min-w-0 overflow-hidden rounded-md text-left transition-[box-shadow,opacity,transform] duration-150 hover:-translate-y-px hover:shadow-raise focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
+        'group/chip relative flex w-full min-w-0 overflow-hidden rounded-md text-left ring-1 ring-inset transition-[box-shadow,opacity,transform] duration-150 hover:-translate-y-px hover:shadow-raise focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
         style.chip,
+        style.ring,
         conflict && 'ring-2 ring-danger',
         dimmed && 'opacity-35 hover:opacity-100',
       )}
     >
-      <span className={cn('w-[3px] shrink-0', conflict ? 'bg-danger' : style.bar)} aria-hidden="true" />
+      <span className={cn('w-1 shrink-0', conflict ? 'bg-danger' : style.bar)} aria-hidden="true" />
       <span className={cn('min-w-0 flex-1', compact ? 'px-2 py-1.5' : 'px-2.5 py-2')}>
         <span className="flex items-center gap-1">
           <span className={cn('truncate font-bold', compact ? 'text-xs' : 'text-[13px]')}>{title}</span>
           {conflict && <AlertTriangle className="size-3.5 shrink-0 text-danger" aria-hidden="true" />}
           {inactive && !conflict && <UserX className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />}
         </span>
-        <span className={cn('block truncate opacity-80', compact ? 'text-[11px]' : 'text-xs')}>{secondary}</span>
+        <span className={cn('block truncate font-medium opacity-90', compact ? 'text-[11px]' : 'text-[12.5px]')}>{secondary}</span>
         {customTime && <span className="tabular mt-0.5 block text-[11px] font-semibold opacity-75">{lesson.start}–{lesson.end}</span>}
       </span>
     </button>

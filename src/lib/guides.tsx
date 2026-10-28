@@ -50,6 +50,21 @@ export const GUIDES = {
     { title: 'Lance uma aula', text: 'Clique em um espaço vazio da grade para lançar uma aula para esta turma naquele horário.' },
     { title: 'Imprima ou salve em PDF', text: 'Use "Imprimir ou PDF" para afixar o horário na sala.' },
   ],
+  builderClass: [
+    { title: 'Escolha a turma', text: 'Use a lista no topo ou as setas. A grade mostra a semana inteira da turma, com os horários do turno dela.' },
+    { title: 'Preencha cada horário', text: 'Em cada quadradinho, escolha a disciplina e depois o professor. Os professores que lecionam a disciplina aparecem primeiro; os ocupados em outra turma ficam bloqueados.' },
+    { title: 'Salve de uma vez', text: 'Os horários alterados ficam destacados. Clique em "Salvar quadro" no rodapé para gravar tudo, ou em "Descartar" para voltar como estava.' },
+  ],
+  builderTeacher: [
+    { title: 'Escolha o professor', text: 'Use a lista no topo ou as setas. As disciplinas dele aparecem logo abaixo e podem ser configuradas ali mesmo.' },
+    { title: 'Preencha cada horário', text: 'Em cada quadradinho, escolha a turma e a disciplina. As disciplinas do professor aparecem primeiro; turmas já ocupadas ficam bloqueadas.' },
+    { title: 'Salve de uma vez', text: 'Os horários alterados ficam destacados. Clique em "Salvar quadro" no rodapé para gravar tudo, ou em "Descartar" para voltar como estava.' },
+  ],
+  workload: [
+    { title: 'Leia a tabela', text: 'Cada linha é um professor e cada coluna uma turma. O número mostra quantas aulas (ou horas) ele dá naquela turma por semana.' },
+    { title: 'Totais', text: 'A última coluna soma a carga de cada professor; a última linha soma cada turma. O canto inferior traz o total da escola.' },
+    { title: 'Detalhe e exporte', text: 'Clique no nome do professor para ver a carga por disciplina. Use "Exportar Excel" para levar a tabela para a planilha.' },
+  ],
   settings: [
     { title: 'Calendário e turnos', text: 'Marque os dias letivos e os turnos em que a escola funciona.' },
     { title: 'Horários dos turnos', text: 'Na segunda aba, ajuste o início e o fim de cada aula e intervalo, ou use o gerador automático.' },

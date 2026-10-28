@@ -299,26 +299,26 @@ interface MatrixProps {
 function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: MatrixProps) {
   const actions = useScheduleActions();
   return (
-    <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise scrollbar-thin md:block">
+    <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
       <table className="w-full border-separate border-spacing-0">
         <caption className="sr-only">
           Quadro de horários de {WEEKDAY_LABEL[day]}: turmas nas linhas e períodos nas colunas
         </caption>
         <thead>
           <tr>
-            <th scope="col" className="sticky top-0 left-0 z-20 min-w-[132px] border-b border-line bg-surface px-4 py-3 text-left text-xs font-semibold text-muted">
+            <th scope="col" className="sticky top-0 left-0 z-20 min-w-[132px] bg-nav px-4 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
               Turma
             </th>
             {periods.map((p) =>
               p.kind === 'intervalo' ? (
-                <th key={p.id} scope="col" className="w-9 border-b border-l border-line bg-subtle px-1 py-3" title={`${p.label} ${p.start}–${p.end}`}>
-                  <Coffee className="mx-auto size-3.5 text-muted" aria-hidden="true" />
+                <th key={p.id} scope="col" className="w-9 border-l border-nav-line bg-nav-2 px-1 py-3" title={`${p.label} ${p.start}–${p.end}`}>
+                  <Coffee className="mx-auto size-3.5 text-nav-text" aria-hidden="true" />
                   <span className="sr-only">{p.label}</span>
                 </th>
               ) : (
-                <th key={p.id} scope="col" className="min-w-[148px] border-b border-l border-line px-3 py-2.5 text-left">
-                  <span className="block text-[13px] font-bold">{p.label}</span>
-                  <span className="tabular block text-xs font-medium text-muted">
+                <th key={p.id} scope="col" className="min-w-[148px] border-l border-nav-line bg-nav px-3 py-2.5 text-left text-white">
+                  <span className="block text-[14px] font-bold">{p.label}</span>
+                  <span className="tabular block text-xs font-semibold text-nav-text">
                     {p.start}–{p.end}
                   </span>
                 </th>
@@ -331,17 +331,17 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
             const classLessons = lessons.filter((l) => l.classId === c.id);
             return (
               <tr key={c.id}>
-                <th scope="row" className="sticky left-0 z-10 border-b border-line bg-surface px-4 py-2 text-left align-middle">
-                  <Link to={`/horarios/turma/${c.id}`} className="text-sm font-bold hover:underline underline-offset-2">
+                <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-4 py-2 text-left align-middle">
+                  <Link to={`/horarios/turma/${c.id}`} className="text-[15px] font-bold text-ink hover:underline underline-offset-2">
                     {c.name}
                   </Link>
-                  <span className="block max-w-[150px] truncate text-[11px] text-muted">{c.grade}</span>
+                  <span className="block max-w-[150px] truncate text-xs font-semibold text-ink-2">{c.grade}</span>
                 </th>
                 {periods.map((p) =>
                   p.kind === 'intervalo' ? (
-                    <td key={p.id} className="border-b border-l border-line bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgb(29_32_37/0.04)_6px_12px)]" />
+                    <td key={p.id} className="border-b border-l border-line-strong bg-canvas bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgb(29_32_37/0.05)_6px_12px)]" />
                   ) : (
-                    <td key={p.id} className="h-[68px] border-b border-l border-line p-1.5 align-top">
+                    <td key={p.id} className="h-[70px] border-b border-l border-line-strong bg-subtle/70 p-1.5 align-top">
                       <Cell
                         lessons={lessonsInPeriod(classLessons, day, p)}
                         index={index}

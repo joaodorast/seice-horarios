@@ -10,6 +10,8 @@ import {
   GraduationCap,
   LayoutDashboard,
   LogOut,
+  PencilRuler,
+  Sigma,
   Settings2,
   Table2,
   UserRound,
@@ -50,6 +52,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { to: '/horarios', label: 'Quadro geral', icon: <Table2 />, end: true },
       { to: '/horarios/professor', label: 'Por professor', icon: <UserRound /> },
       { to: '/horarios/turma', label: 'Por turma', icon: <CalendarDays /> },
+      { to: '/horarios/montar', label: 'Montar quadro', icon: <PencilRuler /> },
+      { to: '/horarios/carga', label: 'Carga horária', icon: <Sigma /> },
     ],
   },
 ];

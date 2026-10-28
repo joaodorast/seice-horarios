@@ -61,8 +61,8 @@ export const GUIDES = {
     { title: 'Salve de uma vez', text: 'Os horários alterados ficam destacados. Clique em "Salvar quadro" no rodapé para gravar tudo, ou em "Descartar" para voltar como estava.' },
   ],
   workload: [
-    { title: 'Leia a tabela', text: 'Cada linha é um professor e cada coluna uma turma. O número mostra quantas aulas (ou horas) ele dá naquela turma por semana.' },
-    { title: 'Totais', text: 'A última coluna soma a carga de cada professor; a última linha soma cada turma. O canto inferior traz o total da escola.' },
+    { title: 'Leia a tabela', text: 'Cada linha é um professor e cada coluna uma turma. O número mostra quantas aulas ele dá naquela turma por semana, com as horas logo abaixo.' },
+    { title: 'Totais', text: 'As colunas amarelas somam a carga do professor por semana e por mês (escolha 4, 4,5 ou 5 semanas). A última linha soma cada turma, e o canto traz o total da escola.' },
     { title: 'Detalhe e exporte', text: 'Clique no nome do professor para ver a carga por disciplina. Use "Exportar Excel" para levar a tabela para a planilha.' },
   ],
   settings: [

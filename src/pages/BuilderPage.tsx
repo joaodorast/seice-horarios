@@ -16,6 +16,7 @@ import { teacherSubjectIds } from '@shared/suggest';
 import { durationMinutes, overlaps } from '@shared/time';
 import { SHIFT_KEYS, type Period, type ShiftKey, type Weekday } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
+import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { formatHours } from '@/lib/format';
 import { plural } from '@/lib/text';
 import { cn } from '@/lib/cn';
@@ -419,71 +420,65 @@ function BuilderCell({
     const teaches = active.filter((t) => value.subjectId !== null && teacherSubjectIds(t, data.subjects).includes(value.subjectId) && !busy.has(t.id));
     const free = active.filter((t) => !teaches.includes(t) && !busy.has(t.id));
     const occupied = active.filter((t) => busy.has(t.id));
+    const groups: PickerGroup[] = [];
+    if (teaches.length && subject) groups.push({ label: `Lecionam ${subject.name}`, options: teaches.map((t) => ({ value: t.id, label: t.name, hint: 'livre' })) });
+    groups.push({ label: teaches.length && subject ? 'Outros professores livres' : 'Professores livres', options: free.map((t) => ({ value: t.id, label: t.name })) });
+    if (occupied.length)
+      groups.push({
+        label: 'Ocupados neste horário',
+        options: occupied.map((t) => ({ value: t.id, label: t.name, hint: `na ${busy.get(t.id)}`, disabled: t.id !== value.otherId })),
+      });
     otherSelect = (
-      <CellSelect
-        label={`Professor — ${where}`}
+      <CellPicker
+        label={`Professor · ${where}`}
         placeholder="Professor"
         value={value.otherId}
         invalid={Boolean(error)}
+        groups={groups}
         onChange={(otherId) => {
           // Professor com uma única disciplina: preenche a disciplina se ainda estiver vazia.
           const own = otherId ? teacherSubjectIds(data.teachers.find((t) => t.id === otherId), data.subjects) : [];
           onChange({ otherId, subjectId: value.subjectId ?? (own.length === 1 ? own[0] : null) });
         }}
-      >
-        {teaches.length > 0 && subject && (
-          <optgroup label={`Lecionam ${subject.name}`}>
-            {teaches.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        <optgroup label={teaches.length && subject ? 'Outros professores livres' : 'Professores livres'}>
-          {free.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </optgroup>
-        {occupied.length > 0 && (
-          <optgroup label="Ocupados neste horário">
-            {occupied.map((t) => (
-              <option key={t.id} value={t.id} disabled={t.id !== value.otherId}>
-                {t.name} · ocupado na {busy.get(t.id)}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </CellSelect>
+      />
     );
   } else {
     const fits = data.classes
       .filter((c) => (c.active || c.id === value.otherId) && shiftsOfClass(c.shift).includes(period.shift))
       .sort(byName);
     otherSelect = (
-      <CellSelect label={`Turma — ${where}`} placeholder="Turma" value={value.otherId} invalid={Boolean(error)} onChange={(otherId) => onChange({ ...value, otherId })}>
-        {fits.map((c) => (
-          <option key={c.id} value={c.id} disabled={busy.has(c.id) && c.id !== value.otherId}>
-            {c.name}
-            {busy.has(c.id) ? ` · ocupada (${firstName(busy.get(c.id)!)})` : ''}
-          </option>
-        ))}
-      </CellSelect>
+      <CellPicker
+        label={`Turma · ${where}`}
+        placeholder="Turma"
+        value={value.otherId}
+        invalid={Boolean(error)}
+        onChange={(otherId) => onChange({ ...value, otherId })}
+        groups={[
+          { label: 'Turmas livres', options: fits.filter((c) => !busy.has(c.id)).map((c) => ({ value: c.id, label: c.name })) },
+          {
+            label: 'Ocupadas neste horário',
+            options: fits.filter((c) => busy.has(c.id)).map((c) => ({ value: c.id, label: c.name, hint: `com ${firstName(busy.get(c.id)!)}`, disabled: c.id !== value.otherId })),
+          },
+        ]}
+      />
     );
   }
 
-  // Disciplinas: no quadro do professor, as dele primeiro.
+  // Disciplinas: as do professor primeiro.
   const teacherForSubjects = kind === 'teacher' ? data.teachers.find((t) => t.id === ownerId) : data.teachers.find((t) => t.id === value.otherId);
   const mine = teacherSubjectIds(teacherForSubjects, data.subjects);
   const subjects = [...data.subjects].sort(byName);
+  const subjectOption = (s: (typeof subjects)[number]) => ({ value: s.id, label: s.name, dot: SUBJECT_STYLE[s.color].dot });
   const subjectSelect = (
-    <CellSelect
-      label={`Disciplina — ${where}`}
+    <CellPicker
+      label={`Disciplina · ${where}`}
       placeholder="Disciplina"
       value={value.subjectId}
       strong
+      groups={[
+        ...(mine.length && teacherForSubjects ? [{ label: `Disciplinas de ${firstName(teacherForSubjects.name)}`, options: subjects.filter((s) => mine.includes(s.id)).map(subjectOption) }] : []),
+        { label: mine.length ? 'Outras disciplinas' : 'Disciplinas', options: subjects.filter((s) => !mine.includes(s.id)).map(subjectOption) },
+      ]}
       onChange={(subjectId) => {
         // Quadro da turma: um único professor livre que leciona a disciplina já é escolhido.
         if (kind === 'class' && value.otherId === null && subjectId !== null) {
@@ -492,28 +487,7 @@ function BuilderCell({
         }
         onChange({ ...value, subjectId });
       }}
-    >
-      {mine.length > 0 && (
-        <optgroup label={kind === 'teacher' || teacherForSubjects ? `Disciplinas de ${firstName(teacherForSubjects!.name)}` : 'Disciplinas'}>
-          {subjects
-            .filter((s) => mine.includes(s.id))
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-        </optgroup>
-      )}
-      <optgroup label={mine.length ? 'Outras disciplinas' : 'Disciplinas'}>
-        {subjects
-          .filter((s) => !mine.includes(s.id))
-          .map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-      </optgroup>
-    </CellSelect>
+    />
   );
 
   return (
@@ -556,41 +530,6 @@ function BuilderCell({
         </span>
       )}
     </td>
-  );
-}
-
-function CellSelect({
-  label,
-  placeholder,
-  value,
-  onChange,
-  children,
-  strong,
-  invalid,
-}: {
-  label: string;
-  placeholder: string;
-  value: number | null;
-  onChange: (v: number | null) => void;
-  children: ReactNode;
-  strong?: boolean;
-  invalid?: boolean;
-}) {
-  return (
-    <select
-      aria-label={label}
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-      className={cn(
-        'h-8 w-full min-w-0 truncate rounded-md border bg-surface/90 px-2 text-[13px] text-ink outline-none transition-[border-color,box-shadow] hover:border-ink/50 focus:border-ink focus:ring-2 focus:ring-brand/50',
-        strong && 'font-bold',
-        value === null ? 'border-dashed border-line-strong text-muted' : 'border-line-strong',
-        invalid && 'border-danger',
-      )}
-    >
-      <option value="">{placeholder}</option>
-      {children}
-    </select>
   );
 }
 

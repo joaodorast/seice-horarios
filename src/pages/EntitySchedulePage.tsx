@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ChevronLeft, ChevronRight, ExternalLink, GraduationCap, Plus, Printer, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, GraduationCap, PencilRuler, Plus, Printer, Users } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
 import { Button, ButtonLink, Card, Combobox, EmptyState, IconButton, StatusBadge } from '@/components/ui';
@@ -72,6 +72,11 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
             <ButtonLink to={`/imprimir/${kind === 'teacher' ? 'professor' : 'turma'}/${selected.id}`} target="_blank" icon={<Printer className="size-4" />}>
               Imprimir ou PDF
             </ButtonLink>
+            {selected.active && (
+              <ButtonLink to={`/horarios/montar/${kind === 'teacher' ? 'professor' : 'turma'}/${selected.id}`} icon={<PencilRuler className="size-4" />}>
+                Montar quadro
+              </ButtonLink>
+            )}
             {selected.active && (
               <Button
                 variant="primary"

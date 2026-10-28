@@ -239,3 +239,29 @@ export function downloadTemplateCsv(spec: ImportSpec) {
     spec.examples.map((e) => spec.columns.map((c) => e[c.key] ?? '')),
   );
 }
+
+/** Tabela simples em .xlsx: cabeçalho destacado, primeira coluna e linha de totais em negrito. */
+export async function downloadTable(fileName: string, sheetName: string, header: string[], rows: (string | number)[][], totals?: (string | number)[]) {
+  const { default: ExcelJS } = await import('exceljs');
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'SEICE · Gestão de horários';
+  wb.created = new Date();
+  const ws = wb.addWorksheet(sheetName, { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] });
+  ws.columns = header.map((h, i) => ({ header: h, width: i === 0 ? Math.max(24, ...rows.map((r) => String(r[0]).length + 4)) : Math.max(10, h.length + 4) }));
+  const head = ws.getRow(1);
+  head.height = 22;
+  head.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: INK } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  });
+  for (const r of rows) ws.addRow(r).getCell(1).font = { bold: true };
+  if (totals) {
+    const t = ws.addRow(totals);
+    t.font = { bold: true };
+    t.eachCell((cell) => (cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDEEF0' } }));
+  }
+  ws.getColumn(header.length).font = { bold: true };
+  const data = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+  save(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${fileName}.xlsx`);
+}

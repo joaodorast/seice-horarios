@@ -36,7 +36,7 @@ export const GUIDES = {
     { title: 'Veja onde ela aparece', text: 'A tabela mostra quantas aulas, professores e turmas usam cada disciplina.' },
   ],
   schedule: [
-    { title: 'Escolha o dia e o turno', text: 'Use as abas de dias e de turnos. Os filtros de professor, turma e disciplina ajudam a encontrar aulas.' },
+    { title: 'Escolha o dia e o turno', text: 'Use as abas de dias e de turnos, ou "Semana inteira" para ver a semana toda em uma tela. Os filtros de professor, turma e disciplina valem para as duas visões.' },
     { title: 'Lance uma aula', text: 'Clique em um espaço vazio da grade: o formulário já abre com a turma, o dia e o horário preenchidos.' },
     { title: 'Altere uma aula', text: 'Clique em uma aula para editar, duplicar ou excluir. O sistema impede que um professor ou turma fique em dois lugares ao mesmo tempo.' },
   ],

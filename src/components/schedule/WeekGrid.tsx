@@ -43,7 +43,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
   return (
     <>
       {/* Desktop e tablet largo */}
-      <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise scrollbar-thin md:block">
+      <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
         <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0">
           <caption className="sr-only">{caption}</caption>
           <colgroup>
@@ -54,25 +54,25 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
           </colgroup>
           <thead>
             <tr>
-              <th scope="col" className="sticky left-0 z-10 border-b border-line bg-surface px-4 py-3 text-left text-xs font-semibold text-muted">
+              <th scope="col" className="sticky left-0 z-10 bg-nav px-4 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
                 Horário
               </th>
               {days.map((d) => (
                 <th
                   key={d}
                   scope="col"
-                  className={cn('border-b border-l border-line px-3 py-3 text-left', d === today && 'bg-brand-soft/60')}
+                  className={cn('border-l border-nav-line px-3 py-3 text-left', d === today ? 'bg-brand text-ink' : 'bg-nav text-white')}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-bold text-ink">
+                    <span className="text-[14px] font-bold">
                       <span className="xl:hidden">{WEEKDAY_SHORT[d]}</span>
                       <span className="hidden xl:inline">{WEEKDAY_LABEL[d]}</span>
                     </span>
-                    <span className="tabular text-xs font-medium text-muted" title="Aulas no dia">
+                    <span className={cn('tabular rounded-full px-1.5 text-xs font-bold', d === today ? 'bg-ink/10' : 'bg-white/10 text-nav-text')} title="Aulas no dia">
                       {countByDay.get(d) ?? 0}
                     </span>
                   </span>
-                  {d === today && <span className="mt-0.5 block text-[11px] font-semibold text-brand-ink">Hoje</span>}
+                  {d === today && <span className="mt-0.5 block text-[11px] font-bold">Hoje</span>}
                 </th>
               ))}
             </tr>
@@ -87,7 +87,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                       <th
                         colSpan={days.length + 1}
                         scope="colgroup"
-                        className="border-b border-line bg-subtle px-4 py-2 text-left text-xs font-bold text-ink-2"
+                        className="border-y border-line-strong bg-ink-2 px-4 py-2 text-left text-xs font-bold tracking-wide text-white uppercase"
                       >
                         {SHIFT_LABEL[period.shift]}
                       </th>
@@ -95,16 +95,16 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                   )}
                   {period.kind === 'intervalo' ? (
                     <tr>
-                      <th scope="row" className="sticky left-0 z-10 border-b border-line bg-subtle px-4 py-2 text-left">
-                        <span className="tabular block text-xs font-semibold text-muted">
+                      <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-4 py-2 text-left">
+                        <span className="tabular block text-xs font-bold text-ink-2">
                           {period.start}–{period.end}
                         </span>
                       </th>
                       <td
                         colSpan={days.length}
-                        className="border-b border-l border-line bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgb(29_32_37/0.035)_8px_16px)] px-3 py-2"
+                        className="border-b border-l border-line-strong bg-canvas bg-[repeating-linear-gradient(135deg,transparent_0_8px,rgb(29_32_37/0.05)_8px_16px)] px-3 py-2"
                       >
-                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold text-ink-2">
                           <Coffee className="size-3.5" aria-hidden="true" />
                           {period.label}
                         </span>
@@ -112,9 +112,9 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                     </tr>
                   ) : (
                     <tr>
-                      <th scope="row" className="sticky left-0 z-10 border-b border-line bg-surface px-4 py-3 text-left align-top">
-                        <span className="block text-[13px] font-bold text-ink">{period.label}</span>
-                        <span className="tabular block text-xs text-muted">
+                      <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-4 py-3 text-left align-top">
+                        <span className="block text-[14px] font-bold text-ink">{period.label}</span>
+                        <span className="tabular block text-xs font-semibold text-ink-2">
                           {period.start}–{period.end}
                         </span>
                       </th>
@@ -123,7 +123,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                         return (
                           <td
                             key={d}
-                            className={cn('h-[76px] border-b border-l border-line p-1.5 align-top', d === today && 'bg-brand-soft/25')}
+                            className={cn('h-[78px] border-b border-l border-line-strong p-1.5 align-top', d === today ? 'bg-brand-soft/40' : 'bg-subtle/70')}
                           >
                             <div className="flex h-full flex-col gap-1">
                               {cellLessons.map((l) => (
@@ -155,15 +155,15 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
           onChange={setMobileDay}
           options={days.map((d) => ({ value: d, label: WEEKDAY_SHORT[d], count: countByDay.get(d) }))}
         />
-        <div className="overflow-hidden rounded-xl bg-surface shadow-raise">
-          <h3 className="border-b border-line px-4 py-3 text-sm font-bold">{WEEKDAY_LABEL[activeMobileDay]}</h3>
+        <div className="overflow-hidden rounded-xl bg-surface shadow-raise ring-1 ring-line-strong">
+          <h3 className="bg-nav px-4 py-3 text-sm font-bold text-white">{WEEKDAY_LABEL[activeMobileDay]}</h3>
           <ul>
             {periods.map((period, i) => {
               const showShift = multiShift && (i === 0 || periods[i - 1].shift !== period.shift);
               const cellLessons = period.kind === 'aula' ? lessonsInPeriod(lessons, activeMobileDay, period) : [];
               return (
                 <Fragment key={period.id}>
-                  {showShift && <li className="bg-subtle px-4 py-1.5 text-xs font-bold text-ink-2">{SHIFT_LABEL[period.shift]}</li>}
+                  {showShift && <li className="bg-ink-2 px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase">{SHIFT_LABEL[period.shift]}</li>}
                   <li className={cn('flex gap-3 border-b border-line px-4 py-2.5 last:border-b-0', period.kind === 'intervalo' && 'bg-subtle')}>
                     <div className="w-20 shrink-0 pt-1">
                       <span className="block text-xs font-bold text-ink">{period.label}</span>
@@ -209,8 +209,8 @@ export function EmptySlot({ label, onClick, alwaysVisible }: { label: string; on
       className={cn(
         'group/slot flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed text-xs font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ink',
         alwaysVisible
-          ? 'border-line-strong text-muted'
-          : 'border-transparent text-transparent hover:border-line-strong hover:bg-subtle hover:text-muted focus-visible:border-line-strong focus-visible:text-muted',
+          ? 'border-line-strong bg-surface text-ink-2'
+          : 'border-transparent text-transparent hover:border-ink/40 hover:bg-surface hover:text-ink focus-visible:border-ink/40 focus-visible:bg-surface focus-visible:text-ink',
       )}
     >
       <Plus className="size-3.5" aria-hidden="true" />

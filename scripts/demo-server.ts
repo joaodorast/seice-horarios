@@ -9,6 +9,7 @@ import { openTestDatabase } from '../tests/helpers.js';
 import { createApp } from '../server/app.js';
 import { upsertUser } from '../server/auth.js';
 import { runImport } from '../server/import.js';
+import { ASSIGNMENTS_FROM_LESSONS } from '../server/migrations.js';
 
 export const DEMO_PORT = Number(process.env.SEICE_DEMO_PORT ?? 3402);
 export const DEMO_LOGIN = { email: 'teste@seice.com', password: 'teste1234', name: 'Usuário de Teste' };
@@ -73,6 +74,9 @@ await runImport(db, 'subjects', { rows: rows(SUBJECTS), options: {} });
 await runImport(db, 'teachers', { rows: rows(TEACHERS), options: {} });
 await runImport(db, 'classes', { rows: rows(CLASSES), options: {} });
 const lessons = await runImport(db, 'lessons', { rows: rows(lessonPlan()), options: {} });
+// Atribuições a partir das aulas, com algumas turmas pedindo mais aulas do que já há no quadro (para testar o que falta).
+await db.exec(ASSIGNMENTS_FROM_LESSONS);
+await db.exec('UPDATE assignments SET weekly_lessons = weekly_lessons + 1 WHERE id % 3 = 0');
 
 createApp(db).app.listen(DEMO_PORT, () => {
   console.log('\n  SEICE — AMBIENTE DE TESTE (dados fictícios em memória, nada vai para o sistema real)');

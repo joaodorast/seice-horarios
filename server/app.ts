@@ -10,6 +10,7 @@ import {
   classSchema,
   importRequestSchema,
   assignmentBatchSchema,
+  availabilitySchema,
   lessonBatchSchema,
   loginSchema,
   lessonSchema,
@@ -195,6 +196,15 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }
     await db.transaction((tx) => createRepository(tx).deleteTeacher(id, withLessons));
     res.status(204).end();
+  });
+
+  // ---------------- Dias e horários do professor na escola ----------------
+  api.put('/teachers/:id/availability', async (req, res) => {
+    const id = idParam(req);
+    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    const input = parse(availabilitySchema, req.body);
+    await db.transaction((tx) => createRepository(tx).setTeacherAvailability(id, input));
+    res.json(await repo.getTeacher(id));
   });
 
   // ---------------- Fotos dos professores ----------------

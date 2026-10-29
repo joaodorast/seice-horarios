@@ -12,6 +12,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 > 📘 **Guias para quem usa o sistema:**
 > - [Começar do zero](docs/COMECAR-DO-ZERO.md) — do primeiro acesso ao quadro impresso, e a instalação passo a passo.
 > - [Guia das telas](docs/GUIA-DAS-TELAS.md) — o que cada tela faz e como as telas se comunicam.
+> - [Relatório do sistema](docs/RELATORIO.md) — o que o sistema faz hoje, o que mudou, as regras que ele garante e os próximos passos.
 
 ---
 

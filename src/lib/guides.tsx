@@ -50,6 +50,11 @@ export const GUIDES = {
     { title: 'Lance uma aula', text: 'Clique em um espaço vazio da grade para lançar uma aula para esta turma naquele horário.' },
     { title: 'Imprima ou salve em PDF', text: 'Use "Imprimir ou PDF" para afixar o horário na sala.' },
   ],
+  assignments: [
+    { title: 'Por professor', text: 'Escolha o professor na lista e clique em "Atribuir turmas": marque a disciplina e todas as turmas que ele vai assumir, de uma vez, com as aulas por semana.' },
+    { title: 'Por turma', text: 'Escolha a turma e defina o professor de cada disciplina. Os números mostram quantas aulas por semana e quantas já estão no quadro.' },
+    { title: 'Depois, monte o quadro', text: 'No Montar quadro, ao escolher a disciplina, o professor atribuído já aparece sozinho. Tudo aqui é salvo automaticamente.' },
+  ],
   builderClass: [
     { title: 'Escolha a turma', text: 'Use a lista no topo ou as setas. A grade mostra a semana inteira da turma, com os horários do turno dela.' },
     { title: 'Preencha cada horário', text: 'Em cada quadradinho, escolha a disciplina e depois o professor. Os professores que lecionam a disciplina aparecem primeiro; os ocupados em outra turma ficam bloqueados.' },

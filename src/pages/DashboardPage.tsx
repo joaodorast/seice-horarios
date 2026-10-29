@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   CalendarPlus,
   CircleDashed,
+  ClipboardList,
   Clock,
   FileUp,
   GraduationCap,
@@ -23,6 +24,7 @@ import { useScheduleActions } from '@/components/schedule/ScheduleActions';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { computeSlotStats, lessonsInPeriod, lessonsOutsideGrid, periodsForShifts } from '@shared/grid';
+import { assignmentProgress } from '@shared/assignments';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import { findScheduleConflicts } from '@shared/conflicts';
 import { toMinutes } from '@shared/time';
@@ -408,6 +410,27 @@ function Pendencies({
   const items: { tone: 'danger' | 'warning' | 'info'; icon: ReactNode; title: string; text: string; to: string }[] = [];
   if (conflictsCount)
     items.push({ tone: 'danger', icon: <AlertTriangle />, title: plural(conflictsCount, 'conflito de horário', 'conflitos de horário'), text: 'Aulas sobrepostas para o mesmo professor ou turma.', to: '/horarios' });
+  // Atribuições: aulas combinadas que ainda não estão no quadro, por turma (a com mais faltas abre direto no Montar quadro).
+  const missingByClass = new Map<number, number>();
+  for (const p of assignmentProgress(data.assignments, data.lessons, data.periods, data.classes).values()) {
+    if (p.missing > 0 && index.classById.get(p.assignment.classId)?.active) missingByClass.set(p.assignment.classId, (missingByClass.get(p.assignment.classId) ?? 0) + p.missing);
+  }
+  const missingTotal = [...missingByClass.values()].reduce((s, n) => s + n, 0);
+  if (missingTotal) {
+    const worst = [...missingByClass].sort((a, b) => b[1] - a[1]);
+    items.push({
+      tone: 'warning',
+      icon: <ClipboardList />,
+      title: `Faltam ${plural(missingTotal, 'aula atribuída', 'aulas atribuídas')} para colocar no quadro`,
+      text: worst
+        .slice(0, 4)
+        .map(([id, n]) => `${index.classById.get(id)?.name} (${n})`)
+        .join(', ') + (worst.length > 4 ? '…' : '') + ' · clique para montar',
+      to: `/horarios/montar/turma/${worst[0][0]}`,
+    });
+  } else if (data.assignments.length === 0 && data.teachers.some((t) => t.active) && data.classes.some((c) => c.active)) {
+    items.push({ tone: 'info', icon: <ClipboardList />, title: 'Nenhuma aula atribuída ainda', text: 'Diga quem dá cada disciplina em cada turma para o quadro sugerir tudo sozinho.', to: '/atribuicoes' });
+  }
   if (inactiveTeacherLessons.length)
     items.push({ tone: 'warning', icon: <UserX />, title: `${plural(inactiveTeacherLessons.length, 'aula', 'aulas')} com professor inativo`, text: 'Reatribua essas aulas ou reative o cadastro.', to: `/horarios/professor/${inactiveTeacherLessons[0].teacherId}` });
   if (inactiveClassLessons.length)

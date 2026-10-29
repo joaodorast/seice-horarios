@@ -37,6 +37,15 @@ export interface Teacher {
   photoUpdatedAt: string | null;
   /** Disciplinas que o professor leciona (pode ser mais de uma). */
   subjectIds: number[];
+  /** Dias e horários em que o professor está na escola. Vazio = não informado (qualquer horário). */
+  availability: AvailabilitySlot[];
+}
+
+/** Um intervalo em que o professor está na escola (ex.: segunda, 07:00 às 12:20). */
+export interface AvailabilitySlot {
+  weekday: Weekday;
+  start: string;
+  end: string;
 }
 
 export interface SchoolClass {
@@ -106,7 +115,8 @@ export type IssueCode =
   | 'class-missing'
   | 'subject-missing'
   | 'day-disabled'
-  | 'outside-grid';
+  | 'outside-grid'
+  | 'teacher-unavailable';
 
 export interface LessonIssue {
   code: IssueCode;

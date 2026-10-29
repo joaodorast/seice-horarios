@@ -259,6 +259,8 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </p>
       </div>
 
+      {lessonPeriods.length > 0 && rows.length > 0 && <GridLegend week={week} />}
+
       {lessonPeriods.length === 0 ? (
         <Card>
           <EmptyState
@@ -481,6 +483,26 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<Mat
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Explica as cores e os símbolos da grade em uma linha. */
+function GridLegend({ week }: { week: boolean }) {
+  const item = (swatch: string, label: string, text: string) => (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn('inline-block h-4 w-6 shrink-0 rounded', swatch)} aria-hidden="true" />
+      <span>
+        <strong className="text-ink">{label}</strong>: {text}
+      </span>
+    </span>
+  );
+  return (
+    <div className="-mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-surface px-4 py-2.5 text-[13px] text-ink-2 ring-1 ring-line">
+      <span className="font-bold text-ink">Como ler a grade:</span>
+      {item('bg-sub-sky-bg ring-1 ring-sub-sky/45 ring-inset', 'Colorido', 'aula marcada (a cor é a da disciplina). Clique para ver, editar ou excluir')}
+      {item('border border-dashed border-line-strong bg-subtle', week ? 'Vago' : 'Vazio', week ? 'turma sem aula. Clique para lançar uma' : 'passe o mouse e clique em + para lançar uma aula')}
+      {item('bg-surface ring-2 ring-danger ring-inset', 'Borda vermelha', 'conflito de horário')}
     </div>
   );
 }

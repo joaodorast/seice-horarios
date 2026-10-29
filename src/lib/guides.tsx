@@ -17,6 +17,7 @@ export const GUIDES = {
   ],
   teacherDetail: [
     { title: 'Confira os dados', text: 'No topo ficam a área, o contato e a carga de aulas da semana deste professor.' },
+    { title: 'Dias e horários na escola', text: 'Marque os dias em que o professor vem e de que horas a que horas. O sistema não deixa colocar aulas fora deles.' },
     { title: 'Lance ou importe aulas', text: 'Use "Nova aula" ou "Importar aulas". As aulas já ficam ligadas a este professor.' },
     { title: 'Altere uma aula', text: 'Clique em uma aula do quadro para editar, duplicar ou excluir. Clique em um espaço vazio para lançar uma aula nele.' },
   ],

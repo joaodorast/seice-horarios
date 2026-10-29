@@ -22,7 +22,7 @@ import {
   type ImportRowResult,
   type ImportRowStatus,
 } from '../shared/import.js';
-import { classSchema, periodsReplaceSchema, subjectSchema, teacherSchema, type ClassInput, type TeacherInput } from '../shared/schemas.js';
+import { assignmentSchema, classSchema, periodsReplaceSchema, subjectSchema, teacherSchema, type ClassInput, type TeacherInput } from '../shared/schemas.js';
 import { validateLesson } from '../shared/conflicts.js';
 import { periodsForClassShift } from '../shared/grid.js';
 import { SHIFT_LABEL, WEEKDAY_SHORT } from '../shared/labels.js';
@@ -585,7 +585,92 @@ async function importLessons(ctx: Ctx, rows: ImportRowInput[], options: ImportOp
   }
 }
 
+// ------------------------------------------------------------------ Atribuição de aulas
+
+async function importAssignments(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
+  const { repo } = ctx;
+  const [teachers, classes, subjects, current] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects(), repo.listAssignments()]);
+  const teacherByCode = new Map(teachers.filter((t) => t.code).map((t) => [fold(t.code!), t]));
+  const teachersByName = groupBy(teachers, (t) => nameKey(t.name));
+  const classByName = new Map(classes.map((c) => [nameKey(c.name), c]));
+  const subjectByName = new Map(subjects.map((s) => [nameKey(s.name), s]));
+  const existing = new Map(current.map((a) => [`${a.classId}:${a.subjectId}`, a]));
+  const seen = new Map<string, number>();
+
+  for (const row of rows) {
+    const v = valueOf(row);
+    const errors: string[] = [];
+
+    const t = v('teacher');
+    let teacher: Teacher | undefined;
+    if (!t) errors.push('Professor: informe o nome ou a matrícula.');
+    else {
+      teacher = teacherByCode.get(fold(t));
+      if (!teacher) {
+        const same = teachersByName.get(nameKey(t)) ?? [];
+        if (same.length === 1) teacher = same[0];
+        else if (same.length > 1) errors.push(`Professor: há ${same.length} professores chamados "${t}". Use a matrícula.`);
+        else errors.push(`Professor: "${t}" não está cadastrado.`);
+      }
+    }
+
+    const subjectText = v('subject');
+    const subject = subjectText ? subjectByName.get(nameKey(subjectText)) : undefined;
+    if (!subjectText) errors.push('Disciplina: informe a disciplina.');
+    else if (!subject) errors.push(`Disciplina: "${subjectText}" não está cadastrada.`);
+
+    const names = v('class').split(/[,;\/|]|\s+e\s+/).map(clean).filter(Boolean);
+    const targets: SchoolClass[] = [];
+    if (names.length === 0) errors.push('Turmas: informe pelo menos uma turma.');
+    for (const n of names) {
+      const c = classByName.get(nameKey(n));
+      if (!c) errors.push(`Turma: "${n}" não está cadastrada.`);
+      else if (!targets.includes(c)) targets.push(c);
+    }
+
+    const weekly = assignmentSchema.shape.weeklyLessons.safeParse(v('weekly').replace(',', '.'));
+    if (!weekly.success) errors.push(`Aulas por semana: ${weekly.error.issues[0].message}`);
+
+    const label = [teacher?.name ?? t, subject?.name ?? subjectText, targets.map((c) => c.name).join(', ') || v('class')].filter(Boolean).join(' · ') || 'Linha vazia';
+    for (const c of targets) {
+      const key = `${c.id}:${subject?.id}`;
+      if (subject && seen.has(key)) errors.push(`${c.name} já recebeu ${subject.name} na linha ${seen.get(key)}.`);
+    }
+    if (errors.length || !teacher || !subject || !weekly.success) {
+      push(ctx, row.line, 'error', label, errors);
+      continue;
+    }
+    for (const c of targets) seen.set(`${c.id}:${subject.id}`, row.line);
+
+    const changes = targets.filter((c) => {
+      const a = existing.get(`${c.id}:${subject.id}`);
+      if (!a) return true;
+      if (options.existing === 'skip') return false;
+      return a.teacherId !== teacher.id || a.weeklyLessons !== weekly.data;
+    });
+    if (changes.length === 0) {
+      push(ctx, row.line, 'skip', label, [options.existing === 'skip' ? 'Já atribuída. Mantida como está.' : 'Já atribuída com os mesmos dados.']);
+      continue;
+    }
+    const warnings = changes
+      .map((c) => existing.get(`${c.id}:${subject.id}`))
+      .filter((a) => a && a.teacherId !== teacher.id)
+      .map((a) => `${classes.find((c) => c.id === a!.classId)?.name}: ${subject.name} sai de ${teachers.find((x) => x.id === a!.teacherId)?.name ?? 'outro professor'}.`);
+    const updating = changes.some((c) => existing.has(`${c.id}:${subject.id}`));
+    const failure = await attempt(ctx, async () => {
+      await repo.applyAssignments({
+        removes: [],
+        upserts: changes.map((c) => ({ teacherId: teacher.id, classId: c.id, subjectId: subject.id, weeklyLessons: weekly.data })),
+      });
+      for (const c of changes) existing.set(`${c.id}:${subject.id}`, { id: 0, teacherId: teacher.id, classId: c.id, subjectId: subject.id, weeklyLessons: weekly.data, updatedAt: '' });
+    });
+    if (failure) push(ctx, row.line, 'error', label, [failure]);
+    else push(ctx, row.line, updating ? 'update' : 'create', label, [], warnings);
+  }
+}
+
 const HANDLERS: Record<ImportKind, (ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) => Promise<void>> = {
+  assignments: importAssignments,
   teachers: importTeachers,
   classes: importClasses,
   subjects: importSubjects,

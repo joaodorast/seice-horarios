@@ -12,7 +12,7 @@ const subjects: Subject[] = [
   { id: MAT, name: 'Matemática', color: 'sky', createdAt: ts },
 ];
 const teacher = (subjectIds: number[], area: string | null = null): Teacher => ({
-  id: 7, name: 'Bruno Lima', code: null, area, phone: null, notes: null, active: true, createdAt: ts, updatedAt: ts, photoUpdatedAt: null, subjectIds,
+  id: 7, name: 'Bruno Lima', code: null, area, phone: null, notes: null, active: true, createdAt: ts, updatedAt: ts, photoUpdatedAt: null, subjectIds, availability: [],
 });
 const lesson = (id: number, subjectId: number, weekday: Lesson['weekday'], start: string, end: string, classId = 10): Lesson => ({
   id, teacherId: 7, classId, subjectId, weekday, start, end, notes: null, createdAt: ts, updatedAt: ts,

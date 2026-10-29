@@ -41,8 +41,8 @@ export function Page({ title, description, breadcrumbs, actions, children, width
 
   return (
     <>
-      <header className="no-print sticky top-0 z-30 border-b border-line bg-surface/92 backdrop-blur-md">
-        <div className={cn('mx-auto flex flex-col gap-3 px-4 py-4 sm:px-6 lg:px-8', width === 'default' ? 'max-w-[1240px]' : 'max-w-[1600px]')}>
+      <header className="no-print sticky top-0 z-30 border-b border-line bg-surface/92 backdrop-blur-md short:static short:bg-surface short:backdrop-blur-none">
+        <div className={cn('mx-auto flex flex-col gap-3 px-4 py-4 short:gap-2 short:py-3 sm:px-6 lg:px-8', width === 'default' ? 'max-w-[1240px]' : 'max-w-[1600px]')}>
           <div className="flex items-center gap-2">
             <IconButton label="Abrir menu" className="-ml-2 lg:hidden" onClick={openNav}>
               <MenuIcon className="size-5" />
@@ -87,10 +87,10 @@ export function Page({ title, description, breadcrumbs, actions, children, width
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink sm:text-[2rem]">{title}</h1>
+                <h1 className="font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink sm:text-[2rem] short:sm:text-[1.75rem]">{title}</h1>
                 {titleAddon}
               </div>
-              {description && <p className="mt-1.5 max-w-3xl text-[15.5px] leading-relaxed text-muted text-pretty">{description}</p>}
+              {description && <p className="mt-1.5 max-w-3xl text-[15.5px] leading-relaxed text-muted text-pretty short:mt-1 short:leading-snug tiny:line-clamp-2 xl:max-w-4xl">{description}</p>}
             </div>
             {actions && <div className="flex flex-wrap items-center gap-2 md:shrink-0 md:flex-nowrap md:justify-end">{actions}</div>}
           </div>
@@ -100,7 +100,7 @@ export function Page({ title, description, breadcrumbs, actions, children, width
         id="conteudo"
         tabIndex={-1}
         className={cn(
-          'mx-auto w-full flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8',
+          'mx-auto w-full flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8 short:py-4 short:lg:py-5',
           width === 'default' ? 'max-w-[1240px]' : 'max-w-[1600px]',
         )}
       >
@@ -114,7 +114,7 @@ export function Page({ title, description, breadcrumbs, actions, children, width
 /** Guia "Como usar esta tela": passos numerados em linguagem simples. */
 function Guide({ steps, onClose }: { steps: GuideStep[]; onClose: () => void }) {
   return (
-    <section id="guia-da-tela" aria-label="Como usar esta tela" className="no-print relative mb-6 animate-pop-in rounded-2xl border border-brand/45 bg-brand-soft/60 p-5 sm:p-6">
+    <section id="guia-da-tela" aria-label="Como usar esta tela" className="no-print relative mb-6 animate-pop-in rounded-2xl border border-brand/45 bg-brand-soft/60 p-5 sm:p-6 short:mb-4 short:p-4 short:sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-display text-[1.1875rem] font-semibold text-ink">
           <CircleHelp className="size-5 text-brand-ink" /> Como usar esta tela

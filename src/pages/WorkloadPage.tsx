@@ -61,6 +61,13 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     [data, shift],
   );
   const maxTotal = Math.max(1, ...w.rows.map((r) => r.total.lessons));
+  // Atribuição de aulas: o combinado, para comparar com o que já está no quadro (só nas turmas visíveis).
+  const visible = new Set(w.classes.map((c) => c.id));
+  const assignedOf = (teacherId: number, classId?: number) =>
+    data.assignments
+      .filter((a) => a.teacherId === teacherId && visible.has(a.classId) && (classId === undefined || a.classId === classId))
+      .reduce((n, a) => n + a.weeklyLessons, 0);
+  const assignedGrand = data.assignments.filter((a) => visible.has(a.classId)).reduce((n, a) => n + a.weeklyLessons, 0);
   const withLessons = w.rows.filter((r) => r.total.lessons > 0);
   const subjectName = (id: number | null) => (id === null ? 'Sem disciplina' : (data.subjects.find((s) => s.id === id)?.name ?? '—'));
   const monthHours = (l: Load) => formatHours(Math.round(l.minutes * weeks));
@@ -76,10 +83,10 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   async function exportExcel() {
     setExporting(true);
     try {
-      const header = ['Professor', ...w.classes.map((c) => c.name), 'Aulas por semana', 'Horas por semana', 'Aulas por mês', 'Horas por mês'];
-      const totals = (l: Load) => [l.lessons, formatHours(l.minutes), l.lessons * weeks, monthHours(l)];
-      const rows = w.rows.map((r) => [r.teacher.name, ...w.classes.map((c) => r.byClass.get(c.id)?.lessons ?? 0), ...totals(r.total)]);
-      const footer = ['Total da turma (aulas por semana)', ...w.classes.map((c) => w.classTotals.get(c.id)?.lessons ?? 0), ...totals(w.grand)];
+      const header = ['Professor', ...w.classes.map((c) => c.name), 'Aulas por semana', 'Horas por semana', 'Aulas atribuídas por semana', 'Aulas por mês', 'Horas por mês'];
+      const totals = (l: Load, assigned: number) => [l.lessons, formatHours(l.minutes), assigned, l.lessons * weeks, monthHours(l)];
+      const rows = w.rows.map((r) => [r.teacher.name, ...w.classes.map((c) => r.byClass.get(c.id)?.lessons ?? 0), ...totals(r.total, assignedOf(r.teacher.id))]);
+      const footer = ['Total da turma (aulas por semana)', ...w.classes.map((c) => w.classTotals.get(c.id)?.lessons ?? 0), ...totals(w.grand, assignedGrand)];
       await downloadTable(`carga-horaria${shift === 'todos' ? '' : `-${shift}`}`, 'Carga horária', header, rows, footer);
     } catch (error) {
       toast.error('Não foi possível exportar', errorMessage(error));
@@ -130,7 +137,9 @@ function WorkloadView({ data }: { data: ScheduleData }) {
             <Info className="mt-0.5 size-4 shrink-0" />
             <span>
               <strong className="text-ink">Como ler:</strong> cada número é quantas aulas o professor dá naquela turma <strong className="text-ink">por semana</strong>. As
-              duas colunas da direita somam tudo: o total da semana e o total do mês ({num(weeks)} semanas). Aula dupla conta como duas.
+              colunas amarelas somam tudo: o total da semana, quantas aulas foram <strong className="text-ink">atribuídas</strong> ao professor e o total do mês{' '}
+              ({num(weeks)} semanas). Quando o quadro ainda não bate com a atribuição, aparece em laranja, como <strong className="text-warning">2 de 3</strong>. Aula
+              dupla conta como duas.
             </span>
           </p>
 
@@ -145,7 +154,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   <th colSpan={w.classes.length} scope="colgroup" className="border-l border-nav-line bg-nav px-3 pt-3 pb-1.5 text-center text-xs font-bold tracking-wide text-nav-text uppercase">
                     Aulas por semana em cada turma
                   </th>
-                  <th colSpan={2} scope="colgroup" className="border-l-4 border-canvas bg-brand px-3 pt-3 pb-1.5 text-center text-xs font-extrabold tracking-wide text-ink uppercase">
+                  <th colSpan={3} scope="colgroup" className="border-l-4 border-canvas bg-brand px-3 pt-3 pb-1.5 text-center text-xs font-extrabold tracking-wide text-ink uppercase">
                     Total do professor
                   </th>
                 </tr>
@@ -160,6 +169,9 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   ))}
                   <th scope="col" className="min-w-[132px] border-l-4 border-canvas bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
                     Por semana
+                  </th>
+                  <th scope="col" className="min-w-[120px] border-l border-ink/15 bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
+                    Atribuídas
                   </th>
                   <th scope="col" className="min-w-[132px] border-l border-ink/15 bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
                     Por mês
@@ -207,7 +219,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                         </th>
                         {w.classes.map((c) => (
                           <td key={c.id} className={cn('border-b border-l border-line text-center group-hover:bg-brand-soft/50', zebra)}>
-                            <CountCell load={r.byClass.get(c.id)} />
+                            <CountCell load={r.byClass.get(c.id)} assigned={assignedOf(r.teacher.id, c.id)} />
                           </td>
                         ))}
                         <td className="border-b border-l-4 border-b-line border-l-canvas bg-brand-soft px-3 py-2">
@@ -216,6 +228,9 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                           <span className="mx-auto mt-1 block h-1.5 w-full max-w-[96px] overflow-hidden rounded-full bg-ink/10">
                             <span className="block h-full rounded-full bg-ink/70" style={{ width: `${(r.total.lessons / maxTotal) * 100}%` }} />
                           </span>
+                        </td>
+                        <td className="border-b border-l border-line bg-brand-soft px-3 py-2 text-center">
+                          <AssignedTotal placed={r.total.lessons} assigned={assignedOf(r.teacher.id)} />
                         </td>
                         <td className="border-b border-l border-line bg-brand-soft px-3 py-2 text-center">
                           <span className="tabular block text-[16px] font-extrabold text-ink">{aulas(r.total.lessons * weeks)}</span>
@@ -239,6 +254,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                                 </td>
                               ))}
                               <td className="tabular border-b border-l-4 border-b-line border-l-canvas bg-canvas/60 px-3 text-center font-bold text-ink">{aulas(s.total.lessons)}</td>
+                              <td className="border-b border-l border-line bg-canvas/60" />
                               <td className="tabular border-b border-l border-line bg-canvas/60 px-3 text-center font-bold text-ink">{aulas(s.total.lessons * weeks)}</td>
                             </tr>
                           );
@@ -268,6 +284,11 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                     <span className="tabular block text-xs font-semibold">{formatHours(w.grand.minutes)}</span>
                   </td>
                   <td className="border-l border-ink/15 bg-brand px-3 py-3 text-center text-ink">
+                    <span className="block text-[11px] font-bold tracking-wide uppercase">Atribuídas</span>
+                    <span className="tabular block text-[17px] font-extrabold">{assignedGrand ? aulas(assignedGrand) : '—'}</span>
+                    {assignedGrand > 0 && <span className="tabular block text-xs font-semibold">{w.grand.lessons} no quadro</span>}
+                  </td>
+                  <td className="border-l border-ink/15 bg-brand px-3 py-3 text-center text-ink">
                     <span className="block text-[11px] font-bold tracking-wide uppercase">Escola · mês</span>
                     <span className="tabular block text-[17px] font-extrabold">{aulas(w.grand.lessons * weeks)}</span>
                     <span className="tabular block text-xs font-semibold">{monthHours(w.grand)}</span>
@@ -282,14 +303,43 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   );
 }
 
-/** Aulas do professor numa turma: número grande e horas embaixo; vazio quando não dá aula ali. */
-function CountCell({ load }: { load: Load | undefined }) {
-  if (!load || load.lessons === 0) return <span className="text-[15px] text-line-strong">—</span>;
+/**
+ * Aulas do professor numa turma: número grande e horas embaixo; vazio quando não dá aula ali.
+ * Se o quadro não bate com a atribuição, mostra "2 de 3" em laranja (faltam) ou vermelho (passou).
+ */
+function CountCell({ load, assigned }: { load: Load | undefined; assigned: number }) {
+  const n = load?.lessons ?? 0;
+  if (n === 0 && assigned === 0) return <span className="text-[15px] text-line-strong">—</span>;
+  const off = assigned > 0 && n !== assigned;
   return (
-    <span className="inline-flex min-w-[52px] flex-col items-center rounded-lg bg-brand-soft px-2 py-1 ring-1 ring-brand/40 ring-inset">
-      <span className="tabular text-[16px] leading-tight font-extrabold text-ink">{load.lessons}</span>
-      <span className="tabular text-[11px] font-semibold text-ink-2">{formatHours(load.minutes)}</span>
+    <span
+      className={cn(
+        'inline-flex min-w-[52px] flex-col items-center rounded-lg px-2 py-1 ring-1 ring-inset',
+        !off ? 'bg-brand-soft ring-brand/40' : n < assigned ? 'bg-warning-soft ring-warning/40' : 'bg-danger-soft ring-danger/40',
+      )}
+      title={assigned ? `${n} no quadro de ${assigned} atribuídas por semana` : undefined}
+    >
+      <span className="tabular text-[16px] leading-tight font-extrabold text-ink">{n}</span>
+      {off ? (
+        <span className={cn('tabular text-[11px] font-bold', n < assigned ? 'text-warning' : 'text-danger')}>de {assigned}</span>
+      ) : (
+        <span className="tabular text-[11px] font-semibold text-ink-2">{formatHours(load?.minutes ?? 0)}</span>
+      )}
     </span>
+  );
+}
+
+/** Total atribuído ao professor comparado com o que já está no quadro. */
+function AssignedTotal({ placed, assigned }: { placed: number; assigned: number }) {
+  if (assigned === 0) return <span className="text-[12.5px] font-semibold text-ink-2">sem atribuição</span>;
+  const missing = assigned - placed;
+  return (
+    <>
+      <span className="tabular block text-[16px] font-extrabold text-ink">{aulas(assigned)}</span>
+      <span className={cn('tabular block text-xs font-bold', missing === 0 ? 'text-success' : missing > 0 ? 'text-warning' : 'text-danger')}>
+        {missing === 0 ? '✓ tudo no quadro' : missing > 0 ? `faltam ${missing}` : `${-missing} a mais`}
+      </span>
+    </>
   );
 }
 

@@ -13,6 +13,7 @@ import { buildCells, cellKey, EMPTY, isEmpty, planSave, sameValue, type BuilderK
 import { periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import { teacherSubjectIds } from '@shared/suggest';
+import { isAvailable, unavailableReason } from '@shared/availability';
 import { durationMinutes, overlaps } from '@shared/time';
 import { SHIFT_KEYS, type Assignment, type Lesson, type Period, type SchoolClass, type ShiftKey, type Weekday } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
@@ -422,6 +423,10 @@ function BuilderCell({
   pending: { assignment: Assignment; missing: number }[];
 }) {
   const [manual, setManual] = useState(false);
+  // Professor fora dos dias/horários em que está na escola, ou já em outra turma: não pode receber esta aula.
+  const teacherById = (id: number) => data.teachers.find((t) => t.id === id);
+  const away = (teacherId: number) => !isAvailable(teacherById(teacherId), day, period.start, period.end);
+  const blocked = (teacherId: number) => busy.has(teacherId) || away(teacherId);
   const subject = value.subjectId ? data.subjects.find((s) => s.id === value.subjectId) : undefined;
   const where = `${WEEKDAY_LABEL[day]}, ${period.label}`;
   const tint = subject ? SUBJECT_STYLE[subject.color].chip : '';
@@ -452,17 +457,30 @@ function BuilderCell({
     const assignedId = value.subjectId !== null ? assignedTeacher(data, ownerId, value.subjectId) : undefined;
     const active = data.teachers.filter((t) => t.active || t.id === value.otherId).sort(byName);
     const assigned = active.find((t) => t.id === assignedId);
-    const teaches = active.filter((t) => t !== assigned && value.subjectId !== null && teacherSubjectIds(t, data.subjects).includes(value.subjectId) && !busy.has(t.id));
-    const free = active.filter((t) => t !== assigned && !teaches.includes(t) && !busy.has(t.id));
+    const teaches = active.filter((t) => t !== assigned && value.subjectId !== null && teacherSubjectIds(t, data.subjects).includes(value.subjectId) && !blocked(t.id));
+    const free = active.filter((t) => t !== assigned && !teaches.includes(t) && !blocked(t.id));
     const occupied = active.filter((t) => t !== assigned && busy.has(t.id));
+    const notHere = active.filter((t) => t !== assigned && !busy.has(t.id) && away(t.id));
     const groups: PickerGroup[] = [];
     if (assigned && subject)
       groups.push({
         label: `Atribuído para ${subject.name} nesta turma`,
-        options: [{ value: assigned.id, label: assigned.name, hint: busy.has(assigned.id) ? `ocupado na ${busy.get(assigned.id)}` : 'atribuído', disabled: busy.has(assigned.id) && assigned.id !== value.otherId }],
+        options: [
+          {
+            value: assigned.id,
+            label: assigned.name,
+            hint: busy.has(assigned.id) ? `ocupado na ${busy.get(assigned.id)}` : away(assigned.id) ? unavailableReason(assigned, day) : 'atribuído',
+            disabled: blocked(assigned.id) && assigned.id !== value.otherId,
+          },
+        ],
       });
     if (teaches.length && subject) groups.push({ label: `Também lecionam ${subject.name}`, options: teaches.map((t) => ({ value: t.id, label: t.name, hint: 'livre' })) });
     groups.push({ label: teaches.length && subject ? 'Outros professores livres' : 'Professores livres', options: free.map((t) => ({ value: t.id, label: t.name })) });
+    if (notHere.length)
+      groups.push({
+        label: 'Não estão na escola neste horário',
+        options: notHere.map((t) => ({ value: t.id, label: t.name, hint: unavailableReason(t, day), disabled: t.id !== value.otherId })),
+      });
     if (occupied.length)
       groups.push({
         label: 'Ocupados neste horário',
@@ -559,8 +577,8 @@ function BuilderCell({
         // Quadro da turma: o professor atribuído (se estiver livre) ou um único professor livre que leciona a disciplina.
         if (kind === 'class' && value.otherId === null && subjectId !== null) {
           const assignedId = assignedTeacher(data, ownerId, subjectId);
-          if (assignedId && !busy.has(assignedId)) return onChange({ subjectId, otherId: assignedId });
-          const candidates = data.teachers.filter((t) => t.active && !busy.has(t.id) && teacherSubjectIds(t, data.subjects).includes(subjectId));
+          if (assignedId && !blocked(assignedId)) return onChange({ subjectId, otherId: assignedId });
+          const candidates = data.teachers.filter((t) => t.active && !blocked(t.id) && teacherSubjectIds(t, data.subjects).includes(subjectId));
           return onChange({ subjectId, otherId: candidates.length === 1 ? candidates[0].id : null });
         }
         onChange({ ...value, subjectId });
@@ -569,9 +587,9 @@ function BuilderCell({
   );
 
   // Horário vago da turma: sugere as aulas atribuídas que faltam e cujo professor está livre (um clique preenche tudo).
-  const suggestions = kind === 'class' && isEmpty(value) && !manual ? pending.filter((x) => !busy.has(x.assignment.teacherId)).slice(0, 3) : [];
+  const suggestions = kind === 'class' && isEmpty(value) && !manual ? pending.filter((x) => !blocked(x.assignment.teacherId)).slice(0, 3) : [];
   if (suggestions.length > 0) {
-    const others = pending.filter((x) => !busy.has(x.assignment.teacherId)).length - suggestions.length;
+    const others = pending.filter((x) => !blocked(x.assignment.teacherId)).length - suggestions.length;
     return (
       <td className={cn('h-[92px] border-b border-l border-line-strong p-1.5 align-top', changed ? 'bg-surface shadow-[inset_0_0_0_2px_var(--color-brand)]' : 'bg-subtle/70')}>
         <p className="mb-1 px-0.5 text-[11px] font-bold tracking-wide text-success uppercase">Faltam na turma</p>
@@ -608,6 +626,22 @@ function BuilderCell({
   }
 
   // Horário vago do professor: mostra todas as turmas do turno, livres (um clique coloca a aula) e ocupadas (com quem).
+  // Aula marcada com professor que não está na escola neste horário (ex.: os dias dele mudaram depois).
+  const outOfHours = !isEmpty(value) && (kind === 'teacher' ? away(ownerId) : value.otherId !== null && away(value.otherId));
+
+  // Quadro do professor: horário em que ele não está na escola (cadastrado na página do professor).
+  if (kind === 'teacher' && isEmpty(value) && away(ownerId)) {
+    const owner = teacherById(ownerId);
+    return (
+      <td className="h-[92px] border-b border-l border-line-strong bg-[repeating-linear-gradient(135deg,var(--color-subtle)_0_8px,var(--color-canvas)_8px_16px)] p-1.5 align-top">
+        <div className="flex h-full flex-col justify-center rounded-md px-2 text-[12.5px] leading-snug text-ink-2" title="Ajuste na página do professor, em Dias e horários na escola">
+          <span className="font-bold text-ink">Fora do horário na escola</span>
+          <span>{owner ? unavailableReason(owner, day) : ''}</span>
+        </div>
+      </td>
+    );
+  }
+
   if (kind === 'teacher' && isEmpty(value)) {
     const free = shiftClasses.filter((c) => !busy.has(c.id));
     const pick = (classId: number) => {
@@ -666,7 +700,7 @@ function BuilderCell({
         'relative h-[92px] border-b border-l border-line-strong p-1.5 align-top transition-colors',
         subject ? tint : isEmpty(value) ? 'bg-subtle/70' : 'bg-surface',
         changed && 'shadow-[inset_0_0_0_2px_var(--color-brand)]',
-        error && 'shadow-[inset_0_0_0_2px_var(--color-danger)]',
+        (error || outOfHours) && 'shadow-[inset_0_0_0_2px_var(--color-danger)]',
       )}
       title={error}
     >
@@ -693,6 +727,11 @@ function BuilderCell({
         >
           <X className="size-3" />
         </button>
+      )}
+      {outOfHours && !error && (
+        <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-danger" title="Mude o horário ou o professor desta aula">
+          <AlertTriangle className="size-3" /> Fora do horário do professor
+        </span>
       )}
       {error && (
         <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-danger">
@@ -721,6 +760,7 @@ function Legend({ kind, ownerName }: { kind: BuilderKind; ownerName: string }) {
           {item('bg-success-soft ring-1 ring-success/40 ring-inset', <><strong className="text-success">Verde</strong>: turma livre, clique para colocar a aula de {ownerName}</>)}
           {item('bg-surface ring-1 ring-line ring-inset', <><strong className="text-ink">Cinza com cadeado</strong>: turma ocupada com outro professor</>)}
           {item('bg-sub-teal-bg ring-1 ring-sub-teal/45 ring-inset', <><strong className="text-ink">Colorido</strong>: aula de {ownerName}</>)}
+          {item('bg-[repeating-linear-gradient(135deg,var(--color-subtle)_0_4px,var(--color-canvas)_4px_8px)] ring-1 ring-line ring-inset', <><strong className="text-ink">Listrado</strong>: {ownerName} não está na escola</>)}
         </>
       ) : (
         <>

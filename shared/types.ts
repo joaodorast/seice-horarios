@@ -86,6 +86,16 @@ export interface Lesson {
   updatedAt: string;
 }
 
+/** Atribuição: quem leciona a disciplina na turma e quantas aulas por semana (aula dupla conta como duas). */
+export interface Assignment {
+  id: number;
+  teacherId: number;
+  classId: number;
+  subjectId: number;
+  weeklyLessons: number;
+  updatedAt: string;
+}
+
 export type IssueCode =
   | 'invalid-time'
   | 'teacher-overlap'

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, ChevronLeft, ClipboardList, Eye, ChevronRight, Coffee, Lock, Save, Settings2, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronLeft, ClipboardList, Plus, ChevronRight, Coffee, Lock, Save, Settings2, Undo2, X } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
 import { Button, Card, Combobox, ConfirmDialog, Modal, Segmented, useToast } from '@/components/ui';
@@ -14,13 +14,12 @@ import { periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import { teacherSubjectIds } from '@shared/suggest';
 import { durationMinutes, overlaps } from '@shared/time';
-import { SHIFT_KEYS, type Lesson, type Period, type ShiftKey, type Weekday } from '@shared/types';
+import { SHIFT_KEYS, type Lesson, type Period, type SchoolClass, type ShiftKey, type Weekday } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { formatHours } from '@/lib/format';
 import { plural } from '@/lib/text';
 import { cn } from '@/lib/cn';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { GUIDES } from '@/lib/guides';
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true });
@@ -116,14 +115,6 @@ function Builder({
     [data.lessons, kind, ownerId],
   );
   const others = useMemo(() => data.lessons.filter((l) => !owned.includes(l)), [data.lessons, owned]);
-  // Quadro do professor: aulas de outros professores visíveis na grade (todos, nenhum ou os escolhidos).
-  const [peek, setPeek] = useLocalStorage<PeekChoice>('seice:montar-ver-outros', 'all');
-  const peekAt = (day: Weekday, p: Period) =>
-    kind !== 'teacher' || peek === 'none'
-      ? []
-      : others
-          .filter((l) => l.weekday === day && overlaps(l.start, l.end, p.start, p.end) && (peek === 'all' || peek.includes(l.teacherId)))
-          .sort((a, b) => byName(data.classes.find((c) => c.id === a.classId) ?? { name: '' }, data.classes.find((c) => c.id === b.classId) ?? { name: '' }));
 
   // Períodos: os do turno da turma; para o professor, os turnos habilitados e os em que ele já tem aulas.
   const allPeriods: Period[] = useMemo(() => {
@@ -256,7 +247,7 @@ function Builder({
 
       {teacher && <TeacherSubjectsBar teacherId={teacher.id} data={data} />}
 
-      {teacher && <PeekBar ownerId={teacher.id} data={data} value={peek} onChange={setPeek} />}
+      <Legend kind={kind} ownerName={firstName(ownerName)} />
 
       {lessonPeriods.length === 0 ? (
         <Card className="p-8 text-center text-muted">Nenhum período de aula configurado. Defina os horários em Configurações.</Card>
@@ -330,7 +321,7 @@ function Builder({
                               changed={dirtyKeys.includes(key)}
                               error={errors.get(key)}
                               busy={busyAt(d, p)}
-                              peek={peekAt(d, p)}
+                              slotLessons={others.filter((l) => l.weekday === d && overlaps(l.start, l.end, p.start, p.end))}
                               onChange={(v) => setCell(key, v)}
                               onOpenLocked={() => {
                                 const l = owned.find((x) => x.id === cell.lessonId);
@@ -400,7 +391,7 @@ function BuilderCell({
   busy,
   onChange,
   onOpenLocked,
-  peek,
+  slotLessons,
 }: {
   kind: BuilderKind;
   data: ScheduleData;
@@ -414,7 +405,8 @@ function BuilderCell({
   busy: Map<number, string>;
   onChange: (v: CellValue) => void;
   onOpenLocked: () => void;
-  peek: Lesson[];
+  /** Aulas de outros professores/turmas neste horário. */
+  slotLessons: Lesson[];
 }) {
   const subject = value.subjectId ? data.subjects.find((s) => s.id === value.subjectId) : undefined;
   const where = `${WEEKDAY_LABEL[day]}, ${period.label}`;
@@ -441,8 +433,7 @@ function BuilderCell({
   // Opções de professor (quadro da turma) ou de turma (quadro do professor).
   let otherSelect: ReactNode;
   // Quadro do professor: turmas do turno que já têm aula com outro professor neste horário.
-  let busyClasses: { name: string; with: string }[] = [];
-  let freeClasses = 0;
+  let shiftClasses: SchoolClass[] = [];
   if (kind === 'class') {
     const assignedId = value.subjectId !== null ? assignedTeacher(data, ownerId, value.subjectId) : undefined;
     const active = data.teachers.filter((t) => t.active || t.id === value.otherId).sort(byName);
@@ -481,8 +472,7 @@ function BuilderCell({
     const fits = data.classes
       .filter((c) => (c.active || c.id === value.otherId) && shiftsOfClass(c.shift).includes(period.shift))
       .sort(byName);
-    busyClasses = fits.filter((c) => busy.has(c.id)).map((c) => ({ name: c.name, with: firstName(busy.get(c.id)!) }));
-    freeClasses = fits.length - busyClasses.length;
+    shiftClasses = fits;
     otherSelect = (
       <CellPicker
         label={`Turma · ${where}`}
@@ -564,23 +554,55 @@ function BuilderCell({
     />
   );
 
-  // Professor livre, mas nenhuma turma livre neste horário: não há o que escolher, então a célula explica o motivo.
-  if (kind === 'teacher' && isEmpty(value) && freeClasses === 0) {
+  // Horário vago do professor: mostra todas as turmas do turno, livres (um clique coloca a aula) e ocupadas (com quem).
+  if (kind === 'teacher' && isEmpty(value)) {
+    const free = shiftClasses.filter((c) => !busy.has(c.id));
+    const pick = (classId: number) => {
+      const own = data.assignments.filter((a) => a.teacherId === ownerId && a.classId === classId);
+      const mineIds = teacherSubjectIds(data.teachers.find((t) => t.id === ownerId), data.subjects);
+      onChange({ otherId: classId, subjectId: own.length === 1 ? own[0].subjectId : own.length === 0 && mineIds.length === 1 ? mineIds[0] : null });
+    };
     return (
-      <td className="h-[92px] border-b border-l border-line-strong bg-subtle/70 p-1.5 align-top">
-        <div
-          className="flex h-full flex-col justify-center rounded-md border border-dashed border-line-strong px-2 py-1.5 text-[12px] leading-snug text-ink-2"
-          title={busyClasses.map((c) => `${c.name}: aula com ${c.with}`).join(' · ')}
-        >
-          <span className="font-bold text-ink">Sem turma livre</span>
-          {peek.length ? (
-            <PeekList lessons={peek} data={data} />
-          ) : busyClasses.length ? (
-            <span className="truncate">{busyClasses.map((c) => `${c.name} com ${c.with}`).join(' · ')}</span>
-          ) : (
-            <span>Nenhuma turma deste turno</span>
-          )}
-        </div>
+      <td className={cn('h-[92px] border-b border-l border-line-strong p-1.5 align-top', changed ? 'bg-surface shadow-[inset_0_0_0_2px_var(--color-brand)]' : 'bg-subtle/70')}>
+        <p className={cn('mb-1 px-0.5 text-[11px] font-bold tracking-wide uppercase', free.length ? 'text-success' : 'text-ink-2')}>
+          {free.length ? (free.length === 1 ? '1 turma livre' : `${free.length} turmas livres`) : 'Nenhuma turma livre'}
+        </p>
+        <ul className="flex flex-col gap-1">
+          {shiftClasses.map((c) => {
+            const assigned = subjectNames(data, ownerId, c.id);
+            if (!busy.has(c.id))
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => pick(c.id)}
+                    title={`Colocar a aula no ${c.name} (${where})`}
+                    aria-label={`Colocar a aula no ${c.name}, ${where}`}
+                    className="group flex h-7 w-full items-center gap-1.5 rounded-md bg-success-soft px-2 text-left text-[12.5px] text-success ring-1 ring-success/40 ring-inset transition-colors hover:bg-success hover:text-white focus-visible:outline-2 focus-visible:outline-ink"
+                  >
+                    <Plus className="size-3.5 shrink-0" strokeWidth={3} />
+                    <span className="shrink-0 font-extrabold">{c.name}</span>
+                    <span className="truncate font-semibold opacity-90">{assigned || 'livre'}</span>
+                  </button>
+                </li>
+              );
+            const l = slotLessons.find((x) => x.classId === c.id);
+            const subj = l?.subjectId ? data.subjects.find((x) => x.id === l.subjectId) : undefined;
+            return (
+              <li
+                key={c.id}
+                className="flex h-7 items-center gap-1.5 rounded-md bg-surface/60 px-2 text-[12.5px] text-ink-2 ring-1 ring-line ring-inset"
+                title={`${c.name} já tem aula neste horário: ${subj?.name ?? 'sem disciplina'} com ${busy.get(c.id)}`}
+              >
+                <Lock className="size-3 shrink-0 opacity-70" />
+                <span className="shrink-0 font-bold text-ink">{c.name}</span>
+                <span className={cn('size-1.5 shrink-0 rounded-full', subj ? SUBJECT_STYLE[subj.color].dot : 'bg-line-strong')} />
+                <span className="truncate">{firstName(busy.get(c.id)!)}</span>
+              </li>
+            );
+          })}
+          {shiftClasses.length === 0 && <li className="px-0.5 text-[12px] text-ink-2">Nenhuma turma neste turno.</li>}
+        </ul>
       </td>
     );
   }
@@ -607,7 +629,6 @@ function BuilderCell({
             {subjectSelect}
           </>
         )}
-        {peek.length > 0 && <PeekList lessons={peek} data={data} />}
       </div>
       {!isEmpty(value) && (
         <button
@@ -629,68 +650,33 @@ function BuilderCell({
   );
 }
 
-// ------------------------------------------------------------------ Aulas de outros professores
+// ------------------------------------------------------------------ Legenda
 
-type PeekChoice = 'all' | 'none' | number[];
-
-/** Aulas de outros professores no mesmo horário, só para consulta. */
-function PeekList({ lessons, data }: { lessons: Lesson[]; data: ScheduleData }) {
-  const shown = lessons.slice(0, 3);
-  return (
-    <ul className="mt-0.5 flex flex-col gap-0.5" aria-label="Aulas de outros professores neste horário">
-      {shown.map((l) => {
-        const subject = l.subjectId ? data.subjects.find((x) => x.id === l.subjectId) : undefined;
-        const c = data.classes.find((x) => x.id === l.classId);
-        const t = data.teachers.find((x) => x.id === l.teacherId);
-        return (
-          <li
-            key={l.id}
-            className="flex min-w-0 items-center gap-1.5 rounded bg-surface/70 px-1.5 py-0.5 text-[11.5px] leading-tight text-ink-2 ring-1 ring-line ring-inset"
-            title={`${c?.name} · ${subject?.name ?? 'Sem disciplina'} · ${t?.name} · ${l.start}–${l.end}`}
-          >
-            <span className={cn('size-1.5 shrink-0 rounded-full', subject ? SUBJECT_STYLE[subject.color].dot : 'bg-line-strong')} />
-            <span className="shrink-0 font-bold text-ink">{c?.name}</span>
-            <span className="truncate">{t ? firstName(t.name) : '—'}</span>
-          </li>
-        );
-      })}
-      {lessons.length > shown.length && <li className="px-1.5 text-[11px] font-semibold text-ink-2">+{lessons.length - shown.length} turmas</li>}
-    </ul>
+/** Explica as cores da grade em uma linha, para ninguém precisar perguntar. */
+function Legend({ kind, ownerName }: { kind: BuilderKind; ownerName: string }) {
+  const item = (swatch: string, text: ReactNode) => (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn('inline-block h-4 w-6 shrink-0 rounded', swatch)} aria-hidden="true" />
+      {text}
+    </span>
   );
-}
-
-/** Escolha de quais outros professores aparecem na grade do professor. */
-function PeekBar({ ownerId, data, value, onChange }: { ownerId: number; data: ScheduleData; value: PeekChoice; onChange: (v: PeekChoice) => void }) {
-  const teachers = data.teachers.filter((t) => t.active && t.id !== ownerId).sort(byName);
-  const picked = Array.isArray(value) ? value : [];
-  const toggle = (id: number) => {
-    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
-    onChange(next.length ? next : 'none');
-  };
-  const chip = (active: boolean) =>
-    cn(
-      'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold ring-1 ring-inset transition-colors',
-      active ? 'bg-nav text-white ring-nav' : 'bg-surface text-ink ring-line-strong hover:ring-ink',
-    );
   return (
-    <Card className="flex flex-wrap items-center gap-2 px-4 py-3">
-      <span className="mr-1 inline-flex items-center gap-1.5 text-[14px] font-bold text-ink">
-        <Eye className="size-4" /> Ver na grade as aulas de:
-      </span>
-      <button type="button" aria-pressed={value === 'all'} className={chip(value === 'all')} onClick={() => onChange('all')}>
-        Todos
-      </button>
-      <button type="button" aria-pressed={value === 'none'} className={chip(value === 'none')} onClick={() => onChange('none')}>
-        Ninguém
-      </button>
-      <span className="mx-1 h-5 w-px bg-line-strong" aria-hidden="true" />
-      {teachers.map((t) => (
-        <button key={t.id} type="button" aria-pressed={picked.includes(t.id)} className={chip(picked.includes(t.id))} onClick={() => toggle(t.id)}>
-          {picked.includes(t.id) && <Check className="size-3.5 text-brand" strokeWidth={3} />}
-          {firstName(t.name)}
-        </button>
-      ))}
-    </Card>
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-surface px-4 py-2.5 text-[13px] text-ink-2 ring-1 ring-line">
+      <span className="font-bold text-ink">Como ler a grade:</span>
+      {kind === 'teacher' ? (
+        <>
+          {item('bg-success-soft ring-1 ring-success/40 ring-inset', <><strong className="text-success">Verde</strong>: turma livre, clique para colocar a aula de {ownerName}</>)}
+          {item('bg-surface ring-1 ring-line ring-inset', <><strong className="text-ink">Cinza com cadeado</strong>: turma ocupada com outro professor</>)}
+          {item('bg-sub-teal-bg ring-1 ring-sub-teal/45 ring-inset', <><strong className="text-ink">Colorido</strong>: aula de {ownerName}</>)}
+        </>
+      ) : (
+        <>
+          {item('bg-sub-teal-bg ring-1 ring-sub-teal/45 ring-inset', <><strong className="text-ink">Colorido</strong>: aula marcada</>)}
+          {item('border border-dashed border-line-strong bg-subtle', <><strong className="text-ink">Tracejado</strong>: horário vago, escolha a disciplina e o professor</>)}
+        </>
+      )}
+      {item('bg-surface shadow-[inset_0_0_0_2px_var(--color-brand)]', <><strong className="text-ink">Borda amarela</strong>: alterado, falta salvar</>)}
+    </div>
   );
 }
 

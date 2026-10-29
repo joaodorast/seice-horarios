@@ -1,5 +1,6 @@
 import { LESSON_LOCK_KEY, type Database, type Row } from './db.js';
 import type {
+  AssignmentBatchInput,
   ClassInput,
   LessonInput,
   PeriodsReplaceInput,
@@ -7,7 +8,7 @@ import type {
   SubjectInput,
   TeacherInput,
 } from '../shared/schemas.js';
-import type { Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
+import type { Assignment, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -79,6 +80,17 @@ function toLesson(r: Row): Lesson {
     end: String(r.end_time),
     notes: text(r.notes),
     createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+  };
+}
+
+function toAssignment(r: Row): Assignment {
+  return {
+    id: Number(r.id),
+    teacherId: Number(r.teacher_id),
+    classId: Number(r.class_id),
+    subjectId: Number(r.subject_id),
+    weeklyLessons: Number(r.weekly_lessons),
     updatedAt: iso(r.updated_at),
   };
 }
@@ -266,6 +278,29 @@ export function createRepository(db: Database) {
       await db.query(sql, ['enabledDays', JSON.stringify(input.enabledDays)]);
       await db.query(sql, ['enabledShifts', JSON.stringify(input.enabledShifts)]);
       await db.query(sql, ['lessonDuration', JSON.stringify(input.lessonDuration)]);
+    },
+
+    // ---------- Atribuições ----------
+    async listAssignments(): Promise<Assignment[]> {
+      return (await db.query('SELECT * FROM assignments ORDER BY class_id, subject_id')).map(toAssignment);
+    },
+    /**
+     * Remove e grava atribuições (uma por turma e disciplina). Quem recebe uma disciplina passa a constar
+     * como professor dela. Deve rodar dentro de uma transação.
+     */
+    async applyAssignments(batch: AssignmentBatchInput): Promise<void> {
+      for (const r of batch.removes) {
+        await db.query('DELETE FROM assignments WHERE class_id = $1 AND subject_id = $2', [r.classId, r.subjectId]);
+      }
+      for (const a of batch.upserts) {
+        await db.query(
+          `INSERT INTO assignments (teacher_id, class_id, subject_id, weekly_lessons) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (class_id, subject_id) DO UPDATE
+             SET teacher_id = excluded.teacher_id, weekly_lessons = excluded.weekly_lessons, updated_at = now()`,
+          [a.teacherId, a.classId, a.subjectId, a.weeklyLessons],
+        );
+        await this.linkTeacherSubject(a.teacherId, a.subjectId);
+      }
     },
 
     // ---------- Aulas ----------

@@ -9,6 +9,10 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 | **Banco de dados** | PostgreSQL no Supabase (`sa-east-1`), schema `seice` |
 | **Acesso** | Login com e-mail e senha (somente a coordenação) |
 
+> 📘 **Guias para quem usa o sistema:**
+> - [Começar do zero](docs/COMECAR-DO-ZERO.md) — do primeiro acesso ao quadro impresso, e a instalação passo a passo.
+> - [Guia das telas](docs/GUIA-DAS-TELAS.md) — o que cada tela faz e como as telas se comunicam.
+
 ---
 
 ## Sumário
@@ -32,6 +36,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 - **Dashboard** com indicadores calculados dos dados reais (professores, turmas, aulas, horários vagos, conflitos), distribuição semanal, pendências priorizadas, "agora na escola" e guia de primeiros passos.
 - **Professores**: cadastro, edição, pesquisa (ignora acentos), filtros por situação e área, inativação e exclusão protegida (se houver aulas, o sistema explica as consequências e oferece inativar). Página de detalhes com dados, turmas e quadro semanal.
 - **Turmas**: cadastro com turno (manhã, tarde, noite ou integral), bloqueio de nomes duplicados, preenchimento da grade, professores e disciplinas da turma.
+- **Professores com várias disciplinas** e **foto**. As disciplinas do professor aparecem primeiro em todas as escolhas.
 - **Disciplinas**: página própria com a cor de cada disciplina, aulas semanais, carga horária, professores e turmas em que aparece, pesquisa, filtro por uso e atalho para o quadro filtrado.
 - **Quadro de horários**:
   - *Visão geral*: turmas × períodos por dia e turno, filtros por professor, turma e disciplina (guardados na URL).
@@ -40,6 +45,16 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
   - Detalhes da aula com editar, **duplicar** (os conflitos são verificados de novo) e excluir com confirmação.
   - "Salvar e adicionar outra" mantém turma, professor e disciplina para lançamentos em sequência.
   - Em celulares, a grade vira uma visão por dia. Atalho **N** abre um novo cadastro ou aula.
+- **Atribuição de aulas**: quem dá cada disciplina em cada turma e quantas aulas por semana. Por professor (atribui **várias turmas de uma vez**) ou por turma (um professor por disciplina). Salva sozinho e mostra quantas aulas já estão no quadro (*faltam 2*, *completo*, *1 a mais*).
+- **Montar quadro**: a semana de uma turma ou de um professor como uma grade editável.
+  - Por turma: disciplina + professor em cada horário; o professor **atribuído já vem preenchido**.
+  - Por professor: cada horário vago mostra as turmas do turno — **verdes (livres, um clique)** e **cinzas (ocupadas, com quem)**.
+  - Faixa "Atribuição desta turma" com o progresso de cada disciplina (**2 de 3**), legenda das cores, alterações destacadas e salvas de uma vez, aula dupla automática e aviso ao sair sem salvar.
+- **Quadro geral — Semana inteira**: a semana do turno em uma tela (horários × dias, uma linha por turma), com os mesmos filtros e legenda das cores.
+- **Carga horária**: professor × turma com aulas e horas por semana e totais **por semana e por mês** (4, 4,5 ou 5 semanas), detalhe por disciplina e exportação para Excel.
+- **Resolução de horário ocupado**: ao lançar uma aula num horário com aula, o sistema oferece **substituir**, **trocar** os horários ou **passar** a aula para outro professor, tudo numa única gravação.
+- **Ambiente de teste** (`npm run demo`) com dados fictícios em memória, separado do banco real.
+- **Leitura confortável**: contraste reforçado, texto ampliável (botão **T** no menu) e layout que aproveita telas baixas, sem precisar de tela cheia.
 - **Prevenção de conflitos** em três camadas: verificação ao vivo no formulário, validação no servidor e gatilho no banco de dados, com gravações de aulas serializadas para que dois usuários salvando ao mesmo tempo não criem sobreposição. Detecta professor em duas turmas ao mesmo tempo, turma com aulas simultâneas, sobreposição parcial (08h–09h30 × 09h–10h), término antes do início, professor/turma inativos e dia não habilitado.
 - **Importação de planilhas** (Excel `.xlsx` ou CSV) em todas as telas de trabalho, exceto o Dashboard. Veja [Importação de planilhas](#importação-de-planilhas).
 - **Configurações**: dias letivos, turnos, duração padrão e horários de cada turno (aulas e intervalos, com gerador automático). Mudanças **nunca alteram nem apagam aulas**: antes de salvar, o sistema mostra quais aulas ficariam fora da grade e pede confirmação.
@@ -71,7 +86,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 
 - **Login obrigatório**: todas as telas, inclusive a de impressão, e toda a API (exceto `/api/health` e o próprio login) exigem sessão.
 - **Senhas** são guardadas apenas como hash **scrypt** com sal aleatório; nenhuma senha fica em arquivo ou no repositório.
-- **Sessão** em cookie `HttpOnly`, `Secure` (em HTTPS) e `SameSite=Lax`, assinado com HMAC-SHA256, válido por 12 horas. O segredo de assinatura é gerado automaticamente e guardado no banco (ou definido pela variável `SESSION_SECRET`).
+- **Sessão** em cookie `HttpOnly`, `Secure` (em HTTPS) e `SameSite=Lax`, assinado com HMAC-SHA256, válido por 12 horas — ou 30 dias com **Manter conectado**, renovado enquanto o sistema é usado. O segredo de assinatura é gerado automaticamente e guardado no banco (ou definido pela variável `SESSION_SECRET`).
 - **Bloqueio de força bruta**: após 5 senhas erradas, o usuário fica bloqueado por 15 minutos. A mensagem de erro é a mesma para e-mail inexistente e senha errada.
 - **Trocar a senha encerra as sessões abertas** daquele usuário.
 - **Proteção contra outros sites**: alterações vindas de outra origem são recusadas.
@@ -103,6 +118,7 @@ Disponível em:
 | Quadro de horários | Aulas de qualquer turma e professor |
 | Horários por professor / por turma | Aulas daquele professor ou turma (a coluna correspondente é dispensada) |
 | Detalhes do professor / da turma | Aulas daquele professor ou turma |
+| Atribuição de aulas | Atribuições (professor, turmas, disciplina, aulas por semana; várias turmas na mesma linha) |
 | Configurações | Horários dos turnos (períodos) |
 
 ### Como funciona
@@ -124,6 +140,8 @@ Reimportar a mesma planilha **não duplica nada**: registros iguais são ignorad
 
 **Horários dos turnos** — `Turno`\*, `Período`\*, `Início`\*, `Término`\*, `Tipo` (Aula/Intervalo; em branco, deduz pelo nome — "Intervalo", "Recreio", "Almoço"). Cada turno presente na planilha tem seus horários **substituídos**; os demais ficam como estão. Aulas já lançadas nunca são alteradas.
 
+**Atribuições** — `Professor`\* (nome ou matrícula), `Turmas`\* (uma ou várias, separadas por vírgula: "6º A, 7º A"), `Disciplina`\*, `Aulas por semana`\* (1 a 40). Cada turma tem um professor por disciplina: importar de novo a mesma turma e disciplina troca o professor ou a quantidade.
+
 **Aulas** — `Turma`\*, `Professor`\* (nome ou matrícula), `Disciplina`, `Dia`\*, e o horário por **uma** destas formas:
 - `Horário` com o período da grade: "1º horário", "2ª aula", "Aula 3", "4";
 - `Horário` com uma faixa: "07:00 às 07:50", "7h–7h50", "07:00-07:50";
@@ -144,7 +162,7 @@ As gravações seguem um caminho rápido (uma ida ao banco por linha); se o banc
 ## Banco de dados
 
 - **Supabase**, projeto *Provas Seice App* (conta joaodorast), região São Paulo.
-- O SEICE usa **exclusivamente o schema `seice`**: tabelas `teachers`, `classes`, `subjects`, `periods`, `settings`, `lessons`, `users`, `app_config` e `schema_migrations`. Consulte-as no painel do Supabase em *Table Editor*, escolhendo o schema `seice`.
+- O SEICE usa **exclusivamente o schema `seice`**: tabelas `teachers`, `teacher_photos`, `teacher_subjects`, `classes`, `subjects`, `periods`, `settings`, `lessons`, `assignments`, `users`, `app_config` e `schema_migrations`. Consulte-as no painel do Supabase em *Table Editor*, escolhendo o schema `seice`.
 - **Convivência com outro sistema no mesmo projeto**: o SEICE não cria nem altera nada fora do schema `seice`, não tem chaves estrangeiras para outros schemas e acessa o banco com um usuário próprio (`seice_app`) que **não tem permissão sobre as tabelas de outros sistemas**, limitado a **5 conexões** e a consultas de no máximo 30 segundos. O schema `seice` não é exposto pela API pública do Supabase.
 - **Migrações** versionadas em `server/migrations.ts`, registradas em `seice.schema_migrations`. Nunca altere uma migração publicada; crie uma nova versão e rode `npm run db:migrate`.
 - **Backups**: feitos diariamente pelo Supabase, conforme o plano do projeto.
@@ -192,6 +210,14 @@ npm run dev
 
 Acesse **http://localhost:5173** e entre com seu e-mail e senha. O computador usa o **mesmo banco na nuvem** que a produção.
 
+**Ambiente de teste** (não usa o banco real nem precisa do `.env`):
+
+```cmd
+npm run demo
+```
+
+Acesse **http://localhost:5180** com `teste@seice.com` / `teste1234`. Os dados são fictícios, ficam em memória e voltam ao original a cada início.
+
 Versão otimizada em um único processo (interface + API) em **http://localhost:3333**:
 
 ```cmd
@@ -228,6 +254,7 @@ npx vercel deploy --prod
 | Comando | O que faz |
 | --- | --- |
 | `npm run dev` | Interface (5173) e API (3333) com recarga automática |
+| `npm run demo` | Ambiente de teste com dados fictícios em http://localhost:5180 |
 | `npm run build` | Verifica os tipos e gera a versão otimizada em `dist\` |
 | `npm start` | Executa a versão otimizada em http://localhost:3333 |
 | `npm run db:setup` | Prepara o banco no Supabase e grava a conexão no `.env` |
@@ -244,13 +271,18 @@ npx vercel deploy --prod
 npm test
 ```
 
-61 testes rodam num **PostgreSQL em memória** (PGlite), com o mesmo esquema e migrações da nuvem — nunca tocam no banco real:
+111 testes rodam num **PostgreSQL em memória** (PGlite), com o mesmo esquema e migrações da nuvem — nunca tocam no banco real:
 
 - `conflicts.test.ts` — regras de conflito e cálculo da grade;
 - `api.test.ts` — fluxos da API, gatilho anti-sobreposição e formato dos horários no banco;
 - `auth.test.ts` — hash de senha, sessão obrigatória, cookie adulterado, bloqueio por tentativas, troca de senha e proteção de origem;
 - `import.test.ts` — interpretação de valores, prévia sem gravação, atualização, conflitos, disciplinas automáticas, substituição de aulas, recuperação de recusas do banco;
-- `spreadsheet.test.ts` — leitura de Excel e CSV (Windows-1252, aspas, quebras de linha) e reimportação de todos os modelos.
+- `spreadsheet.test.ts` — leitura de Excel e CSV (Windows-1252, aspas, quebras de linha) e reimportação de todos os modelos;
+- `lesson-batch.test.ts` — substituição, troca de horários e repasse de aulas numa única gravação;
+- `teacher-subjects.test.ts`, `suggest.test.ts` e `photos.test.ts` — disciplinas e fotos dos professores e sugestão de disciplina;
+- `builder.test.ts` — Montar quadro: células, aulas duplas e planejamento do salvamento;
+- `assignments.test.ts` e `assignment-progress.test.ts` — atribuição de aulas (API, importação, progresso no quadro);
+- `workload.test.ts` — carga horária por professor, turma e disciplina.
 
 ---
 
@@ -262,7 +294,7 @@ server/        API Express, autenticação, conexão com o Supabase, migrações
                repositório SQL e motor de importação
 shared/        regras compartilhadas entre interface e servidor
                (tipos, validações Zod, conflitos, grade e importação de planilhas)
-scripts/       configuração do banco, migrações e criação de usuários
+scripts/       configuração do banco, migrações, criação de usuários e ambiente de teste
 src/
   api/         cliente HTTP, sessão e hooks de dados
   components/  ui/ (design system), layout/, schedule/ (grades e editor de aulas)
@@ -271,6 +303,7 @@ src/
   pages/       telas do sistema
   styles/      tokens visuais (cores da marca, tipografia, animações)
 tests/         testes automatizados e utilitário de servidor de teste
+docs/          guias para quem usa o sistema (começar do zero, guia das telas)
 vercel.json    configuração de build, função, rotas e cabeçalhos da Vercel
 ```
 

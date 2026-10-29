@@ -9,6 +9,7 @@ import { AuthError, createAuth, sameOriginGuard } from './auth.js';
 import {
   classSchema,
   importRequestSchema,
+  assignmentBatchSchema,
   lessonBatchSchema,
   loginSchema,
   lessonSchema,
@@ -350,6 +351,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     periods: () => repo.listPeriods(),
     settings: () => repo.getSettings(),
     lessons: () => repo.listLessons(),
+    assignments: () => repo.listAssignments(),
   } as const;
   type Resource = keyof typeof RESOURCES;
 
@@ -454,6 +456,28 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const id = idParam(req);
     if (!(await repo.deleteLesson(id))) throw new HttpError(404, 'not_found', 'Aula não encontrada.');
     res.status(204).end();
+  });
+
+  // ---------------- Atribuição de aulas ----------------
+  api.get('/assignments', async (_req, res) => {
+    res.json(await repo.listAssignments());
+  });
+
+  api.post('/assignments/batch', async (req, res) => {
+    const batch = parse(assignmentBatchSchema, req.body);
+    if (!batch.upserts.length && !batch.removes.length) throw new HttpError(422, 'empty_batch', 'Nenhuma alteração para aplicar.');
+    const keys = batch.upserts.map((a) => `${a.classId}:${a.subjectId}`);
+    if (new Set(keys).size !== keys.length) {
+      throw new HttpError(422, 'duplicate', 'A mesma disciplina aparece duas vezes para uma turma. Cada turma tem um professor por disciplina.');
+    }
+    const [teachers, classes, subjects] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects()]);
+    for (const a of batch.upserts) {
+      if (!teachers.some((t) => t.id === a.teacherId)) throw new HttpError(422, 'not_found', 'Um dos professores não existe mais. Atualize a página.');
+      if (!classes.some((c) => c.id === a.classId)) throw new HttpError(422, 'not_found', 'Uma das turmas não existe mais. Atualize a página.');
+      if (!subjects.some((s) => s.id === a.subjectId)) throw new HttpError(422, 'not_found', 'Uma das disciplinas não existe mais. Atualize a página.');
+    }
+    await db.transaction((tx) => createRepository(tx).applyAssignments(batch));
+    res.json(await repo.listAssignments());
   });
 
   // ---------------- Importação de planilhas ----------------

@@ -14,7 +14,7 @@ import { periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import { teacherSubjectIds } from '@shared/suggest';
 import { durationMinutes, overlaps } from '@shared/time';
-import { SHIFT_KEYS, type Lesson, type Period, type SchoolClass, type ShiftKey, type Weekday } from '@shared/types';
+import { SHIFT_KEYS, type Assignment, type Lesson, type Period, type SchoolClass, type ShiftKey, type Weekday } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { formatHours } from '@/lib/format';
@@ -137,6 +137,15 @@ function Builder({
     }
     return n;
   };
+  // Quadro da turma: atribuições que ainda não completaram as aulas da semana na grade.
+  const pending =
+    kind === 'class'
+      ? data.assignments
+          .filter((a) => a.classId === ownerId)
+          .map((a) => ({ assignment: a, missing: a.weeklyLessons - countCells(a.teacherId, a.subjectId) }))
+          .filter((x) => x.missing > 0)
+          .sort((x, y) => y.missing - x.missing)
+      : [];
   const dirtyKeys = [...edits.keys()].filter((k) => !sameValue(edits.get(k)!, cells.get(k) ?? EMPTY));
   const dirty = dirtyKeys.length > 0;
 
@@ -321,6 +330,7 @@ function Builder({
                               changed={dirtyKeys.includes(key)}
                               error={errors.get(key)}
                               busy={busyAt(d, p)}
+                              pending={pending}
                               slotLessons={others.filter((l) => l.weekday === d && overlaps(l.start, l.end, p.start, p.end))}
                               onChange={(v) => setCell(key, v)}
                               onOpenLocked={() => {
@@ -392,6 +402,7 @@ function BuilderCell({
   onChange,
   onOpenLocked,
   slotLessons,
+  pending,
 }: {
   kind: BuilderKind;
   data: ScheduleData;
@@ -407,7 +418,10 @@ function BuilderCell({
   onOpenLocked: () => void;
   /** Aulas de outros professores/turmas neste horário. */
   slotLessons: Lesson[];
+  /** Quadro da turma: aulas atribuídas que ainda faltam na grade. */
+  pending: { assignment: Assignment; missing: number }[];
 }) {
+  const [manual, setManual] = useState(false);
   const subject = value.subjectId ? data.subjects.find((s) => s.id === value.subjectId) : undefined;
   const where = `${WEEKDAY_LABEL[day]}, ${period.label}`;
   const tint = subject ? SUBJECT_STYLE[subject.color].chip : '';
@@ -554,6 +568,45 @@ function BuilderCell({
     />
   );
 
+  // Horário vago da turma: sugere as aulas atribuídas que faltam e cujo professor está livre (um clique preenche tudo).
+  const suggestions = kind === 'class' && isEmpty(value) && !manual ? pending.filter((x) => !busy.has(x.assignment.teacherId)).slice(0, 3) : [];
+  if (suggestions.length > 0) {
+    const others = pending.filter((x) => !busy.has(x.assignment.teacherId)).length - suggestions.length;
+    return (
+      <td className={cn('h-[92px] border-b border-l border-line-strong p-1.5 align-top', changed ? 'bg-surface shadow-[inset_0_0_0_2px_var(--color-brand)]' : 'bg-subtle/70')}>
+        <p className="mb-1 px-0.5 text-[11px] font-bold tracking-wide text-success uppercase">Faltam na turma</p>
+        <ul className="flex flex-col gap-1">
+          {suggestions.map(({ assignment: a, missing }) => {
+            const subj = data.subjects.find((x) => x.id === a.subjectId);
+            const t = data.teachers.find((x) => x.id === a.teacherId);
+            return (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => onChange({ subjectId: a.subjectId, otherId: a.teacherId })}
+                  title={`Colocar ${subj?.name} com ${t?.name} aqui (faltam ${missing} na semana)`}
+                  aria-label={`Colocar ${subj?.name} com ${t?.name}, ${where}`}
+                  className="flex h-7 w-full items-center gap-1.5 rounded-md bg-success-soft px-2 text-left text-[12.5px] text-success ring-1 ring-success/40 ring-inset transition-colors hover:bg-success hover:text-white focus-visible:outline-2 focus-visible:outline-ink"
+                >
+                  <Plus className="size-3.5 shrink-0" strokeWidth={3} />
+                  <span className="truncate font-extrabold">{subj?.name}</span>
+                  <span className="shrink-0 font-semibold opacity-90">· {t ? firstName(t.name) : ''}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <button
+          type="button"
+          onClick={() => setManual(true)}
+          className="mt-1 w-full rounded-md px-1 py-0.5 text-left text-[11.5px] font-bold text-ink-2 underline-offset-2 hover:text-ink hover:underline"
+        >
+          {others > 0 ? `+${others} sugestões · escolher outra aula` : 'Escolher outra aula'}
+        </button>
+      </td>
+    );
+  }
+
   // Horário vago do professor: mostra todas as turmas do turno, livres (um clique coloca a aula) e ocupadas (com quem).
   if (kind === 'teacher' && isEmpty(value)) {
     const free = shiftClasses.filter((c) => !busy.has(c.id));
@@ -671,6 +724,7 @@ function Legend({ kind, ownerName }: { kind: BuilderKind; ownerName: string }) {
         </>
       ) : (
         <>
+          {item('bg-success-soft ring-1 ring-success/40 ring-inset', <><strong className="text-success">Verde</strong>: aula atribuída que ainda falta, com o professor livre. Clique para colocar</>)}
           {item('bg-sub-teal-bg ring-1 ring-sub-teal/45 ring-inset', <><strong className="text-ink">Colorido</strong>: aula marcada</>)}
           {item('border border-dashed border-line-strong bg-subtle', <><strong className="text-ink">Tracejado</strong>: horário vago, escolha a disciplina e o professor</>)}
         </>

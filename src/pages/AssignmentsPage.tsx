@@ -11,6 +11,7 @@ import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { Avatar } from '@/pages/TeachersPage';
 import { assignmentKey, assignmentProgress, classCapacity, type AssignmentProgress } from '@shared/assignments';
 import { SHIFT_LABEL } from '@shared/labels';
+import { hasAvailability, rangesText, slotsOfDay } from '@shared/availability';
 import { teacherSubjectIds } from '@shared/suggest';
 import type { AssignmentBatchInput } from '@shared/schemas';
 import { CLASS_SHIFTS, type Assignment, type SchoolClass, type Subject, type Teacher } from '@shared/types';
@@ -183,6 +184,12 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
           <Avatar name={teacher.name} photo={teacherPhotoUrl(teacher)} size="lg" />
           <div className="min-w-0">
             <h2 className="truncate text-xl font-extrabold text-ink">{teacher.name}</h2>
+            <p className="mt-1 text-[13.5px] text-ink-2">
+              <strong className="text-ink">Na escola:</strong> {availabilitySummary(teacher)}{' '}
+              <Link to={`/professores/${teacher.id}`} className="font-semibold text-ink underline underline-offset-2 hover:text-brand-ink">
+                alterar
+              </Link>
+            </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {mySubjects.length ? (
                 mySubjects.map((s) => <SubjectTag key={s.id} subject={s} />)
@@ -641,6 +648,20 @@ function teacherGroups(data: ScheduleData, s: Subject, current: Assignment | und
 }
 
 // ------------------------------------------------------------------ Peças
+
+const DAY_SHORT: Record<number, string> = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex', 6: 'sáb' };
+
+/** "seg, qua e sex (07:00 às 12:20)" — resumo dos dias e horários do professor na escola. */
+function availabilitySummary(t: Teacher): string {
+  if (!hasAvailability(t)) return 'ainda não informado (qualquer horário)';
+  const byText = new Map<string, number[]>();
+  for (const d of [...new Set(t.availability.map((a) => a.weekday))].sort()) {
+    const text = rangesText(slotsOfDay(t, d));
+    byText.set(text, [...(byText.get(text) ?? []), d]);
+  }
+  const list = (ds: number[]) => (ds.length > 1 ? `${ds.slice(0, -1).map((d) => DAY_SHORT[d]).join(', ')} e ${DAY_SHORT[ds.at(-1)!]}` : DAY_SHORT[ds[0]]);
+  return [...byText].map(([text, ds]) => `${list(ds)} (${text})`).join('; ');
+}
 
 function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   return (

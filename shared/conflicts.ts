@@ -1,5 +1,6 @@
 import { WEEKDAY_LABEL, shiftsOfClass } from './labels.js';
 import { overlaps, toMinutes, TIME_PATTERN, formatRange } from './time.js';
+import { isAvailable, rangesText, slotsOfDay } from './availability.js';
 import type {
   Lesson,
   LessonIssue,
@@ -121,6 +122,18 @@ export function validateLesson(candidate: LessonCandidate, ctx: ValidationContex
       hint: 'Ajuste o início ou o término da aula.',
     });
     return issues;
+  }
+
+  if (teacher?.active && !isAvailable(teacher, candidate.weekday, candidate.start, candidate.end)) {
+    const day = slotsOfDay(teacher, candidate.weekday);
+    issues.push({
+      code: 'teacher-unavailable',
+      severity: 'error',
+      message: day.length
+        ? `${teacher.name} só está na escola ${WEEKDAY_LABEL[candidate.weekday].toLowerCase()} das ${rangesText(day)}.`
+        : `${teacher.name} não está na escola ${candidate.weekday === 6 ? 'no sábado' : `na ${WEEKDAY_LABEL[candidate.weekday].toLowerCase()}`}.`,
+      hint: 'Escolha um horário em que o professor está na escola, ou ajuste os dias e horários dele na página do professor.',
+    });
   }
 
   const sameDay = ctx.lessons.filter(

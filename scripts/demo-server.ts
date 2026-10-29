@@ -83,6 +83,14 @@ const lessons = await runImport(db, 'lessons', { rows: rows(lessonPlan()), optio
 // Atribuições a partir das aulas, com algumas turmas pedindo mais aulas do que já há no quadro (para testar o que falta).
 await db.exec(ASSIGNMENTS_FROM_LESSONS);
 await db.exec('UPDATE assignments SET weekly_lessons = weekly_lessons + 1 WHERE id % 3 = 0');
+// Dias e horários na escola de exemplo: Fábio só vem segunda, quarta e sexta; Gabriela não vem às sextas.
+await db.exec(`
+  INSERT INTO teacher_availability (teacher_id, weekday, start_time, end_time)
+  SELECT t.id, d.weekday, d.start_time, d.end_time FROM teachers t
+  JOIN (VALUES ('T-06', 1, '07:00', '17:30'), ('T-06', 3, '07:00', '17:30'), ('T-06', 5, '07:00', '17:30'),
+               ('T-07', 1, '07:00', '17:30'), ('T-07', 2, '07:00', '17:30'), ('T-07', 3, '07:00', '17:30'), ('T-07', 4, '07:00', '17:30'))
+    AS d (code, weekday, start_time, end_time) ON d.code = t.code;
+`);
 
 createApp(db).app.listen(DEMO_PORT, () => {
   console.log('\n  SEICE — AMBIENTE DE TESTE (dados fictícios em memória, nada vai para o sistema real)');

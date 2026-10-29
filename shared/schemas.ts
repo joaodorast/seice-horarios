@@ -102,6 +102,27 @@ export const lessonBatchSchema = z.object({
 });
 export type LessonBatchInput = z.output<typeof lessonBatchSchema>;
 
+const positiveId = (what: string) => z.coerce.number({ error: `Selecione ${what}.` }).int().positive({ error: `Selecione ${what}.` });
+
+export const assignmentSchema = z.object({
+  teacherId: positiveId('o professor'),
+  classId: positiveId('a turma'),
+  subjectId: positiveId('a disciplina'),
+  weeklyLessons: z.coerce
+    .number({ error: 'Informe quantas aulas por semana.' })
+    .int({ error: 'Use um número inteiro de aulas.' })
+    .min(1, { error: 'Pelo menos 1 aula por semana.' })
+    .max(40, { error: 'No máximo 40 aulas por semana.' }),
+});
+export type AssignmentInput = z.output<typeof assignmentSchema>;
+
+/** Gravação de várias atribuições de uma vez. Cada turma tem um professor por disciplina. */
+export const assignmentBatchSchema = z.object({
+  upserts: z.array(assignmentSchema).max(500).default([]),
+  removes: z.array(z.object({ classId: positiveId('a turma'), subjectId: positiveId('a disciplina') })).max(500).default([]),
+});
+export type AssignmentBatchInput = z.output<typeof assignmentBatchSchema>;
+
 export const periodSchema = z
   .object({
     id: z.number().int().positive().optional(),

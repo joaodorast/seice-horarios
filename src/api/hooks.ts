@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
 import { load } from './batch';
-import type { AssignmentBatchInput, ClassInput, LessonBatchInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
+import type { AssignmentBatchInput, AvailabilityInput, ClassInput, LessonBatchInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
 import type { ImportKind, ImportReport, ImportRequest } from '@shared/import';
 import type { Assignment, Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
 
@@ -90,6 +90,14 @@ export function useSetTeacherPhoto() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dataUrl }: { id: number; dataUrl: string }) => request<Teacher>('PUT', `/teachers/${id}/photo`, { dataUrl }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.teachers }),
+  });
+}
+
+export function useSaveAvailability() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: AvailabilityInput }) => request<Teacher>('PUT', `/teachers/${id}/availability`, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.teachers }),
   });
 }

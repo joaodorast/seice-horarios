@@ -1,7 +1,7 @@
 import { request } from './client';
 
 /** Conjuntos de dados que podem ser lidos juntos em GET /api/data. */
-export type Resource = 'teachers' | 'classes' | 'subjects' | 'periods' | 'settings' | 'lessons';
+export type Resource = 'teachers' | 'classes' | 'subjects' | 'periods' | 'settings' | 'lessons' | 'assignments';
 
 interface Pending {
   resolve: (value: unknown) => void;

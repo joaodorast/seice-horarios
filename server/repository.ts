@@ -1,6 +1,7 @@
 import { LESSON_LOCK_KEY, type Database, type Row } from './db.js';
 import type {
   AssignmentBatchInput,
+  AvailabilityInput,
   ClassInput,
   LessonInput,
   PeriodsReplaceInput,
@@ -8,7 +9,7 @@ import type {
   SubjectInput,
   TeacherInput,
 } from '../shared/schemas.js';
-import type { Assignment, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
+import type { Assignment, AvailabilitySlot, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -26,12 +27,15 @@ function toTeacher(r: Row): Teacher {
     updatedAt: iso(r.updated_at),
     photoUpdatedAt: r.photo_updated_at ? iso(r.photo_updated_at) : null,
     subjectIds: Array.isArray(r.subject_ids) ? (r.subject_ids as unknown[]).map(Number) : [],
+    availability: (typeof r.availability === 'string' ? JSON.parse(r.availability) : (r.availability ?? [])) as AvailabilitySlot[],
   };
 }
 
 /** Professores com a data da foto (se houver), sem carregar a imagem em si. */
 const TEACHER_SELECT = `SELECT t.*, p.updated_at AS photo_updated_at,
-  (SELECT COALESCE(array_agg(ts.subject_id ORDER BY ts.subject_id), '{}') FROM teacher_subjects ts WHERE ts.teacher_id = t.id) AS subject_ids
+  (SELECT COALESCE(array_agg(ts.subject_id ORDER BY ts.subject_id), '{}') FROM teacher_subjects ts WHERE ts.teacher_id = t.id) AS subject_ids,
+  (SELECT COALESCE(json_agg(json_build_object('weekday', a.weekday, 'start', a.start_time, 'end', a.end_time) ORDER BY a.weekday, a.start_time), '[]'::json)
+     FROM teacher_availability a WHERE a.teacher_id = t.id) AS availability
   FROM teachers t LEFT JOIN teacher_photos p ON p.teacher_id = t.id`;
 
 export interface TeacherPhoto {
@@ -95,6 +99,18 @@ function toAssignment(r: Row): Assignment {
   };
 }
 
+/** Une intervalos do mesmo dia que se cruzam ou se encostam (ex.: 07:00–09:30 e 09:30–12:20 viram 07:00–12:20). */
+function mergeSlots(slots: AvailabilitySlot[]): AvailabilitySlot[] {
+  const sorted = [...slots].sort((a, b) => a.weekday - b.weekday || a.start.localeCompare(b.start));
+  const out: AvailabilitySlot[] = [];
+  for (const s of sorted) {
+    const last = out[out.length - 1];
+    if (last && last.weekday === s.weekday && s.start <= last.end) last.end = s.end > last.end ? s.end : last.end;
+    else out.push({ ...s });
+  }
+  return out;
+}
+
 const collapse = (name: string) => name.replace(/\s+/g, ' ').trim();
 
 /**
@@ -155,6 +171,13 @@ export function createRepository(db: Database) {
     async linkTeacherSubject(teacherId: number, subjectId: number | null): Promise<void> {
       if (!subjectId) return;
       await db.query('INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [teacherId, subjectId]);
+    },
+    /** Substitui os dias e horários do professor na escola. Deve rodar dentro de uma transação. */
+    async setTeacherAvailability(id: number, input: AvailabilityInput): Promise<void> {
+      await db.query('DELETE FROM teacher_availability WHERE teacher_id = $1', [id]);
+      for (const s of mergeSlots(input.slots)) {
+        await db.query('INSERT INTO teacher_availability (teacher_id, weekday, start_time, end_time) VALUES ($1, $2, $3, $4)', [id, s.weekday, s.start, s.end]);
+      }
     },
     async setTeacherActive(id: number, active: boolean): Promise<Teacher | undefined> {
       await db.query('UPDATE teachers SET active = $1, updated_at = now() WHERE id = $2', [active, id]);

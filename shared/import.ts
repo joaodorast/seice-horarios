@@ -6,7 +6,7 @@ import { CLASS_SHIFTS, SUBJECT_COLORS, type ClassShift, type PeriodKind, type Sh
  * o servidor interpreta e valida cada linha com as mesmas regras do cadastro manual.
  */
 
-export const IMPORT_KINDS = ['teachers', 'classes', 'subjects', 'periods', 'lessons'] as const;
+export const IMPORT_KINDS = ['teachers', 'classes', 'subjects', 'periods', 'lessons', 'assignments'] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 
 export const MAX_IMPORT_ROWS = 3000;
@@ -53,6 +53,33 @@ export const COLOR_NAMES: Record<SubjectColor, string> = {
 };
 
 export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
+  assignments: {
+    kind: 'assignments',
+    title: 'Importar atribuição de aulas',
+    noun: 'atribuições',
+    fileName: 'modelo-atribuicoes',
+    columns: [
+      { key: 'teacher', label: 'Professor', required: true, aliases: ['professor', 'professora', 'docente', 'nome do professor', 'matricula'], hint: 'Nome ou matrícula do professor.' },
+      { key: 'class', label: 'Turmas', required: true, aliases: ['turma', 'turmas', 'classe', 'classes'], hint: 'Uma ou várias turmas separadas por vírgula. Ex.: 6º A, 7º A.' },
+      { key: 'subject', label: 'Disciplina', required: true, aliases: ['disciplina', 'materia', 'componente', 'componente curricular'], hint: 'Ex.: Matemática.' },
+      {
+        key: 'weekly',
+        label: 'Aulas por semana',
+        required: true,
+        aliases: ['aulas por semana', 'aulas semanais', 'aulas', 'qtd aulas', 'quantidade de aulas', 'carga semanal', 'ch semanal'],
+        hint: 'Aulas de cada turma na semana (aula dupla conta como 2).',
+      },
+    ],
+    examples: [
+      { teacher: 'Ana Paula Souza', class: '6º A, 7º A', subject: 'Matemática', weekly: '5' },
+      { teacher: 'Bruno Lima', class: '6º A', subject: 'Língua Portuguesa', weekly: '5' },
+      { teacher: 'Eduarda Costa', class: '8º A, 9º A', subject: 'Geografia', weekly: '2' },
+    ],
+    notes: [
+      'Cada turma tem um professor por disciplina: importar de novo a mesma turma e disciplina troca o professor ou a quantidade.',
+      'Professores, turmas e disciplinas precisam estar cadastrados antes.',
+    ],
+  },
   teachers: {
     kind: 'teachers',
     title: 'Importar professores',

@@ -72,6 +72,11 @@ export async function upsertUser(db: Database, email: string, name: string, pass
 // ------------------------------------------------------------------ Sessão (cookie assinado)
 
 export const SESSION_COOKIE = 'seice_session';
+/**
+ * Nome do cookie de sessão. No computador, todas as portas do localhost dividem os mesmos cookies: o ambiente
+ * de teste usa outro nome (SESSION_COOKIE_NAME) para não derrubar o login do sistema real, e vice-versa.
+ */
+const cookieName = () => process.env.SESSION_COOKIE_NAME?.trim() || SESSION_COOKIE;
 /** Sessão comum: termina ao fechar o navegador (cookie de sessão) e, no servidor, em até 12 horas. */
 const SESSION_HOURS = 12;
 /** "Manter conectado": 30 dias, renovados automaticamente enquanto o sistema é usado. */
@@ -142,12 +147,12 @@ export function createAuth(db: Database) {
   function cookie(req: Request, value: string, maxAge?: number) {
     const secure = req.secure ? '; Secure' : '';
     const age = maxAge === undefined ? '' : `; Max-Age=${Math.floor(maxAge)}`;
-    return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`;
+    return `${cookieName()}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`;
   }
 
   /** Lê e valida a sessão; em sessões "manter conectado", renova o prazo de 30 dias a cada dia de uso. */
   async function sessionUser(req: Request, res?: Response): Promise<SessionUser | null> {
-    const raw = readCookie(req, SESSION_COOKIE);
+    const raw = readCookie(req, cookieName());
     if (!raw) return null;
     const [data, mac] = raw.split('.');
     if (!data || !mac) return null;

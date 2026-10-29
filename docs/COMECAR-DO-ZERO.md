@@ -38,7 +38,7 @@ Faça nesta ordem (as disciplinas primeiro, porque os professores as usam):
 | Tela | O que fazer | Dica |
 | --- | --- | --- |
 | **Disciplinas** | Cadastre cada disciplina e escolha a cor | A cor pinta as aulas nas grades |
-| **Professores** | Cadastre e marque **as disciplinas que cada um leciona** | Pode pôr foto; um professor pode ter várias disciplinas |
+| **Professores** | Cadastre e marque **as disciplinas que cada um leciona**. Depois, na página de cada um, preencha os **dias e horários na escola** | Com os dias preenchidos, o sistema não deixa pôr aula quando o professor não está |
 | **Turmas** | Cadastre com o **turno** certo | Turma integral usa manhã e tarde |
 
 **Tem tudo numa planilha?** Em cada uma dessas telas, clique em **Importar**, baixe o **modelo** em Excel, preencha e envie. O sistema mostra o que vai criar antes de gravar.

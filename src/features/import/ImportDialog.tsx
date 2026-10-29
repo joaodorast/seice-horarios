@@ -549,7 +549,9 @@ function ImportSettings({
     <section className="flex flex-col gap-2 rounded-lg ring-1 ring-line p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-semibold text-ink">Registros que já existem</p>
-        <p className="text-[13px] text-muted">Reconhecidos pelo nome{kind === 'teachers' ? ' ou matrícula' : ''}.</p>
+        <p className="text-[13px] text-muted">
+          {kind === 'assignments' ? 'Reconhecidas pela turma e disciplina.' : `Reconhecidos pelo nome${kind === 'teachers' ? ' ou matrícula' : ''}.`}
+        </p>
       </div>
       <Segmented
         label="Registros que já existem"

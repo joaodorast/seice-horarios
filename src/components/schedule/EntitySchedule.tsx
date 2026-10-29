@@ -8,6 +8,7 @@ import { SHIFT_KEYS, type Lesson, type ShiftKey } from '@shared/types';
 import type { ScheduleData } from '@/api/hooks';
 import type { ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { WeekGrid } from './WeekGrid';
+import { GridLegend } from './GridLegend';
 import { LessonChip } from './LessonChip';
 import { useScheduleActions } from './ScheduleActions';
 
@@ -89,26 +90,29 @@ export function EntitySchedule({ kind, id, data, index }: EntityScheduleProps) {
           </div>
         </Card>
       ) : (
-        <WeekGrid
-          caption={caption}
-          periods={periods}
-          days={data.settings.enabledDays}
-          lessons={lessons}
-          index={index}
-          perspective={kind}
-          onOpen={actions.openLesson}
-          onCreate={
-            canCreate
-              ? (day, period) =>
-                  actions.createLesson({
-                    weekday: day,
-                    start: period.start,
-                    end: period.end,
-                    ...(kind === 'teacher' ? { teacherId: id } : { classId: id }),
-                  })
-              : undefined
-          }
-        />
+        <>
+          <GridLegend variant="entity" canCreate={canCreate} />
+          <WeekGrid
+            caption={caption}
+            periods={periods}
+            days={data.settings.enabledDays}
+            lessons={lessons}
+            index={index}
+            perspective={kind}
+            onOpen={actions.openLesson}
+            onCreate={
+              canCreate
+                ? (day, period) =>
+                    actions.createLesson({
+                      weekday: day,
+                      start: period.start,
+                      end: period.end,
+                      ...(kind === 'teacher' ? { teacherId: id } : { classId: id }),
+                    })
+                : undefined
+            }
+          />
+        </>
       )}
 
       {outside.length > 0 && <OutsideGrid lessons={outside} index={index} perspective={kind} onOpen={actions.openLesson} />}

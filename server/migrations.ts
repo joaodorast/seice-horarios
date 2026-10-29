@@ -218,6 +218,18 @@ CREATE INDEX assignments_teacher_idx ON assignments (teacher_id);
 CREATE INDEX assignments_subject_idx ON assignments (subject_id);
 ${ASSIGNMENTS_FROM_LESSONS}`;
 
+const TEACHER_AVAILABILITY = /* sql */ `
+-- Dias e horários em que cada professor está na escola. Sem linhas: não informado (qualquer horário).
+CREATE TABLE teacher_availability (
+  teacher_id  integer NOT NULL REFERENCES teachers (id) ON DELETE CASCADE,
+  weekday     smallint NOT NULL CHECK (weekday BETWEEN 1 AND 6),
+  start_time  text NOT NULL CHECK (${TIME_CHECK('start_time')}),
+  end_time    text NOT NULL CHECK (${TIME_CHECK('end_time')}),
+  CHECK (end_time > start_time),
+  PRIMARY KEY (teacher_id, weekday, start_time)
+);
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
@@ -225,4 +237,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 3, name: 'fotos_dos_professores', sql: TEACHER_PHOTOS },
   { version: 4, name: 'disciplinas_dos_professores', sql: TEACHER_SUBJECTS },
   { version: 5, name: 'atribuicao_de_aulas', sql: ASSIGNMENTS },
+  { version: 6, name: 'disponibilidade_dos_professores', sql: TEACHER_AVAILABILITY },
 ];

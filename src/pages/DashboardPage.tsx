@@ -7,6 +7,7 @@ import {
   CalendarOff,
   CheckCircle2,
   CalendarPlus,
+  CalendarX2,
   CircleDashed,
   ClipboardList,
   Clock,
@@ -25,6 +26,7 @@ import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { computeSlotStats, lessonsInPeriod, lessonsOutsideGrid, periodsForShifts } from '@shared/grid';
 import { assignmentProgress } from '@shared/assignments';
+import { lessonsOutsideAvailability } from '@shared/availability';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, shiftsOfClass } from '@shared/labels';
 import { findScheduleConflicts } from '@shared/conflicts';
 import { toMinutes } from '@shared/time';
@@ -431,6 +433,16 @@ function Pendencies({
   } else if (data.assignments.length === 0 && data.teachers.some((t) => t.active) && data.classes.some((c) => c.active)) {
     items.push({ tone: 'info', icon: <ClipboardList />, title: 'Nenhuma aula atribuída ainda', text: 'Diga quem dá cada disciplina em cada turma para o quadro sugerir tudo sozinho.', to: '/atribuicoes' });
   }
+  // Aulas que ficaram fora dos dias e horários em que o professor está na escola.
+  const awayLessons = data.teachers.filter((t) => t.active).flatMap((t) => lessonsOutsideAvailability(t, data.lessons));
+  if (awayLessons.length)
+    items.push({
+      tone: 'warning',
+      icon: <CalendarX2 />,
+      title: `${plural(awayLessons.length, 'aula fora', 'aulas fora')} do horário do professor na escola`,
+      text: [...new Set(awayLessons.map((l) => index.teacherById.get(l.teacherId)?.name.split(' ')[0]))].slice(0, 4).join(', ') + ' · mude o horário ou o professor',
+      to: `/horarios/montar/professor/${awayLessons[0].teacherId}`,
+    });
   if (inactiveTeacherLessons.length)
     items.push({ tone: 'warning', icon: <UserX />, title: `${plural(inactiveTeacherLessons.length, 'aula', 'aulas')} com professor inativo`, text: 'Reatribua essas aulas ou reative o cadastro.', to: `/horarios/professor/${inactiveTeacherLessons[0].teacherId}` });
   if (inactiveClassLessons.length)

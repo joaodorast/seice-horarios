@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from './client';
 import { load } from './batch';
-import type { ClassInput, LessonBatchInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
+import type { AssignmentBatchInput, ClassInput, LessonBatchInput, LessonInput, SettingsInput, SubjectInput, TeacherInput } from '@shared/schemas';
 import type { ImportKind, ImportReport, ImportRequest } from '@shared/import';
-import type { Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
+import type { Assignment, Lesson, LessonIssue, Period, PeriodKind, SchoolClass, Settings, ShiftKey, Subject, Teacher } from '@shared/types';
 
 export const keys = {
   teachers: ['teachers'] as const,
@@ -12,6 +12,7 @@ export const keys = {
   periods: ['periods'] as const,
   settings: ['settings'] as const,
   lessons: ['lessons'] as const,
+  assignments: ['assignments'] as const,
 };
 
 // As leituras passam pelo agrupador: consultas feitas juntas viram uma única requisição.
@@ -21,6 +22,7 @@ export const useSubjects = () => useQuery({ queryKey: keys.subjects, queryFn: ()
 export const usePeriods = () => useQuery({ queryKey: keys.periods, queryFn: () => load<Period[]>('periods') });
 export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => load<Settings>('settings') });
 export const useLessons = () => useQuery({ queryKey: keys.lessons, queryFn: () => load<Lesson[]>('lessons') });
+export const useAssignments = () => useQuery({ queryKey: keys.assignments, queryFn: () => load<Assignment[]>('assignments') });
 
 export interface ScheduleData {
   teachers: Teacher[];
@@ -29,16 +31,17 @@ export interface ScheduleData {
   periods: Period[];
   settings: Settings;
   lessons: Lesson[];
+  assignments: Assignment[];
 }
 
 /** Reúne todos os dados necessários para montar grades e validar conflitos. */
 export function useScheduleData() {
-  const queries = [useTeachers(), useClasses(), useSubjects(), usePeriods(), useSettings(), useLessons()] as const;
-  const [teachers, classes, subjects, periods, settings, lessons] = queries;
+  const queries = [useTeachers(), useClasses(), useSubjects(), usePeriods(), useSettings(), useLessons(), useAssignments()] as const;
+  const [teachers, classes, subjects, periods, settings, lessons, assignments] = queries;
   const isLoading = queries.some((q) => q.isPending);
   const error = queries.find((q) => q.error)?.error ?? null;
   const data: ScheduleData | undefined =
-    teachers.data && classes.data && subjects.data && periods.data && settings.data && lessons.data
+    teachers.data && classes.data && subjects.data && periods.data && settings.data && lessons.data && assignments.data
       ? {
           teachers: teachers.data,
           classes: classes.data,
@@ -46,6 +49,7 @@ export function useScheduleData() {
           periods: periods.data,
           settings: settings.data,
           lessons: lessons.data,
+          assignments: assignments.data,
         }
       : undefined;
   const refetch = () => queries.forEach((q) => q.error && q.refetch());
@@ -220,6 +224,16 @@ export function useDeleteLesson() {
   });
 }
 
+// -------- Atribuição de aulas --------
+export function useSaveAssignments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (batch: AssignmentBatchInput) => request<Assignment[]>('POST', '/assignments/batch', batch),
+    onSuccess: (data) => qc.setQueryData(keys.assignments, data),
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.teachers }),
+  });
+}
+
 // -------- Importação de planilhas --------
 /** Dados que cada importação pode alterar, para atualizar as telas depois de gravar. */
 const IMPORT_AFFECTS: Record<ImportKind, (keyof typeof keys)[]> = {
@@ -228,6 +242,7 @@ const IMPORT_AFFECTS: Record<ImportKind, (keyof typeof keys)[]> = {
   subjects: ['subjects'],
   periods: ['periods'],
   lessons: ['lessons', 'subjects'],
+  assignments: ['assignments', 'teachers'],
 };
 
 export function useImport(kind: ImportKind) {

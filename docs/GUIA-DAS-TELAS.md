@@ -36,6 +36,7 @@ Cada seta quer dizer: **a tela da direita usa o que foi feito na tela da esquerd
 | **Horários dos turnos** | Os períodos de cada turno (1º horário 07:00–07:50, intervalo…) e os dias letivos | Configurações | Todas as grades, Montar quadro, Carga horária |
 | **Disciplina** | Nome e cor (a cor pinta as aulas em todas as grades) | Disciplinas | Professores, Atribuição, todas as grades |
 | **Professor** | Dados, foto e **as disciplinas que leciona** | Professores | Atribuição, Montar quadro (sugere as disciplinas dele primeiro) |
+| **Dias e horários na escola** | Quando o professor está na escola (ex.: segunda a quinta, 07:00 às 12:20) | Página do professor | Montar quadro, lançamento de aulas, importação, Dashboard — **bloqueia aulas fora desses horários** |
 | **Turma** | Nome, ano/série e **turno** (manhã, tarde, noite ou integral) | Turmas | O turno define quais horários a turma tem na grade |
 | **Atribuição** | "Ana dá **Matemática** no **6º A**, **5 aulas por semana**" | Atribuição de aulas | Montar quadro (preenche o professor sozinho e mostra o que falta) |
 | **Aula** | Uma aula marcada: turma + professor + disciplina + dia + horário | Montar quadro, Quadro geral, Por professor, Por turma | Todas as grades, Carga horária, Dashboard, Impressão |
@@ -61,6 +62,10 @@ Cada seta quer dizer: **a tela da direita usa o que foi feito na tela da esquerd
   - **Atribuição** e **Montar quadro** mostram primeiro as disciplinas do professor.
   - Quando você grava uma aula ou uma atribuição com uma disciplina nova para o professor, ela passa a constar nas disciplinas dele automaticamente.
   - Inativar um professor tira ele das listas de escolha, sem apagar o histórico.
+- **Dias e horários na escola** (na página de cada professor): marque os dias em que ele vem e de que horas a que horas — com atalhos *Manhã*, *Tarde* e *Dia todo*.
+  - A partir daí, o sistema **não deixa colocar aulas fora desses horários**, em nenhuma tela (lançamento, Montar quadro, importação, troca ou repasse de aulas). A mensagem explica: *"Ana não está na escola na sexta-feira"*.
+  - Enquanto não for preenchido, aparece *"Ainda não informado: vale qualquer horário"* — o professor pode ser colocado em qualquer horário, como antes.
+  - Se você mudar os dias de quem já tem aulas, o sistema avisa quais aulas ficam fora antes de salvar; elas não são apagadas e aparecem como pendência no Dashboard.
 
 ### 🎓 Turmas
 - **Faz:** cadastra turmas com o **turno**.
@@ -81,7 +86,8 @@ Cada seta quer dizer: **a tela da direita usa o que foi feito na tela da esquerd
 - **Por turma:** em cada horário, escolha **Disciplina** e **Professor**.
 - **Por professor:** cada horário vago mostra **todas as turmas daquele turno**:
   - **verde** = turma livre → **um clique** coloca a aula ali;
-  - **cinza com cadeado** = turma ocupada com outro professor (mostra quem).
+  - **cinza com cadeado** = turma ocupada com outro professor (mostra quem);
+  - **listrado** = horário em que o professor não está na escola.
 - **Nada é gravado a cada clique.** Os horários alterados ficam com **borda amarela** e a barra do rodapé mostra *"3 alterações não salvas · Descartar · Salvar quadro"*. Se tentar sair sem salvar, o sistema pergunta.
 - Duas células seguidas com a mesma aula viram uma **aula dupla**.
 - **Comunica com:** ao salvar, as aulas aparecem no Quadro geral, Por professor, Por turma, Carga horária, Dashboard e Impressão.
@@ -110,6 +116,7 @@ Cada seta quer dizer: **a tela da direita usa o que foi feito na tela da esquerd
 
 ## 4. Regras que valem em todas as telas
 
+- **Professor só dá aula quando está na escola.** Com os dias e horários preenchidos, aulas fora deles são recusadas em todas as telas.
 - **Ninguém fica em dois lugares ao mesmo tempo.** O sistema impede professor em duas turmas no mesmo horário e turma com duas aulas ao mesmo tempo — na tela, no servidor e no próprio banco de dados.
 - **Cores:** a cor de uma aula é sempre a cor da disciplina. **Borda vermelha** = conflito. **Borda amarela** = alterado e ainda não salvo.
 - **Planilhas:** quase todas as telas têm **Importar** (Excel ou CSV), com modelo pronto para baixar. Reimportar a mesma planilha não duplica nada.

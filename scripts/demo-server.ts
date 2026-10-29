@@ -67,6 +67,12 @@ function lessonPlan() {
   return plan;
 }
 
+// Login do ambiente de teste: cookie com nome próprio (não derruba o login do sistema real no mesmo computador)
+// e chave fixa, para o "Manter conectado" continuar valendo depois de reiniciar o ambiente. Só vale aqui:
+// o banco é em memória, com dados fictícios.
+process.env.SESSION_COOKIE_NAME = 'seice_teste_session';
+process.env.SESSION_SECRET = 'seice-ambiente-de-teste-somente-dados-ficticios';
+
 const db = await openTestDatabase();
 await upsertUser(db, DEMO_LOGIN.email, DEMO_LOGIN.name, DEMO_LOGIN.password);
 // Disciplinas antes dos professores: a coluna "Disciplinas" dos professores usa os nomes cadastrados.

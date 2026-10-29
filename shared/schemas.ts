@@ -102,6 +102,21 @@ export const lessonBatchSchema = z.object({
 });
 export type LessonBatchInput = z.output<typeof lessonBatchSchema>;
 
+/** Dias e horários do professor na escola. Intervalos do mesmo dia que se encostam ou se cruzam são unidos. */
+export const availabilitySchema = z.object({
+  slots: z
+    .array(
+      z
+        .object({ weekday, start: time('chegada'), end: time('saída') })
+        .refine((v) => !TIME_PATTERN.test(v.start) || !TIME_PATTERN.test(v.end) || toMinutes(v.end) > toMinutes(v.start), {
+          error: 'A saída precisa ser depois da chegada.',
+          path: ['end'],
+        }),
+    )
+    .max(42, { error: 'Intervalos demais.' }),
+});
+export type AvailabilityInput = z.output<typeof availabilitySchema>;
+
 const positiveId = (what: string) => z.coerce.number({ error: `Selecione ${what}.` }).int().positive({ error: `Selecione ${what}.` });
 
 export const assignmentSchema = z.object({

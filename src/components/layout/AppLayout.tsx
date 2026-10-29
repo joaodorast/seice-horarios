@@ -142,7 +142,7 @@ export function AppLayout() {
 function DemoBanner() {
   if (!useIsDemo()) return null;
   return (
-    <div role="note" className="no-print flex items-center justify-center gap-2 bg-brand px-4 py-1.5 text-center text-[13px] font-semibold text-ink">
+    <div role="note" className="no-print flex items-center justify-center gap-2 bg-brand px-4 py-1.5 text-center text-[13px] font-semibold text-ink short:py-1">
       <FlaskConical className="size-4 shrink-0" />
       <span>
         Ambiente de teste · dados fictícios em memória. <span className="font-normal">Nada feito aqui chega ao sistema real.</span>

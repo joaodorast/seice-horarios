@@ -28,6 +28,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss(), versionFile()],
+    // Cache próprio do ambiente de teste: com o `npm run dev` aberto ao mesmo tempo, um cache dividido faz
+    // um servidor invalidar o do outro ("Outdated Optimize Dep") e a tela fica branca.
+    cacheDir: demo ? 'node_modules/.vite-demo' : 'node_modules/.vite',
     define: { __APP_VERSION__: JSON.stringify(appVersion) },
     resolve: {
       alias: {

@@ -37,6 +37,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 - **Professores**: cadastro, edição, pesquisa (ignora acentos), filtros por situação e área, inativação e exclusão protegida (se houver aulas, o sistema explica as consequências e oferece inativar). Página de detalhes com dados, turmas e quadro semanal.
 - **Turmas**: cadastro com turno (manhã, tarde, noite ou integral), bloqueio de nomes duplicados, preenchimento da grade, professores e disciplinas da turma.
 - **Professores com várias disciplinas** e **foto**. As disciplinas do professor aparecem primeiro em todas as escolhas.
+- **Dias e horários do professor na escola** (página do professor): por dia, de que horas a que horas, com atalhos por turno. Aulas fora desses horários são **recusadas** em todas as telas, na API e na importação; quem ainda não informou pode receber aulas em qualquer horário. No Montar quadro, os horários fora aparecem listrados e o professor fica bloqueado na lista, com o motivo.
 - **Disciplinas**: página própria com a cor de cada disciplina, aulas semanais, carga horária, professores e turmas em que aparece, pesquisa, filtro por uso e atalho para o quadro filtrado.
 - **Quadro de horários**:
   - *Visão geral*: turmas × períodos por dia e turno, filtros por professor, turma e disciplina (guardados na URL).
@@ -162,7 +163,7 @@ As gravações seguem um caminho rápido (uma ida ao banco por linha); se o banc
 ## Banco de dados
 
 - **Supabase**, projeto *Provas Seice App* (conta joaodorast), região São Paulo.
-- O SEICE usa **exclusivamente o schema `seice`**: tabelas `teachers`, `teacher_photos`, `teacher_subjects`, `classes`, `subjects`, `periods`, `settings`, `lessons`, `assignments`, `users`, `app_config` e `schema_migrations`. Consulte-as no painel do Supabase em *Table Editor*, escolhendo o schema `seice`.
+- O SEICE usa **exclusivamente o schema `seice`**: tabelas `teachers`, `teacher_photos`, `teacher_subjects`, `teacher_availability`, `classes`, `subjects`, `periods`, `settings`, `lessons`, `assignments`, `users`, `app_config` e `schema_migrations`. Consulte-as no painel do Supabase em *Table Editor*, escolhendo o schema `seice`.
 - **Convivência com outro sistema no mesmo projeto**: o SEICE não cria nem altera nada fora do schema `seice`, não tem chaves estrangeiras para outros schemas e acessa o banco com um usuário próprio (`seice_app`) que **não tem permissão sobre as tabelas de outros sistemas**, limitado a **5 conexões** e a consultas de no máximo 30 segundos. O schema `seice` não é exposto pela API pública do Supabase.
 - **Migrações** versionadas em `server/migrations.ts`, registradas em `seice.schema_migrations`. Nunca altere uma migração publicada; crie uma nova versão e rode `npm run db:migrate`.
 - **Backups**: feitos diariamente pelo Supabase, conforme o plano do projeto.
@@ -271,7 +272,7 @@ npx vercel deploy --prod
 npm test
 ```
 
-111 testes rodam num **PostgreSQL em memória** (PGlite), com o mesmo esquema e migrações da nuvem — nunca tocam no banco real:
+119 testes rodam num **PostgreSQL em memória** (PGlite), com o mesmo esquema e migrações da nuvem — nunca tocam no banco real:
 
 - `conflicts.test.ts` — regras de conflito e cálculo da grade;
 - `api.test.ts` — fluxos da API, gatilho anti-sobreposição e formato dos horários no banco;
@@ -282,7 +283,9 @@ npm test
 - `teacher-subjects.test.ts`, `suggest.test.ts` e `photos.test.ts` — disciplinas e fotos dos professores e sugestão de disciplina;
 - `builder.test.ts` — Montar quadro: células, aulas duplas e planejamento do salvamento;
 - `assignments.test.ts` e `assignment-progress.test.ts` — atribuição de aulas (API, importação, progresso no quadro);
-- `workload.test.ts` — carga horária por professor, turma e disciplina.
+- `workload.test.ts` — carga horária por professor, turma e disciplina;
+- `availability.test.ts` — dias e horários do professor na escola (bloqueio no lançamento e no lote);
+- `session-cookie.test.ts` — cookie de sessão separado para o ambiente de teste.
 
 ---
 

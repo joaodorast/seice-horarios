@@ -14,6 +14,7 @@ import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { durationMinutes } from '@shared/time';
 import { SHIFT_LABEL } from '@shared/labels';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
+import { TeacherAvailability } from '@/features/TeacherAvailability';
 import { SubjectChips } from '@/features/SubjectPicker';
 import { formatHours } from '@/lib/format';
 import { GUIDES } from '@/lib/guides';
@@ -132,6 +133,8 @@ export function TeacherDetailPage() {
                   <Stat value={formatHours(minutes)} label="carga semanal" />
                 </div>
               </Card>
+
+              <TeacherAvailability key={teacher.id} teacher={teacher} data={data} />
 
               <section aria-labelledby="horario-prof">
                 <h2 id="horario-prof" className="mb-3 text-base font-bold">

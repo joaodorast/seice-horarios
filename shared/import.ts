@@ -87,6 +87,7 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     fileName: 'modelo-professores',
     columns: [
       { key: 'name', label: 'Nome', required: true, aliases: ['nome', 'nome completo', 'professor', 'professora', 'docente', 'nome do professor'], hint: 'Nome completo (mínimo 3 letras).' },
+      { key: 'units', label: 'Unidade', aliases: ['unidade', 'unidades', 'unit', 'escola', 'colégio', 'colegio', 'campus'], hint: 'CE, JP ou as duas separadas por vírgula. Em branco: a sua unidade.' },
       { key: 'code', label: 'Matrícula', aliases: ['matricula', 'codigo', 'cod', 'registro', 'id', 'mat'], hint: 'Identifica o professor nas próximas importações.' },
       { key: 'area', label: 'Área de atuação', aliases: ['area', 'area de atuacao', 'especialidade', 'formacao'], hint: 'Ex.: Ciências Humanas.' },
       { key: 'subjects', label: 'Disciplinas', aliases: ['disciplinas', 'disciplina', 'materias', 'materia', 'leciona', 'componentes'], hint: 'Uma ou mais, separadas por vírgula. Ex.: Geografia, Projeto de Vida.' },
@@ -95,8 +96,8 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
       { key: 'active', label: 'Situação', aliases: ['situacao', 'status', 'ativo', 'ativa'], hint: 'Ativo ou Inativo. Em branco: Ativo.', options: YES_NO },
     ],
     examples: [
-      { name: 'Ana Paula Souza', code: 'P-001', area: 'Exatas', subjects: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
-      { name: 'Bruno Lima', code: 'P-002', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
+      { name: 'Ana Paula Souza', units: 'CE', code: 'P-001', area: 'Exatas', subjects: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
+      { name: 'Bruno Lima', units: 'CE, JP', code: 'P-002', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
     ],
     notes: [
       'Professores já cadastrados são reconhecidos pela matrícula ou, sem ela, pelo nome.',
@@ -111,6 +112,7 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     fileName: 'modelo-turmas',
     columns: [
       { key: 'name', label: 'Turma', required: true, aliases: ['turma', 'nome', 'identificacao', 'nome da turma', 'classe', 'sala'], hint: 'Identificação única. Ex.: 6º A.' },
+      { key: 'units', label: 'Unidade', aliases: ['unidade', 'unidades', 'unit', 'escola', 'colégio', 'colegio', 'campus'], hint: 'CE ou JP. Em branco: a sua unidade.' },
       { key: 'grade', label: 'Ano/Série', required: true, aliases: ['ano', 'serie', 'ano serie', 'ano/serie', 'etapa', 'nivel', 'segmento', 'ano escolar'], hint: 'Ex.: 6º ano.' },
       { key: 'shift', label: 'Turno', required: true, aliases: ['turno', 'periodo'], hint: 'Manhã, Tarde, Noite ou Integral.', options: CLASS_SHIFT_OPTIONS },
       { key: 'notes', label: 'Observações', aliases: ['observacoes', 'observacao', 'obs', 'notas'], hint: 'Texto livre.' },

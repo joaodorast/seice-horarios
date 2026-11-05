@@ -5,6 +5,11 @@ export interface SessionUser {
   id: number;
   email: string;
   name: string;
+  /** admin enxerga todas as unidades; coordenador enxerga apenas a dele. */
+  role?: 'admin' | 'coordenador';
+  unitId?: number | null;
+  /** Unidade do coordenador (null/vazio para admin). */
+  unit?: { id: number; code: string; name: string } | null;
 }
 
 export const ME_KEY = ['auth', 'me'] as const;

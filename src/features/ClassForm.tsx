@@ -6,6 +6,9 @@ import { SHIFT_LABEL } from '@shared/labels';
 import { CLASS_SHIFTS, type SchoolClass } from '@shared/types';
 import { Alert, Button, Field, Input, Modal, Segmented, Switch, Textarea, useToast } from '@/components/ui';
 import { useSaveClass } from '@/api/hooks';
+import { useFixedUnitId, useUnits } from '@/api/units';
+import { cn } from '@/lib/cn';
+import { Check } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 
 export function ClassFormModal({
@@ -35,6 +38,9 @@ export function ClassFormModal({
 function ClassForm({ schoolClass, onClose, onSaved }: { schoolClass: SchoolClass | null; onClose: () => void; onSaved?: (c: SchoolClass) => void }) {
   const save = useSaveClass();
   const toast = useToast();
+  const units = useUnits();
+  const fixedUnitId = useFixedUnitId();
+  const isAdmin = fixedUnitId === null;
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -48,6 +54,7 @@ function ClassForm({ schoolClass, onClose, onSaved }: { schoolClass: SchoolClass
       name: schoolClass?.name ?? '',
       grade: schoolClass?.grade ?? '',
       shift: schoolClass?.shift ?? 'manha',
+      unitId: schoolClass?.unitId ?? fixedUnitId ?? units.data?.[0]?.id,
       notes: schoolClass?.notes ?? '',
       active: schoolClass?.active ?? true,
     },
@@ -79,6 +86,45 @@ function ClassForm({ schoolClass, onClose, onSaved }: { schoolClass: SchoolClass
         <Field label="Ano, série ou etapa" required error={errors.grade?.message} hint="Ex.: 6º ano — Ensino Fundamental II">
           <Input {...register('grade')} autoComplete="off" maxLength={60} />
         </Field>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-semibold text-ink-2">
+          Unidade <span className="text-danger">*</span>
+        </span>
+        <Controller
+          control={control}
+          name="unitId"
+          render={({ field }) => (
+            <div className="flex flex-wrap gap-2">
+              {(units.data ?? []).map((u) => {
+                const checked = field.value === u.id;
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    aria-pressed={checked}
+                    disabled={!isAdmin}
+                    onClick={() => field.onChange(u.id)}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[13.5px] font-semibold transition',
+                      checked ? 'border-brand bg-brand/10 text-ink' : 'border-line bg-white text-muted hover:border-soft',
+                      !isAdmin && 'cursor-default',
+                    )}
+                  >
+                    <span className={cn('grid size-4 place-items-center rounded-full border', checked ? 'border-brand bg-brand text-ink' : 'border-soft bg-white')}>
+                      {checked && <Check className="size-3" strokeWidth={3.5} />}
+                    </span>
+                    <span className="font-extrabold">{u.code}</span>
+                    <span className="font-medium">{u.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        />
+        <p className="text-xs text-muted">
+          {isAdmin ? 'A turma e as aulas dela ficam nesta unidade.' : 'Seu acesso é desta unidade.'}
+        </p>
       </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink-2">

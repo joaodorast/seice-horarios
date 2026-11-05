@@ -27,7 +27,7 @@ import { validateLesson } from '../shared/conflicts.js';
 import { periodsForClassShift } from '../shared/grid.js';
 import { SHIFT_LABEL, WEEKDAY_SHORT } from '../shared/labels.js';
 import { formatRange, toMinutes } from '../shared/time.js';
-import { SUBJECT_COLORS, type Lesson, type SchoolClass, type ShiftKey, type Subject, type SubjectColor, type Teacher, type Weekday } from '../shared/types.js';
+import { SUBJECT_COLORS, type Lesson, type SchoolClass, type ShiftKey, type Subject, type SubjectColor, type Teacher, type Unit, type Weekday } from '../shared/types.js';
 
 /** Erro que impede a importação inteira (ex.: professor fixo inexistente). */
 export class ImportFailure extends Error {}
@@ -139,8 +139,26 @@ const nameKey = (name: string) => fold(name);
 
 // ------------------------------------------------------------------ Professores
 
+/**
+ * Unidades citadas numa célula ("CE", "JP", "Campos Elíseos, Jardim Primavera").
+ * Devolve undefined quando a célula está vazia e um erro quando algum código não existe.
+ */
+function parseUnits(cell: string, units: Unit[]): { ids?: number[]; error?: string } {
+  const parts = cell.split(/[,;/|]/).map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return {};
+  const ids: number[] = [];
+  for (const part of parts) {
+    const key = nameKey(part);
+    const unit = units.find((u) => nameKey(u.code) === key || nameKey(u.name) === key || nameKey(u.name).startsWith(key));
+    if (!unit) return { error: `Unidade: "${part}" não existe. Use ${units.map((u) => u.code).join(' ou ')}.` };
+    if (!ids.includes(unit.id)) ids.push(unit.id);
+  }
+  return { ids };
+}
+
 async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
   const all = await ctx.repo.listTeachers();
+  const units = await ctx.repo.listUnits();
   const subjectByName = new Map((await ctx.repo.listSubjects()).map((s) => [nameKey(s.name), s]));
   const byCode = new Map(all.filter((t) => t.code).map((t) => [fold(t.code!), t]));
   const byName = groupBy(all, (t) => nameKey(t.name));
@@ -155,6 +173,11 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
 
     const active = parseActive(v('active'));
     if (active === null) errors.push('Situação: use Ativo ou Inativo.');
+
+    // Unidade: em branco mantém a do cadastro (ou a unidade de quem está importando).
+    const unitsCell = parseUnits(v('units'), units);
+    if (unitsCell.error) errors.push(unitsCell.error);
+    if (unitsCell.ids && !unitsCell.ids.length) errors.push('Unidade: informe ao menos uma unidade.');
 
     // Disciplinas: nomes separados por vírgula, ponto e vírgula ou barra; os desconhecidos viram aviso.
     const subjectNames = v('subjects').split(/[,;/]/).map((n) => n.trim()).filter(Boolean);
@@ -193,10 +216,13 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
           phone: v('phone') || match.phone,
           notes: v('notes') || match.notes,
           active: active ?? match.active,
+          // Coluna vazia mantém as unidades atuais; preenchida, substitui.
+          unitId: unitsCell.ids ? unitsCell.ids[0] : match.unitId,
+          unitIds: unitsCell.ids ?? match.unitIds ?? [],
           // Coluna vazia mantém as disciplinas atuais; preenchida, soma as novas às que já existiam.
           subjectIds: [...new Set([...match.subjectIds, ...subjectIds])],
         }
-      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true, subjectIds };
+      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true, unitId: unitsCell.ids?.[0], unitIds: unitsCell.ids ?? [], subjectIds };
     const parsed = teacherSchema.safeParse(raw);
     if (!parsed.success) {
       push(ctx, row.line, 'error', label, zodMessages(parsed.error, 'teachers'));
@@ -235,6 +261,7 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
 
 async function importClasses(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
   const byName = new Map((await ctx.repo.listClasses()).map((c) => [nameKey(c.name), c]));
+  const units = await ctx.repo.listUnits();
   const seen = new Map<string, number>();
 
   for (const row of rows) {
@@ -248,6 +275,9 @@ async function importClasses(ctx: Ctx, rows: ImportRowInput[], options: ImportOp
     if (shift === null) errors.push(`Turno: "${shiftText}" não reconhecido. Use Manhã, Tarde, Noite ou Integral.`);
     const active = parseActive(v('active'));
     if (active === null) errors.push('Situação: use Ativa ou Inativa.');
+
+    const unitsCell = parseUnits(v('units'), units);
+    if (unitsCell.error) errors.push(unitsCell.error);
 
     const key = nameKey(name);
     if (name && seen.has(key)) errors.push(`Turma repetida na planilha (já aparece na linha ${seen.get(key)}).`);
@@ -265,8 +295,8 @@ async function importClasses(ctx: Ctx, rows: ImportRowInput[], options: ImportOp
     }
 
     const raw = match
-      ? { name: name || match.name, grade: v('grade') || match.grade, shift: shift ?? match.shift, notes: v('notes') || match.notes, active: active ?? match.active }
-      : { name, grade: v('grade'), shift, notes: v('notes'), active: active ?? true };
+      ? { name: name || match.name, grade: v('grade') || match.grade, shift: shift ?? match.shift, notes: v('notes') || match.notes, active: active ?? match.active, unitId: unitsCell.ids?.[0] ?? match.unitId }
+      : { name, grade: v('grade'), shift, notes: v('notes'), active: active ?? true, unitId: unitsCell.ids?.[0] };
     const parsed = classSchema.safeParse(raw);
     if (!parsed.success) {
       push(ctx, row.line, 'error', label, zodMessages(parsed.error, 'classes'));

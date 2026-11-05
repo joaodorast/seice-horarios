@@ -250,7 +250,9 @@ function UserCard({ collapsed }: { collapsed: boolean }) {
       {avatar}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-bold text-white">{user.name}</span>
-        <span className="block truncate text-xs text-nav-text/75">{user.email}</span>
+        <span className="block truncate text-xs text-nav-text/75">
+          {user.unit ? `${user.unit.code} · ${user.unit.name}` : user.email}
+        </span>
       </span>
       <TextScaleMenu />
       <IconButton label="Sair do sistema" size="sm" tone="onDark" onClick={exit} disabled={logout.isPending}>

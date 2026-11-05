@@ -4,9 +4,11 @@ import { teacherSchema, type TeacherFormValues, type TeacherInput } from '@share
 import type { Teacher } from '@shared/types';
 import { Alert, Button, Field, Input, Modal, Switch, Textarea, useToast } from '@/components/ui';
 import { useSaveTeacher, useTeachers } from '@/api/hooks';
+import { useFixedUnitId, useUnits } from '@/api/units';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
 import { SubjectPicker } from '@/features/SubjectPicker';
-import { ImagePlus } from 'lucide-react';
+import { Check, ImagePlus } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatPhone } from '@/lib/text';
 import { useState } from 'react';
@@ -38,11 +40,15 @@ export function TeacherFormModal({
 function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; onClose: () => void; onSaved?: (t: Teacher) => void }) {
   const save = useSaveTeacher();
   const toast = useToast();
+  const units = useUnits();
+  const fixedUnitId = useFixedUnitId();
+  const isAdmin = fixedUnitId === null;
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     control,
+    setValue,
     setError,
     formState: { errors },
   } = useForm<TeacherFormValues, unknown, TeacherInput>({
@@ -54,6 +60,8 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
       phone: teacher?.phone ?? '',
       notes: teacher?.notes ?? '',
       active: teacher?.active ?? true,
+      unitId: teacher?.unitId ?? fixedUnitId ?? units.data?.[0]?.id,
+      unitIds: teacher?.unitIds?.length ? teacher.unitIds : fixedUnitId ? [fixedUnitId] : units.data?.[0] ? [units.data[0].id] : [],
       subjectIds: teacher?.subjectIds ?? [],
     },
   });
@@ -105,6 +113,22 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
           />
         </Field>
       </div>
+      <Controller
+        control={control}
+        name="unitIds"
+        render={({ field }) => (
+          <UnitPicker
+            units={units.data ?? []}
+            value={(field.value as number[] | undefined) ?? []}
+            onChange={(ids) => {
+              field.onChange(ids);
+              // A unidade principal acompanha a primeira marcada, para o cadastro nunca ficar sem unidade.
+              if (ids.length) setValue('unitId', ids[0]);
+            }}
+            locked={!isAdmin}
+          />
+        )}
+      />
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink-2">
           Disciplinas que leciona <span className="text-xs font-medium text-soft">opcional</span>
@@ -160,6 +184,69 @@ function PhotoSection({ teacher }: { teacher: Teacher | null }) {
     <div className="rounded-xl bg-subtle px-4 py-3.5">
       <p className="mb-3 text-[13px] font-semibold text-ink-2">Foto do professor</p>
       <TeacherPhotoField teacher={fresh} layout="inline" />
+    </div>
+  );
+}
+
+/**
+ * Unidades em que o professor atua. O coordenador vê apenas a unidade dele (travada);
+ * a administração pode marcar as duas — é assim que o professor compartilhado é cadastrado.
+ */
+export function UnitPicker({
+  units,
+  value,
+  onChange,
+  locked = false,
+}: {
+  units: Array<{ id: number; code: string; name: string }>;
+  value: number[];
+  onChange: (ids: number[]) => void;
+  locked?: boolean;
+}) {
+  const toggle = (id: number) => {
+    if (locked) return;
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13px] font-semibold text-ink-2">
+        Unidade <span className="text-danger">*</span>
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {units.map((u) => {
+          const checked = value.includes(u.id);
+          return (
+            <button
+              key={u.id}
+              type="button"
+              aria-pressed={checked}
+              disabled={locked}
+              onClick={() => toggle(u.id)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-[13.5px] font-semibold transition',
+                checked ? 'border-brand bg-brand/10 text-ink' : 'border-line bg-white text-muted hover:border-soft',
+                locked && 'cursor-default opacity-100',
+              )}
+            >
+              <span
+                className={cn(
+                  'grid size-4 place-items-center rounded-[5px] border',
+                  checked ? 'border-brand bg-brand text-ink' : 'border-soft bg-white',
+                )}
+              >
+                {checked && <Check className="size-3" strokeWidth={3.5} />}
+              </span>
+              <span className="font-extrabold">{u.code}</span>
+              <span className="font-medium">{u.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted">
+        {locked
+          ? 'Seu acesso é desta unidade. Para um professor que também atua na outra unidade, fale com a administração.'
+          : 'Marque as duas quando o professor der aula nas duas unidades. O sistema impede o mesmo horário nas duas.'}
+      </p>
     </div>
   );
 }

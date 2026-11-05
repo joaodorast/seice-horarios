@@ -28,6 +28,13 @@ function capitalize(s: string) {
 const time = (label: string) =>
   z.string({ error: `Informe o horário de ${label}.` }).regex(TIME_PATTERN, { error: `Horário de ${label} inválido (use HH:MM).` });
 
+/** Unidades em que o professor atua (uma ou mais). */
+const unitIds = z
+  .array(z.coerce.number().int().positive())
+  .max(10, { error: 'Selecione no máximo 10 unidades.' })
+  .default([])
+  .transform((ids) => [...new Set(ids)].sort((a, b) => a - b));
+
 export const teacherSchema = z.object({
   name: requiredText(120, 'o nome completo', 3),
   code: optionalText(30, 'A matrícula'),
@@ -38,6 +45,10 @@ export const teacherSchema = z.object({
   ),
   notes: optionalText(1000, 'As observações'),
   active: z.boolean().default(true),
+  /** Unidade principal (a primeira da lista de unidades do professor). */
+  unitId: z.coerce.number().int().positive().optional(),
+  /** Unidades em que o professor atua. Vazio: a unidade principal. */
+  unitIds,
   /** Disciplinas que o professor leciona. */
   subjectIds: z
     .array(z.number().int().positive())
@@ -52,6 +63,7 @@ export const classSchema = z.object({
   name: requiredText(40, 'a identificação da turma'),
   grade: requiredText(60, 'o ano, série ou etapa'),
   shift: z.enum(CLASS_SHIFTS, { error: 'Selecione o turno.' }),
+  unitId: z.coerce.number().int().positive().optional(),
   notes: optionalText(1000, 'As observações'),
   active: z.boolean().default(true),
 });
@@ -65,6 +77,19 @@ export const subjectSchema = z.object({
 export type SubjectInput = z.output<typeof subjectSchema>;
 
 export const statusSchema = z.object({ active: z.boolean() });
+
+export const unitSchema = z.object({
+  code: z
+    .string({ error: 'Informe a sigla da unidade.' })
+    .trim()
+    .min(2, { error: 'A sigla deve ter pelo menos 2 letras.' })
+    .max(8, { error: 'A sigla pode ter no máximo 8 caracteres.' })
+    .transform((v) => v.toUpperCase()),
+  name: requiredText(80, 'o nome da unidade', 3),
+  city: optionalText(80, 'A cidade'),
+  active: z.boolean().default(true),
+});
+export type UnitInput = z.output<typeof unitSchema>;
 
 const weekday = z.coerce
   .number()

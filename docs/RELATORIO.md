@@ -33,6 +33,11 @@ Quase todas as telas têm **Importar planilha** (Excel ou CSV) e o botão **Como
 
 ## 3. O que mudou nas últimas entregas
 
+### Unidades: Campos Elíseos e Jardim Primavera *(novo)*
+- Cada professor e cada turma passam a ter **unidade**, e cada aula herda a unidade da turma.
+- **Professor compartilhado** entre as duas unidades: o mesmo cadastro atende as duas, e o sistema **recusa** lançar a mesma pessoa em duas unidades no mesmo horário.
+- **Acessos por unidade**: coordenador vê só a unidade dele; admin vê tudo.
+
 ### Atribuição de aulas *(nova tela)*
 - Por professor: **"Atribuir turmas"** — escolha a disciplina e marque várias turmas de uma vez, com as aulas por semana.
 - Por turma: o professor de cada disciplina e quantas aulas, com a situação no quadro (*faltam 2*, *completo*, *1 a mais*).
@@ -73,11 +78,22 @@ Quase todas as telas têm **Importar planilha** (Excel ou CSV) e o botão **Como
 
 Valem em **todas as telas**, na importação de planilhas e também no servidor (ninguém consegue gravar por fora):
 
-1. **Professor não fica em duas turmas ao mesmo tempo.**
+1. **Professor não fica em duas turmas ao mesmo tempo** — inclusive **entre unidades**: a Naissa, que dá aula em Campos Elíseos e em Jardim Primavera, não pode ser lançada nas duas no mesmo horário.
 2. **Turma não tem duas aulas ao mesmo tempo.**
 3. **Professor só recebe aula quando está na escola** — depois que os dias e horários dele forem preenchidos. Ex.: se ele vem de segunda a quinta, não dá para pôr aula na sexta. A mensagem explica o motivo.
-4. **Cada turma tem um professor por disciplina** na atribuição.
-5. **Mudar horários ou dias nunca apaga aulas.** O que ficar fora é avisado antes de salvar e aparece como pendência no Dashboard.
+4. **Professor só recebe aula nas unidades em que atua.** Quem é só de Jardim Primavera não entra em turma de Campos Elíseos, e vice-versa.
+5. **Cada turma tem um professor por disciplina** na atribuição.
+6. **Mudar horários ou dias nunca apaga aulas.** O que ficar fora é avisado antes de salvar e aparece como pendência no Dashboard.
+
+---
+
+## 4.1 Unidades e acessos
+
+O sistema atende **duas unidades**: **CE — Campos Elíseos** e **JP — Jardim Primavera**. Cada professor e cada turma pertencem a uma unidade, e as aulas herdam a unidade da turma.
+
+- **Professor compartilhado**: o cadastro do professor pode marcar as duas unidades. Ele aparece nas duas, mas o quadro de cada unidade mostra apenas as aulas daquela unidade, e o conflito de horário é verificado nas duas ao mesmo tempo.
+- **Perfis de acesso**: `admin` enxerga todas as unidades; `coordenador` enxerga apenas a unidade dele. A lista de unidades que a API devolve já vem filtrada pelo perfil da sessão.
+- **Nada é apagado nem separado em dois bancos**: as duas unidades vivem no mesmo schema `seice`, com a coluna `unit_id`. Relatórios e carga horária continuam funcionando do mesmo jeito.
 
 ---
 

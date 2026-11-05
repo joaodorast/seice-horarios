@@ -23,6 +23,18 @@ export type SubjectColor = (typeof SUBJECT_COLORS)[number];
 
 export type PeriodKind = 'aula' | 'intervalo';
 
+/** Unidade da instituição (ex.: CE = Campos Elíseos, JP = Jardim Primavera). */
+export interface Unit {
+  id: number;
+  code: string;
+  name: string;
+  city: string | null;
+  active: boolean;
+}
+
+/** Perfil de acesso: admin enxerga todas as unidades; coordenador, apenas a dele. */
+export type UserRole = 'admin' | 'coordenador';
+
 export interface Teacher {
   id: number;
   name: string;
@@ -31,6 +43,10 @@ export interface Teacher {
   phone: string | null;
   notes: string | null;
   active: boolean;
+  /** Unidade principal do professor. */
+  unitId?: number;
+  /** Todas as unidades em que ele atua (pode ser mais de uma: professor compartilhado). */
+  unitIds?: number[];
   createdAt: string;
   updatedAt: string;
   /** Data da foto atual (usada para atualizar a imagem em cache), ou null sem foto. */
@@ -53,6 +69,8 @@ export interface SchoolClass {
   name: string;
   grade: string;
   shift: ClassShift;
+  /** Unidade da turma. */
+  unitId?: number;
   notes: string | null;
   active: boolean;
   createdAt: string;
@@ -87,6 +105,8 @@ export interface Lesson {
   teacherId: number;
   classId: number;
   subjectId: number | null;
+  /** Unidade da aula (herdada da turma). */
+  unitId?: number;
   weekday: Weekday;
   start: string;
   end: string;
@@ -116,7 +136,8 @@ export type IssueCode =
   | 'subject-missing'
   | 'day-disabled'
   | 'outside-grid'
-  | 'teacher-unavailable';
+  | 'teacher-unavailable'
+  | 'teacher-other-unit';
 
 export interface LessonIssue {
   code: IssueCode;

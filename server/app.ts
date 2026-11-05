@@ -20,6 +20,7 @@ import {
   statusSchema,
   subjectSchema,
   teacherSchema,
+  unitSchema,
   type LessonInput,
 } from '../shared/schemas.js';
 import { hasBlockingIssues, validateLesson } from '../shared/conflicts.js';
@@ -58,6 +59,11 @@ function idParam(req: Request): number {
 
 function isOverlapError(error: unknown) {
   return error instanceof Error && error.message.includes('LESSON_OVERLAP');
+}
+
+/** O professor não atua na unidade da turma (gatilho lessons_unit_guard). */
+function isUnitError(error: unknown) {
+  return error instanceof Error && error.message.includes('TEACHER_NOT_IN_UNIT');
 }
 
 /** Violação de índice único no PostgreSQL (código 23505). */
@@ -141,7 +147,45 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.use(auth.middleware);
 
+  // ---------------- Unidades ----------------
+  /** Unidades que o usuário da sessão pode enxergar: todas para admin, apenas a dele para coordenador. */
+  const visibleUnitIds = (res: Response): number[] | null => {
+    const user = res.locals.user as { role?: string; unitId?: number | null } | undefined;
+    if (!user || user.role !== 'coordenador' || user.unitId === null || user.unitId === undefined) return null;
+    return [user.unitId];
+  };
+
   // ---------------- Professores ----------------
+
+  api.get('/units', async (_req, res) => {
+    const units = await repo.listUnits();
+    const allowed = visibleUnitIds(res);
+    res.json(allowed ? units.filter((u) => allowed.includes(u.id)) : units);
+  });
+
+  api.post('/units', async (req, res) => {
+    const input = parse(unitSchema, req.body);
+    if (await repo.findUnitByCode(input.code)) {
+      throw new HttpError(409, 'duplicate', 'Já existe uma unidade com esta sigla.', {
+        fields: { code: `A sigla ${input.code} já está em uso.` },
+      });
+    }
+    res.status(201).json(await repo.createUnit(input));
+  });
+
+  api.put('/units/:id', async (req, res) => {
+    const id = idParam(req);
+    if (!(await repo.getUnit(id))) throw new HttpError(404, 'not_found', 'Unidade não encontrada.');
+    const input = parse(unitSchema, req.body);
+    const existing = await repo.findUnitByCode(input.code);
+    if (existing && existing.id !== id) {
+      throw new HttpError(409, 'duplicate', 'Já existe uma unidade com esta sigla.', {
+        fields: { code: `A sigla ${input.code} já está em uso.` },
+      });
+    }
+    res.json(await repo.updateUnit(id, input));
+  });
+
   api.get('/teachers', async (_req, res) => {
     res.json(await repo.listTeachers());
   });
@@ -394,6 +438,23 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       tx.listPeriods(),
     ]);
     const issues = validateLesson({ ...input, id }, { lessons, teachers, classes, subjects, settings, periods });
+
+    // Professor compartilhado: a aula só entra na unidade em que ele atua. É a mesma regra do gatilho
+    // do banco, mas aqui com uma mensagem que explica o que fazer.
+    const schoolClass = classes.find((c) => c.id === input.classId);
+    const teacher = teachers.find((t) => t.id === input.teacherId);
+    if (schoolClass?.unitId && teacher) {
+      const unitIds = await tx.teacherUnitIds(teacher.id);
+      if (unitIds.length && !unitIds.includes(schoolClass.unitId)) {
+        issues.push({
+          code: 'teacher-other-unit',
+          severity: 'error',
+          message: `${teacher.name} não atua na unidade desta turma.`,
+          hint: 'Inclua esta unidade nos dados do professor (página do professor) ou escolha outro professor.',
+        });
+      }
+    }
+
     if (hasBlockingIssues(issues)) {
       throw new HttpError(409, 'lesson_conflict', 'A aula não pode ser salva por causa de conflitos.', { issues });
     }
@@ -411,6 +472,13 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     } catch (error) {
       if (isOverlapError(error)) {
         throw new HttpError(409, 'lesson_conflict', 'Já existe uma aula sobreposta para este professor ou turma.');
+      }
+      if (isUnitError(error)) {
+        throw new HttpError(
+          409,
+          'teacher_not_in_unit',
+          'Este professor não atua na unidade desta turma. Inclua a unidade nos dados do professor antes de lançar a aula.',
+        );
       }
       throw error;
     }

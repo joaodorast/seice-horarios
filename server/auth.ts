@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import type { Database, Row } from './db.js';
+import type { UserRole } from '../shared/types.js';
 
 const scrypt = (password: string, salt: Buffer, keylen: number, options: ScryptOptions) =>
   new Promise<Buffer>((resolve, reject) => scryptCb(password, salt, keylen, options, (err, key) => (err ? reject(err) : resolve(key))));
@@ -33,6 +34,10 @@ export interface SessionUser {
   id: number;
   email: string;
   name: string;
+  /** admin: todas as unidades; coordenador: apenas a unidade dele. */
+  role: UserRole;
+  /** Unidade do coordenador (null para admin, que enxerga todas). */
+  unitId: number | null;
 }
 
 interface UserRow extends SessionUser {
@@ -46,6 +51,8 @@ const toUser = (r: Row): UserRow => ({
   id: Number(r.id),
   email: String(r.email),
   name: String(r.name),
+  role: (String(r.role ?? 'admin') as SessionUser['role']),
+  unitId: r.unit_id === null || r.unit_id === undefined ? null : Number(r.unit_id),
   passwordHash: String(r.password_hash),
   sessionVersion: Number(r.session_version),
   failedAttempts: Number(r.failed_attempts),
@@ -66,7 +73,7 @@ export async function upsertUser(db: Database, email: string, name: string, pass
     [normalizeEmail(email), name, hash],
   );
   const u = toUser(r);
-  return { id: u.id, email: u.email, name: u.name };
+  return { id: u.id, email: u.email, name: u.name, role: u.role, unitId: u.unitId };
 }
 
 // ------------------------------------------------------------------ Sessão (cookie assinado)
@@ -172,7 +179,7 @@ export function createAuth(db: Database) {
     // Trocar a senha incrementa a versão e invalida as sessões antigas.
     if (user.sessionVersion !== payload.v) return null;
     if (res && payload.r && Date.now() - (payload.i ?? 0) > RENEW_AFTER_MS) await issue(res, req, user, true);
-    return { id: user.id, email: user.email, name: user.name };
+    return { id: user.id, email: user.email, name: user.name, role: user.role, unitId: user.unitId };
   }
 
   return {
@@ -198,7 +205,7 @@ export function createAuth(db: Database) {
       }
       await db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = now() WHERE id = $1', [user.id]);
       await issue(res, req, user, remember);
-      return { id: user.id, email: user.email, name: user.name };
+      return { id: user.id, email: user.email, name: user.name, role: user.role, unitId: user.unitId };
     },
 
     logout(req: Request, res: Response) {

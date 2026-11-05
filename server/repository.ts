@@ -9,7 +9,8 @@ import type {
   SubjectInput,
   TeacherInput,
 } from '../shared/schemas.js';
-import type { Assignment, AvailabilitySlot, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher } from '../shared/types.js';
+import type { Assignment, AvailabilitySlot, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher, Unit } from '../shared/types.js';
+import type { UnitInput } from '../shared/schemas.js';
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
 const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -23,6 +24,8 @@ function toTeacher(r: Row): Teacher {
     phone: text(r.phone),
     notes: text(r.notes),
     active: Boolean(r.active),
+    unitId: Number(r.unit_id),
+    unitIds: Array.isArray(r.unit_ids) ? (r.unit_ids as unknown[]).map(Number) : [],
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
     photoUpdatedAt: r.photo_updated_at ? iso(r.photo_updated_at) : null,
@@ -33,6 +36,7 @@ function toTeacher(r: Row): Teacher {
 
 /** Professores com a data da foto (se houver), sem carregar a imagem em si. */
 const TEACHER_SELECT = `SELECT t.*, p.updated_at AS photo_updated_at,
+  (SELECT COALESCE(array_agg(tu.unit_id ORDER BY tu.unit_id), '{}') FROM teacher_units tu WHERE tu.teacher_id = t.id) AS unit_ids,
   (SELECT COALESCE(array_agg(ts.subject_id ORDER BY ts.subject_id), '{}') FROM teacher_subjects ts WHERE ts.teacher_id = t.id) AS subject_ids,
   (SELECT COALESCE(json_agg(json_build_object('weekday', a.weekday, 'start', a.start_time, 'end', a.end_time) ORDER BY a.weekday, a.start_time), '[]'::json)
      FROM teacher_availability a WHERE a.teacher_id = t.id) AS availability
@@ -50,10 +54,21 @@ function toClass(r: Row): SchoolClass {
     name: String(r.name),
     grade: String(r.grade),
     shift: r.shift as SchoolClass['shift'],
+    unitId: Number(r.unit_id),
     notes: text(r.notes),
     active: Boolean(r.active),
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
+  };
+}
+
+function toUnit(r: Row): Unit {
+  return {
+    id: Number(r.id),
+    code: String(r.code),
+    name: String(r.name),
+    city: text(r.city),
+    active: Boolean(r.active),
   };
 }
 
@@ -79,6 +94,7 @@ function toLesson(r: Row): Lesson {
     teacherId: Number(r.teacher_id),
     classId: Number(r.class_id),
     subjectId: r.subject_id === null || r.subject_id === undefined ? null : Number(r.subject_id),
+    unitId: Number(r.unit_id),
     weekday: Number(r.weekday) as Lesson['weekday'],
     start: String(r.start_time),
     end: String(r.end_time),
@@ -134,16 +150,14 @@ export function createRepository(db: Database) {
       return r ? toTeacher(r) : undefined;
     },
     async createTeacher(input: TeacherInput): Promise<Teacher> {
-      const r = await one('INSERT INTO teachers (name, code, area, phone, notes, active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [
-        input.name,
-        input.code,
-        input.area,
-        input.phone,
-        input.notes,
-        input.active,
-      ]);
-      await this.setTeacherSubjects(Number(r!.id), input.subjectIds);
-      return (await this.getTeacher(Number(r!.id)))!;
+      const r = await one(
+        'INSERT INTO teachers (name, code, area, phone, notes, active, unit_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [input.name, input.code, input.area, input.phone, input.notes, input.active, input.unitId ?? 1],
+      );
+      const id = Number(r!.id);
+      await this.setTeacherUnits(id, input.unitIds.length ? input.unitIds : [input.unitId ?? 1]);
+      await this.setTeacherSubjects(id, input.subjectIds);
+      return (await this.getTeacher(id))!;
     },
     async updateTeacher(id: number, input: TeacherInput): Promise<Teacher | undefined> {
       await db.query('UPDATE teachers SET name = $1, code = $2, area = $3, phone = $4, notes = $5, active = $6, updated_at = now() WHERE id = $7', [
@@ -155,8 +169,18 @@ export function createRepository(db: Database) {
         input.active,
         id,
       ]);
+      // Só mexe nas unidades quando o formulário as enviou (as demais telas não enviam).
+      if (input.unitIds.length) await this.setTeacherUnits(id, input.unitIds);
       await this.setTeacherSubjects(id, input.subjectIds);
       return this.getTeacher(id);
+    },
+    /** Substitui as unidades em que o professor atua (ids inexistentes são ignorados). */
+    async setTeacherUnits(id: number, unitIds: number[]): Promise<void> {
+      const valid = (await db.query('SELECT id FROM units WHERE id = ANY($1::int[])', [unitIds])).map((r) => Number(r.id));
+      if (!valid.length) return;
+      await db.query('DELETE FROM teacher_units WHERE teacher_id = $1 AND unit_id <> ALL($2::int[])', [id, valid]);
+      await db.query('INSERT INTO teacher_units (teacher_id, unit_id) SELECT $1, u FROM unnest($2::int[]) AS u ON CONFLICT DO NOTHING', [id, valid]);
+      await db.query('UPDATE teachers SET unit_id = $1, updated_at = now() WHERE id = $2 AND unit_id <> ALL($3::int[])', [valid[0], id, valid]);
     },
     /** Substitui as disciplinas do professor (ids inexistentes são ignorados). */
     async setTeacherSubjects(id: number, subjectIds: number[]): Promise<void> {
@@ -171,6 +195,41 @@ export function createRepository(db: Database) {
     async linkTeacherSubject(teacherId: number, subjectId: number | null): Promise<void> {
       if (!subjectId) return;
       await db.query('INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [teacherId, subjectId]);
+    },
+    // ---------- Unidades ----------
+    async listUnits(): Promise<Unit[]> {
+      return (await db.query('SELECT * FROM units ORDER BY id')).map(toUnit);
+    },
+    async getUnit(id: number): Promise<Unit | undefined> {
+      const r = await one('SELECT * FROM units WHERE id = $1', [id]);
+      return r ? toUnit(r) : undefined;
+    },
+    async findUnitByCode(code: string): Promise<Unit | undefined> {
+      const r = await one('SELECT * FROM units WHERE code = $1', [code.trim().toUpperCase()]);
+      return r ? toUnit(r) : undefined;
+    },
+    async createUnit(input: UnitInput): Promise<Unit> {
+      const r = await one('INSERT INTO units (code, name, city, active) VALUES ($1, $2, $3, $4) RETURNING *', [
+        input.code,
+        input.name,
+        input.city,
+        input.active,
+      ]);
+      return toUnit(r!);
+    },
+    async updateUnit(id: number, input: UnitInput): Promise<Unit | undefined> {
+      const r = await one('UPDATE units SET code = $1, name = $2, city = $3, active = $4, updated_at = now() WHERE id = $5 RETURNING *', [
+        input.code,
+        input.name,
+        input.city,
+        input.active,
+        id,
+      ]);
+      return r ? toUnit(r) : undefined;
+    },
+    /** Quais unidades o professor atende (usado para bloquear aula em unidade em que ele não atua). */
+    async teacherUnitIds(teacherId: number): Promise<number[]> {
+      return (await db.query('SELECT unit_id FROM teacher_units WHERE teacher_id = $1 ORDER BY unit_id', [teacherId])).map((r) => Number(r.unit_id));
     },
     /** Substitui os dias e horários do professor na escola. Deve rodar dentro de uma transação. */
     async setTeacherAvailability(id: number, input: AvailabilityInput): Promise<void> {
@@ -215,19 +274,20 @@ export function createRepository(db: Database) {
       return r ? toClass(r) : undefined;
     },
     async createClass(input: ClassInput): Promise<SchoolClass> {
-      const r = await one('INSERT INTO classes (name, grade, shift, notes, active) VALUES ($1, $2, $3, $4, $5) RETURNING *', [
+      const r = await one('INSERT INTO classes (name, grade, shift, notes, active, unit_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', [
         collapse(input.name),
         input.grade,
         input.shift,
         input.notes,
         input.active,
+        input.unitId ?? 1,
       ]);
       return toClass(r!);
     },
     async updateClass(id: number, input: ClassInput): Promise<SchoolClass | undefined> {
       const r = await one(
-        'UPDATE classes SET name = $1, grade = $2, shift = $3, notes = $4, active = $5, updated_at = now() WHERE id = $6 RETURNING *',
-        [collapse(input.name), input.grade, input.shift, input.notes, input.active, id],
+        'UPDATE classes SET name = $1, grade = $2, shift = $3, notes = $4, active = $5, unit_id = COALESCE($6, unit_id), updated_at = now() WHERE id = $7 RETURNING *',
+        [collapse(input.name), input.grade, input.shift, input.notes, input.active, input.unitId ?? null, id],
       );
       return r ? toClass(r) : undefined;
     },

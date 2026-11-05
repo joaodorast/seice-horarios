@@ -143,11 +143,25 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   /** Unidades que o usuário da sessão pode enxergar: todas para admin, apenas a dele para coordenador. */
   const visibleUnitIds = (res: Response): number[] | null => {
     const user = res.locals.user as { role?: string; unitId?: number | null } | undefined;
-    if (!user || user.unitId === null || user.unitId === undefined) return null;
-    // Admin enxerga tudo; coordenador e demonstração enxergam apenas a própria unidade.
-    if (user.role !== 'coordenador' && user.role !== 'demo') return null;
-    return [user.unitId];
+    if (!user) return null;
+    // Demonstração e coordenação enxergam apenas a própria unidade.
+    if (user.role === 'coordenador' || user.role === 'demo') {
+      return user.unitId === null || user.unitId === undefined ? [] : [user.unitId];
+    }
+    // Admin enxerga as unidades reais; a unidade de demonstração fica só para a conta teste@seice.com.
+    return (res.locals.adminUnitIds as number[] | undefined) ?? null;
   };
+
+  /** Unidades reais (tudo que não é a unidade de demonstração). */
+  let realUnitIds: number[] | undefined;
+  async function adminUnits(): Promise<number[]> {
+    if (!realUnitIds) {
+      const units = await repo.listUnits();
+      const demo = units.filter((u) => u.code === 'DEMO').map((u) => u.id);
+      realUnitIds = units.filter((u) => !demo.includes(u.id)).map((u) => u.id);
+    }
+    return realUnitIds;
+  }
 
   /** A unidade só pode ser tocada por admin ou pelo coordenador da própria unidade. */
   function assertUnitWrite(res: Response, unitId: number) {
@@ -172,6 +186,14 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
    * Conta de demonstração: enxerga o sistema com dados fictícios, mas não altera nada.
    * Vale para toda a API depois do login; entrar e sair continuam funcionando normalmente.
    */
+  api.use(async (_req, res, next) => {
+    const user = res.locals.user as { role?: string } | undefined;
+    if (user?.role !== 'coordenador' && user?.role !== 'demo') {
+      res.locals.adminUnitIds = await adminUnits();
+    }
+    next();
+  });
+
   api.use((req, res, next) => {
     const user = res.locals.user as { role?: string } | undefined;
     if (user?.role === 'demo' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -605,12 +627,12 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     res.status(201).json(result);
   });
 
-  /** Coordenador só mexe nas aulas da própria unidade. */
+  /** Coordenador só mexe nas aulas da própria unidade (aula inexistente segue o fluxo normal de "não encontrada"). */
   async function assertLessonUnit(res: Response, lessonId: number) {
     const allowed = visibleUnitIds(res);
     if (!allowed) return;
     const lesson = await repo.getLesson(lessonId);
-    if (!lesson) throw new HttpError(404, 'not_found', 'Aula não encontrada.');
+    if (!lesson) return;
     if (lesson.unitId !== undefined && !allowed.includes(lesson.unitId)) {
       throw new HttpError(403, 'wrong_unit', 'Esta aula pertence a outra unidade.');
     }

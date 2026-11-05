@@ -4,17 +4,18 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Segmented } from '@/components/ui';
 import { useScheduleData } from '@/api/hooks';
 import { CalendarSettings } from '@/features/settings/CalendarSettings';
+import { UnitSettings } from '@/features/settings/UnitSettings';
 import { PeriodSettings } from '@/features/settings/PeriodSettings';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { GUIDES } from '@/lib/guides';
 
-type Tab = 'calendario' | 'periodos';
+type Tab = 'calendario' | 'periodos' | 'unidades';
 
 export function SettingsPage() {
   const schedule = useScheduleData();
   const [params, setParams] = useSearchParams();
   const aba = params.get('aba');
-  const tab = (aba === 'periodos' ? 'periodos' : 'calendario') as Tab;
+  const tab = (aba === 'periodos' || aba === 'unidades' ? aba : 'calendario') as Tab;
 
   // As disciplinas ganharam página própria; links antigos continuam funcionando.
   if (aba === 'disciplinas') return <Navigate to="/disciplinas" replace />;
@@ -35,6 +36,7 @@ export function SettingsPage() {
         options={[
           { value: 'calendario', label: 'Calendário e turnos' },
           { value: 'periodos', label: 'Horários dos turnos' },
+          { value: 'unidades', label: 'Unidades' },
         ]}
       />
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch}>
@@ -42,6 +44,7 @@ export function SettingsPage() {
           <>
             {tab === 'calendario' && <CalendarSettings data={data} />}
             {tab === 'periodos' && <PeriodSettings data={data} />}
+            {tab === 'unidades' && <UnitSettings />}
           </>
         )}
       </DataGate>

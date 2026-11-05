@@ -3,11 +3,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { CalendarDays, FilterX, GraduationCap, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
 import { ClassFormModal } from '@/features/ClassForm';
 import { useEntityActions } from '@/features/EntityActions';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
+import { useIsAdmin, useUnits } from '@/api/units';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { matches, plural } from '@/lib/text';
@@ -29,6 +30,9 @@ export function ClassesPage() {
   const query = params.get('q') ?? '';
   const status = (params.get('situacao') as StatusFilter) || 'ativos';
   const shift = (params.get('turno') as ClassShift | null) ?? '';
+  const unit = params.get('unidade') ?? '';
+  const units = useUnits();
+  const isAdmin = useIsAdmin();
 
   const setParam = (key: string, value: string, fallback = '') =>
     setParams(
@@ -64,9 +68,10 @@ export function ClassesPage() {
     (c) =>
       (status === 'todos' || (status === 'ativos' ? c.active : !c.active)) &&
       (!shift || c.shift === shift) &&
+      (!unit || c.unitId === Number(unit)) &&
       matches([c.name, c.grade, SHIFT_LABEL[c.shift]], query),
   );
-  const hasFilters = Boolean(query || shift || status !== 'ativos');
+  const hasFilters = Boolean(query || shift || unit || status !== 'ativos');
 
   return (
     <Page
@@ -121,6 +126,18 @@ export function ClassesPage() {
                     { value: 'todos', label: 'Todas', count: counts.todos },
                   ]}
                 />
+                {(units.data?.length ?? 0) > 1 && (
+                  <div className="lg:w-48">
+                    <Select aria-label="Filtrar por unidade" value={unit} onChange={(e) => setParam('unidade', e.target.value)}>
+                      <option value="">Todas as unidades</option>
+                      {(units.data ?? []).map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.code} — {u.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 <div className="lg:w-48">
                   <Select aria-label="Filtrar por turno" value={shift} onChange={(e) => setParam('turno', e.target.value)}>
                     <option value="">Todos os turnos</option>
@@ -157,6 +174,7 @@ export function ClassesPage() {
                       <tr className="border-b border-line text-left text-xs text-muted">
                         <th scope="col" className="px-4 py-2.5 font-semibold">Turma</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Turno</th>
+                        {isAdmin && <th scope="col" className="hidden px-4 py-2.5 font-semibold xl:table-cell">Unidade</th>}
                         <th scope="col" className="px-4 py-2.5 font-semibold">Professores</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Preenchimento da grade</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Situação</th>
@@ -183,6 +201,11 @@ export function ClassesPage() {
                               <span className="block text-xs text-muted">{c.grade}</span>
                             </td>
                             <td className="px-4 py-3 text-ink-2">{SHIFT_LABEL[c.shift]}</td>
+                            {isAdmin && (
+                              <td className="hidden px-4 py-3 xl:table-cell">
+                                <Badge tone="brand">{units.data?.find((u) => u.id === c.unitId)?.code ?? '—'}</Badge>
+                              </td>
+                            )}
                             <td className="tabular px-4 py-3 text-ink-2">{s?.teachers ?? 0}</td>
                             <td className="px-4 py-3">
                               <FillBar filled={(s?.total ?? 0) - (s?.empty ?? 0)} total={s?.total ?? 0} />

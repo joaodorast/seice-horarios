@@ -8,6 +8,7 @@ import { TeacherFormModal } from '@/features/TeacherForm';
 import { useEntityActions } from '@/features/EntityActions';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { useLessons, useSubjects, useTeachers } from '@/api/hooks';
+import { useIsAdmin, useUnits } from '@/api/units';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
@@ -24,6 +25,8 @@ export function TeachersPage() {
   const lessons = useLessons();
   const subjects = useSubjects();
   const subjectName = (id: number) => subjects.data?.find((s) => s.id === id)?.name;
+  const units = useUnits();
+  const isAdmin = useIsAdmin();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [editing, setEditing] = useState<Teacher | null | 'new'>(null);
@@ -32,6 +35,7 @@ export function TeachersPage() {
   const query = params.get('q') ?? '';
   const status = (params.get('situacao') as StatusFilter) || 'ativos';
   const area = params.get('area') ?? '';
+  const unit = params.get('unidade') ?? '';
 
   const setParam = (key: string, value: string, fallback = '') => {
     setParams(
@@ -65,13 +69,16 @@ export function TeachersPage() {
 
   const all = teachers.data ?? [];
   const counts = { ativos: all.filter((t) => t.active).length, inativos: all.filter((t) => !t.active).length, todos: all.length };
+  /** Unidades do professor: as marcadas no cadastro (ou a principal, em cadastros antigos). */
+  const unitsOf = (t: Teacher) => (t.unitIds?.length ? t.unitIds : t.unitId ? [t.unitId] : []);
   const filtered = all.filter(
     (t) =>
       (status === 'todos' || (status === 'ativos' ? t.active : !t.active)) &&
       (!area || (t.area && normalize(t.area) === normalize(area))) &&
+      (!unit || unitsOf(t).includes(Number(unit))) &&
       matches([t.name, t.code, t.area, t.phone, ...t.subjectIds.map(subjectName)], query),
   );
-  const hasFilters = Boolean(query || area || status !== 'ativos');
+  const hasFilters = Boolean(query || area || unit || status !== 'ativos');
 
   const clearFilters = () => setParams(new URLSearchParams(), { replace: true });
 
@@ -128,6 +135,18 @@ export function TeachersPage() {
                     { value: 'todos', label: 'Todos', count: counts.todos },
                   ]}
                 />
+                {(units.data?.length ?? 0) > 1 && (
+                  <div className="lg:w-52">
+                    <Select aria-label="Filtrar por unidade" value={unit} onChange={(e) => setParam('unidade', e.target.value)}>
+                      <option value="">Todas as unidades</option>
+                      {(units.data ?? []).map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.code} — {u.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 {areas.length > 0 && (
                   <div className="lg:w-56">
                     <Select aria-label="Filtrar por área" value={area} onChange={(e) => setParam('area', e.target.value)}>
@@ -166,6 +185,7 @@ export function TeachersPage() {
                       <tr className="border-b border-line text-left text-xs text-muted">
                         <th scope="col" className="px-4 py-2.5 font-semibold">Professor</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Disciplinas</th>
+                        {isAdmin && <th scope="col" className="hidden px-4 py-2.5 font-semibold xl:table-cell">Unidade</th>}
                         <th scope="col" className="hidden px-4 py-2.5 font-semibold lg:table-cell">Telefone</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Carga semanal</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Situação</th>
@@ -199,6 +219,11 @@ export function TeachersPage() {
                             <td className="px-4 py-3">
                               <SubjectChips ids={t.subjectIds} max={2} fallback={t.area} />
                             </td>
+                            {isAdmin && (
+                              <td className="hidden px-4 py-3 xl:table-cell">
+                                <UnitChips ids={unitsOf(t)} units={units.data ?? []} />
+                              </td>
+                            )}
                             <td className="tabular hidden px-4 py-3 text-ink-2 lg:table-cell">{t.phone ?? <span className="text-soft">—</span>}</td>
                             <td className="px-4 py-3">
                               {l ? (
@@ -236,7 +261,14 @@ export function TeachersPage() {
                           <Link to={`/professores/${t.id}`} className="min-w-0 flex-1">
                             <span className="block truncate font-semibold">{t.name}</span>
                             <span className="block truncate text-xs text-muted">
-                              {[t.subjectIds.map(subjectName).filter(Boolean).join(', ') || t.area, l ? plural(l.count, 'aula', 'aulas') : 'Sem aulas', !t.active && 'Inativo'].filter(Boolean).join(' · ')}
+                              {[
+                                t.subjectIds.map(subjectName).filter(Boolean).join(', ') || t.area,
+                                unitsOf(t).map((id) => units.data?.find((u) => u.id === id)?.code).filter(Boolean).join('/'),
+                                l ? plural(l.count, 'aula', 'aulas') : 'Sem aulas',
+                                !t.active && 'Inativo',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
                             </span>
                           </Link>
                           <RowActions
@@ -330,6 +362,21 @@ export function Avatar({ name, muted, size = 'md', photo }: { name: string; mute
       className={`${box} grid shrink-0 place-items-center rounded-full font-bold ${muted ? 'bg-ink/[0.06] text-muted' : 'bg-nav text-brand'}`}
     >
       {initials(name)}
+    </span>
+  );
+}
+
+/** Unidades do professor, no mesmo formato dos chips de disciplina já usados na lista. */
+function UnitChips({ ids, units }: { ids: number[]; units: Array<{ id: number; code: string; name: string }> }) {
+  const list = ids.map((id) => units.find((u) => u.id === id)).filter((u): u is { id: number; code: string; name: string } => Boolean(u));
+  if (!list.length) return <span className="text-soft">—</span>;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {list.map((u) => (
+        <Badge key={u.id} tone={list.length > 1 ? 'brand' : 'neutral'}>
+          {u.code}
+        </Badge>
+      ))}
     </span>
   );
 }

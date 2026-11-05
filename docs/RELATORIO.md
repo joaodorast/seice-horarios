@@ -92,7 +92,9 @@ Valem em **todas as telas**, na importação de planilhas e também no servidor 
 O sistema atende **duas unidades**: **CE — Campos Elíseos** e **JP — Jardim Primavera**. Cada professor e cada turma pertencem a uma unidade, e as aulas herdam a unidade da turma.
 
 - **Professor compartilhado**: o cadastro do professor pode marcar as duas unidades. Ele aparece nas duas, mas o quadro de cada unidade mostra apenas as aulas daquela unidade, e o conflito de horário é verificado nas duas ao mesmo tempo.
-- **Perfis de acesso**: `admin` enxerga todas as unidades; `coordenador` enxerga apenas a unidade dele. A lista de unidades que a API devolve já vem filtrada pelo perfil da sessão.
+- **Perfis de acesso**: `admin` enxerga e altera todas as unidades; `coordenador` enxerga e altera **apenas a unidade dele**. Na prática: um acesso de Campos Elíseos não cadastra nem edita turma, professor ou aula de Jardim Primavera — o servidor recusa. Só a administração cadastra professor compartilhado e cria unidades novas.
+- **Onde a unidade aparece**: no formulário de professor (marcando as duas, o professor é compartilhado) e no de turma. No menu lateral, abaixo do nome, aparece a unidade do acesso.
+- **Importação de planilha**: a coluna **Unidade** existe em professores e turmas, aceitando `CE`, `JP`, o nome completo ou `CE, JP` para o professor compartilhado. Em branco, vale a unidade de quem está importando.
 - **Nada é apagado nem separado em dois bancos**: as duas unidades vivem no mesmo schema `seice`, com a coluna `unit_id`. Relatórios e carga horária continuam funcionando do mesmo jeito.
 
 ---

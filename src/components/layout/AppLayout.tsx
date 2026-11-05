@@ -26,6 +26,7 @@ import { TEXT_SCALE_LABEL, textScaleStore, type TextScale } from '@/lib/textScal
 import { ScheduleActionsProvider } from '@/components/schedule/ScheduleActions';
 import { UpdateNotice } from './UpdateNotice';
 import { useIsDemo } from '@/api/environment';
+import { useIsDemoAccount } from '@/api/units';
 import { FlaskConical } from 'lucide-react';
 import { useLogout, useSession } from '@/api/auth';
 import { initials } from '@/lib/text';
@@ -129,12 +130,29 @@ export function AppLayout() {
 
           <div className="flex min-w-0 flex-1 flex-col">
             <DemoBanner />
+            <DemoAccountBanner />
             <Outlet />
           </div>
         </div>
         <UpdateNotice />
       </ScheduleActionsProvider>
     </LayoutContext.Provider>
+  );
+}
+
+/** Aviso da conta de demonstração publicada: mostra o sistema com dados fictícios, sem gravar nada. */
+function DemoAccountBanner() {
+  if (!useIsDemoAccount()) return null;
+  return (
+    <div
+      role="note"
+      className="no-print flex items-center justify-center gap-2 border-b border-line bg-warning-soft px-4 py-1.5 text-center text-[13px] font-semibold text-warning short:py-1"
+    >
+      <FlaskConical className="size-4 shrink-0" />
+      <span>
+        Conta de demonstração · dados fictícios. <span className="font-normal">Você pode navegar em tudo, mas não é possível cadastrar nem alterar.</span>
+      </span>
+    </div>
   );
 }
 

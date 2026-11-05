@@ -17,5 +17,11 @@ export function useIsAdmin() {
 /** Unidade fixa do coordenador — quando existe, o formulário não deixa escolher outra. */
 export function useFixedUnitId(): number | null {
   const { data: user } = useSession();
-  return user?.role === 'coordenador' ? (user.unitId ?? null) : null;
+  return user?.role === 'coordenador' || user?.role === 'demo' ? (user.unitId ?? null) : null;
+}
+
+/** Conta de demonstração: navega à vontade, mas não grava nada (o servidor recusa). */
+export function useIsDemoAccount() {
+  const { data: user } = useSession();
+  return user?.role === 'demo';
 }

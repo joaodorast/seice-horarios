@@ -92,8 +92,16 @@ await db.exec(`
     AS d (code, weekday, start_time, end_time) ON d.code = t.code;
 `);
 
-createApp(db).app.listen(DEMO_PORT, () => {
+const server = createApp(db).app.listen(DEMO_PORT, () => {
   console.log('\n  SEICE — AMBIENTE DE TESTE (dados fictícios em memória, nada vai para o sistema real)');
   console.log(`  ${TEACHERS.length} professores · ${CLASSES.length} turmas · ${SUBJECTS.length} disciplinas · ${lessons.summary.create} aulas`);
   console.log(`  Acesse http://localhost:5180  ·  login: ${DEMO_LOGIN.email} / ${DEMO_LOGIN.password}\n`);
+});
+
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code !== 'EADDRINUSE') throw error;
+  console.error(`\n  ✗ A porta ${DEMO_PORT} já está em uso — provavelmente outra cópia do ambiente de teste está aberta.`);
+  console.error('    Feche aquela janela do terminal (Ctrl+C) ou rode com outra porta:');
+  console.error(`      SEICE_DEMO_PORT=3412 npm run demo\n`);
+  process.exit(1);
 });

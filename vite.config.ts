@@ -42,7 +42,9 @@ export default defineConfig(({ mode }) => {
       // O leitor de planilhas (ExcelJS) é grande, mas só é baixado quando alguém abre uma importação.
       chunkSizeWarningLimit: 1000,
     },
-    server: { port: demo ? 5180 : 5173, strictPort: demo, proxy },
+    // Sem strictPort: se a porta estiver ocupada (ex.: outra cópia do sistema aberta), o Vite escolhe a
+    // seguinte e avisa no terminal, em vez de encerrar o `npm run demo` inteiro.
+    server: { port: demo ? 5180 : 5173, proxy },
     preview: { proxy },
   };
 });

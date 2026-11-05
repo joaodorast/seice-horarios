@@ -5,8 +5,8 @@ export interface SessionUser {
   id: number;
   email: string;
   name: string;
-  /** admin enxerga todas as unidades; coordenador enxerga apenas a dele. */
-  role?: 'admin' | 'coordenador';
+  /** admin enxerga todas as unidades; coordenador enxerga apenas a dele; demo é somente leitura. */
+  role?: 'admin' | 'coordenador' | 'demo';
   unitId?: number | null;
   /** Unidade do coordenador (null/vazio para admin). */
   unit?: { id: number; code: string; name: string } | null;

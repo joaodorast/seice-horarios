@@ -32,8 +32,11 @@ export interface Unit {
   active: boolean;
 }
 
-/** Perfil de acesso: admin enxerga todas as unidades; coordenador, apenas a dele. */
-export type UserRole = 'admin' | 'coordenador';
+/**
+ * Perfil de acesso: admin enxerga e altera todas as unidades; coordenador, apenas a dele;
+ * demo enxerga só a unidade de demonstração e não altera nada.
+ */
+export type UserRole = 'admin' | 'coordenador' | 'demo';
 
 export interface Teacher {
   id: number;

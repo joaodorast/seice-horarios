@@ -343,6 +343,13 @@ FOR EACH ROW EXECUTE FUNCTION lessons_unit_guard();
 UPDATE lessons l SET unit_id = c.unit_id FROM classes c WHERE c.id = l.class_id;
 `;
 
+const DEMO_ROLE = /* sql */ `
+-- Perfil "demo": conta de demonstração para o cliente conhecer o sistema com dados fictícios.
+-- Só enxerga a unidade de demonstração e não pode gravar nada (o servidor recusa toda alteração).
+ALTER TABLE users DROP CONSTRAINT users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'coordenador', 'demo'));
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
@@ -352,4 +359,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 5, name: 'atribuicao_de_aulas', sql: ASSIGNMENTS },
   { version: 6, name: 'disponibilidade_dos_professores', sql: TEACHER_AVAILABILITY },
   { version: 7, name: 'unidades_e_acesso_por_unidade', sql: UNITS },
+  { version: 8, name: 'perfil_de_demonstracao', sql: DEMO_ROLE },
 ];

@@ -143,7 +143,9 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   /** Unidades que o usuário da sessão pode enxergar: todas para admin, apenas a dele para coordenador. */
   const visibleUnitIds = (res: Response): number[] | null => {
     const user = res.locals.user as { role?: string; unitId?: number | null } | undefined;
-    if (!user || user.role !== 'coordenador' || user.unitId === null || user.unitId === undefined) return null;
+    if (!user || user.unitId === null || user.unitId === undefined) return null;
+    // Admin enxerga tudo; coordenador e demonstração enxergam apenas a própria unidade.
+    if (user.role !== 'coordenador' && user.role !== 'demo') return null;
     return [user.unitId];
   };
 
@@ -165,6 +167,54 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.use(auth.middleware);
+
+  /**
+   * Conta de demonstração: enxerga o sistema com dados fictícios, mas não altera nada.
+   * Vale para toda a API depois do login; entrar e sair continuam funcionando normalmente.
+   */
+  api.use((req, res, next) => {
+    const user = res.locals.user as { role?: string } | undefined;
+    if (user?.role === 'demo' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      res.status(403).json({
+        error: {
+          code: 'demo_read_only',
+          message: 'Esta é uma conta de demonstração: os dados são fictícios e não podem ser alterados. Entre com o seu acesso para cadastrar.',
+        },
+      });
+      return;
+    }
+    next();
+  });
+
+  /**
+   * Isolamento de leitura: coordenador (e demonstração) recebem apenas os dados da própria unidade.
+   * O professor compartilhado aparece nas duas — é o que permite ver, por exemplo, que a Naissa já
+   * tem aula em Campos Elíseos no horário que se pretende usar em Jardim Primavera.
+   */
+  async function scopedData(res: Response) {
+    const allowed = visibleUnitIds(res);
+    const [teachers, classes, lessons] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listLessons()]);
+    if (!allowed) return { teachers, classes, lessons };
+    const inUnit = (id: number | undefined) => id !== undefined && allowed.includes(id);
+    const visibleTeachers = teachers.filter((t) => {
+      const units = t.unitIds?.length ? t.unitIds : t.unitId ? [t.unitId] : [];
+      return units.some((u) => allowed.includes(u));
+    });
+    return { teachers: visibleTeachers, classes: classes.filter((c) => inUnit(c.unitId)), lessons: lessons.filter((l) => inUnit(l.unitId)) };
+  }
+
+  /** Recusa o acesso a um registro de outra unidade. */
+  function assertUnitAccess(res: Response, unitId: number | undefined) {
+    const allowed = visibleUnitIds(res);
+    if (allowed && unitId !== undefined && !allowed.includes(unitId)) {
+      throw new HttpError(403, 'wrong_unit', 'Este registro pertence a outra unidade.');
+    }
+  }
+
+  /** Devolve o registro já filtrado pela unidade de quem está logado. */
+  const scopedTeachers = async (res: Response) => (await scopedData(res)).teachers;
+  const scopedClasses = async (res: Response) => (await scopedData(res)).classes;
+  const scopedLessons = async (res: Response) => (await scopedData(res)).lessons;
 
   // ---------------- Professores ----------------
 
@@ -203,11 +253,11 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.get('/teachers', async (_req, res) => {
-    res.json(await repo.listTeachers());
+    res.json(await scopedTeachers(res));
   });
 
   api.get('/teachers/:id', async (req, res) => {
-    const teacher = await repo.getTeacher(idParam(req));
+    const teacher = (await scopedTeachers(res)).find((t) => t.id === idParam(req));
     if (!teacher) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
     res.json(teacher);
   });
@@ -317,11 +367,13 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   // ---------------- Turmas ----------------
   api.get('/classes', async (_req, res) => {
-    res.json(await repo.listClasses());
+    res.json(await scopedClasses(res));
   });
 
   api.get('/classes/:id', async (req, res) => {
-    const schoolClass = await repo.getClass(idParam(req));
+    const id = idParam(req);
+    assertUnitAccess(res, (await repo.getClass(id))?.unitId);
+    const schoolClass = await repo.getClass(id);
     if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
     res.json(schoolClass);
   });
@@ -454,13 +506,17 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   // ---------------- Leitura em lote ----------------
   // Uma única requisição para vários conjuntos de dados (a interface agrupa as consultas feitas juntas).
   const RESOURCES = {
-    teachers: () => repo.listTeachers(),
-    classes: () => repo.listClasses(),
+    teachers: (res: Response) => scopedTeachers(res),
+    classes: (res: Response) => scopedClasses(res),
     subjects: () => repo.listSubjects(),
     periods: () => repo.listPeriods(),
     settings: () => repo.getSettings(),
-    lessons: () => repo.listLessons(),
-    assignments: () => repo.listAssignments(),
+    lessons: (res: Response) => scopedLessons(res),
+    assignments: async (res: Response) => {
+      const [assignments, classes] = await Promise.all([repo.listAssignments(), scopedClasses(res)]);
+      const ids = new Set(classes.map((c) => c.id));
+      return assignments.filter((a) => ids.has(a.classId));
+    },
   } as const;
   type Resource = keyof typeof RESOURCES;
 
@@ -474,13 +530,13 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       throw new HttpError(400, 'invalid_include', `Conjuntos de dados inválidos: ${unknown.join(', ') || '(nenhum)'}.`);
     }
     const unique = [...new Set(names)] as Resource[];
-    const values = await Promise.all(unique.map((n) => RESOURCES[n]()));
+    const values = await Promise.all(unique.map((n) => (RESOURCES[n] as (res: Response) => Promise<unknown>)(res)));
     res.json(Object.fromEntries(unique.map((n, i) => [n, values[i]])));
   });
 
   // ---------------- Aulas ----------------
   api.get('/lessons', async (_req, res) => {
-    res.json(await repo.listLessons());
+    res.json(await scopedLessons(res));
   });
 
   async function validateOrThrow(tx: Repository, input: LessonInput, id?: number) {
@@ -608,7 +664,9 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   // ---------------- Atribuição de aulas ----------------
   api.get('/assignments', async (_req, res) => {
-    res.json(await repo.listAssignments());
+    const [assignments, classes] = await Promise.all([repo.listAssignments(), scopedClasses(res)]);
+    const ids = new Set(classes.map((c) => c.id));
+    res.json(assignments.filter((a) => ids.has(a.classId)));
   });
 
   api.post('/assignments/batch', async (req, res) => {

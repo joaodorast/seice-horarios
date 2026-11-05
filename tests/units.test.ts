@@ -141,6 +141,69 @@ describe('unidades e permissões', () => {
     expect(compartilhado.body.unitIds).toEqual([ce, jp]);
   });
 
+  it('o coordenador enxerga apenas os dados da própria unidade, mas vê o professor compartilhado', async () => {
+    // A administração monta as duas unidades: professor só CE, professor compartilhado e uma aula no CE.
+    await admin('POST', '/teachers', { name: 'Só Campos Elíseos', code: null, area: null, phone: null, notes: null, active: true, unitId: ce, unitIds: [ce], subjectIds: [] });
+    const compartilhado = await admin('POST', '/teachers', { name: 'Naissa Compartilhada', code: null, area: 'Química', phone: null, notes: null, active: true, unitId: ce, unitIds: [ce, jp], subjectIds: [] });
+    const turmaCe = await admin('POST', '/classes', { name: '8º A CE', grade: '8º ano', shift: 'manha', unitId: ce, notes: null, active: true });
+    // Quinta 07:00 fica livre nas duas unidades, então só pode haver conflito pelo professor compartilhado.
+    await server.db.query('DELETE FROM lessons WHERE weekday = 4 AND start_time = \'07:00\'');
+    const aula = await admin('POST', '/lessons', { teacherId: compartilhado.body.id, classId: turmaCe.body.id, subjectId: null, weekday: 4, start: '07:00', end: '07:50', notes: null });
+    expect(aula.status).toBe(201);
+
+    const professores = await coordJp('GET', '/teachers');
+    const nomes = professores.body.map((t: { name: string }) => t.name);
+    expect(nomes).toContain('Naissa Compartilhada');
+    expect(nomes).not.toContain('Só Campos Elíseos');
+
+    const turmas = await coordJp('GET', '/classes');
+    expect(turmas.body.every((c: { unitId: number }) => c.unitId === jp)).toBe(true);
+
+    const aulas = await coordJp('GET', '/lessons');
+    expect(aulas.body.every((l: { unitId: number }) => l.unitId === jp)).toBe(true);
+
+    const lote = await coordJp('GET', '/data?include=teachers,classes,lessons');
+    expect(lote.body.lessons.every((l: { unitId: number }) => l.unitId === jp)).toBe(true);
+    expect(lote.body.teachers.map((t: { name: string }) => t.name)).not.toContain('Só Campos Elíseos');
+  });
+
+  it('o coordenador de JP é avisado de que a compartilhada já tem aula no CE', async () => {
+    // Cada teste monta o seu cenário: limpa as aulas da quinta 07:00 antes de começar.
+    await server.db.query("DELETE FROM lessons WHERE weekday = 4 AND start_time = '07:00'");
+    const compartilhado = (await admin('GET', '/teachers')).body.find((t: { name: string }) => t.name === 'Naissa Compartilhada');
+    const turmaCe = (await admin('GET', '/classes')).body.find((c: { name: string }) => c.name === '8º A CE');
+    const aulaCe = await admin('POST', '/lessons', { teacherId: compartilhado.id, classId: turmaCe.id, subjectId: null, weekday: 4, start: '07:00', end: '07:50', notes: null });
+    expect(aulaCe.status).toBe(201);
+    // Turma nova no JP, para o conflito ser só do professor compartilhado (e não de uma aula já lançada).
+    const nova = await coordJp('POST', '/classes', { name: '9º A JP', grade: '9º ano', shift: 'manha', notes: null, active: true });
+    const turmaJp = nova.body;
+
+    const conflito = await coordJp('POST', '/lessons', {
+      teacherId: compartilhado.id,
+      classId: turmaJp.id,
+      subjectId: null,
+      weekday: 4,
+      start: '07:00',
+      end: '07:50',
+      notes: null,
+    });
+    expect(conflito.status).toBe(409);
+    const mensagem = conflito.body.error.issues[0].message as string;
+    expect(mensagem).toContain('já tem aula neste horário');
+
+    const livre = await coordJp('POST', '/lessons', {
+      teacherId: compartilhado.id,
+      classId: turmaJp.id,
+      subjectId: null,
+      weekday: 4,
+      start: '08:00',
+      end: '08:50',
+      notes: null,
+    });
+    expect(livre.status).toBe(201);
+    expect(livre.body.lesson.unitId).toBe(jp);
+  });
+
   it('só a administração cria unidade', async () => {
     const res = await coordCe('POST', '/units', { code: 'XX', name: 'Unidade Teste', active: true });
     expect(res.status).toBe(403);

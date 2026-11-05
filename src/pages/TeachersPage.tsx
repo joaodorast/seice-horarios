@@ -69,8 +69,8 @@ export function TeachersPage() {
 
   const all = teachers.data ?? [];
   const counts = { ativos: all.filter((t) => t.active).length, inativos: all.filter((t) => !t.active).length, todos: all.length };
-  /** Unidades do professor: as marcadas no cadastro (ou a principal, em cadastros antigos). */
-  const unitsOf = (t: Teacher) => (t.unitIds?.length ? t.unitIds : t.unitId ? [t.unitId] : []);
+  /** Unidades do professor: a principal mais as unidades extras em que ele atua. */
+  const unitsOf = (t: Teacher) => [...new Set([...(t.unitId ? [t.unitId] : []), ...(t.unitIds ?? [])])];
   const filtered = all.filter(
     (t) =>
       (status === 'todos' || (status === 'ativos' ? t.active : !t.active)) &&

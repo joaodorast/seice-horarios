@@ -197,7 +197,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     if (!allowed) return { teachers, classes, lessons };
     const inUnit = (id: number | undefined) => id !== undefined && allowed.includes(id);
     const visibleTeachers = teachers.filter((t) => {
-      const units = t.unitIds?.length ? t.unitIds : t.unitId ? [t.unitId] : [];
+      // A unidade principal do professor sempre conta; as demais são as unidades em que ele também atua.
+      const units = [...new Set([...(t.unitId ? [t.unitId] : []), ...(t.unitIds ?? [])])];
       return units.some((u) => allowed.includes(u));
     });
     return { teachers: visibleTeachers, classes: classes.filter((c) => inUnit(c.unitId)), lessons: lessons.filter((l) => inUnit(l.unitId)) };

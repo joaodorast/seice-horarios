@@ -12,6 +12,7 @@ export const GUIDES = {
   ],
   teachers: [
     { title: 'Cadastre os professores', text: 'Use "Novo professor" para um de cada vez, ou "Importar" para trazer a lista inteira de uma planilha Excel ou CSV.' },
+    { title: 'Professor de duas unidades', text: 'Ao cadastrar, marque CE e JP quando o professor dá aula nas duas. Ele aparece nas duas unidades, mas o sistema impede o mesmo horário nas duas. Quem é coordenador cadastra só na própria unidade.' },
     { title: 'Altere quando precisar', text: 'Clique em "Editar" na linha do professor. Para inativar ou excluir, use o botão "…" no fim da linha.' },
     { title: 'Consulte o horário', text: 'Clique no nome do professor para ver os dados, as turmas e o quadro semanal dele.' },
   ],
@@ -22,7 +23,8 @@ export const GUIDES = {
     { title: 'Altere uma aula', text: 'Clique em uma aula do quadro para editar, duplicar ou excluir. Clique em um espaço vazio para lançar uma aula nele.' },
   ],
   classes: [
-    { title: 'Cadastre as turmas', text: 'Use "Nova turma" informando o turno (manhã, tarde, noite ou integral), ou "Importar" a partir de uma planilha.' },
+    { title: 'Cadastre as turmas', text: 'Use "Nova turma" informando a unidade e o turno (manhã, tarde, noite ou integral), ou "Importar" a partir de uma planilha.' },
+    { title: 'Cada turma tem uma unidade', text: 'A turma e todas as aulas dela ficam na unidade escolhida. O coordenador só cadastra turmas da própria unidade.' },
     { title: 'Altere quando precisar', text: 'Clique em "Editar" na linha da turma. Para inativar ou excluir, use o botão "…" no fim da linha.' },
     { title: 'Acompanhe a grade', text: 'A barra de preenchimento mostra quantos horários da turma já têm aula. Clique no nome para ver o quadro dela.' },
   ],

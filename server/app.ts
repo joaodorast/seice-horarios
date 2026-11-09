@@ -234,6 +234,23 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }
   }
 
+  async function requireTeacherAccess(res: Response, id: number, write = false) {
+    const teacher = await repo.getTeacher(id);
+    if (!teacher) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    const allowed = visibleUnitIds(res);
+    const units = [...new Set([...(teacher.unitId ? [teacher.unitId] : []), ...(teacher.unitIds ?? [])])];
+    if (allowed && (!units.some((id) => allowed.includes(id)) || (write && units.some((id) => !allowed.includes(id))))) {
+      throw new HttpError(403, 'wrong_unit', 'A administração gerencia professores compartilhados ou de outra unidade.');
+    }
+    return teacher;
+  }
+
+  function assertAdmin(res: Response) {
+    if (res.locals.user?.role === 'coordenador') {
+      throw new HttpError(403, 'admin_only', 'A administração gerencia os dados compartilhados entre unidades.');
+    }
+  }
+
   /** Devolve o registro já filtrado pela unidade de quem está logado. */
   const scopedTeachers = async (res: Response) => (await scopedData(res)).teachers;
   const scopedClasses = async (res: Response) => (await scopedData(res)).classes;
@@ -314,19 +331,11 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.put('/teachers/:id', async (req, res) => {
     const id = idParam(req);
-    const current = await repo.getTeacher(id);
-    if (!current) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    const current = await requireTeacherAccess(res, id, true);
     const input = parse(teacherSchema, req.body);
-    // Coordenador edita só professores da sua unidade e não muda as unidades do cadastro (isso é da administração).
-    const allowed = visibleUnitIds(res);
-    if (allowed) {
-      const currentUnits = current.unitIds?.length ? current.unitIds : current.unitId ? [current.unitId] : [];
-      if (currentUnits.length && !currentUnits.some((u) => allowed.includes(u))) {
-        throw new HttpError(403, 'wrong_unit', 'Este professor pertence a outra unidade.');
-      }
+    if (res.locals.user?.role === 'coordenador') {
       input.unitId = current.unitId;
-      input.unitIds = currentUnits.filter((u) => allowed.includes(u));
-      if (!input.unitIds.length) input.unitIds = currentUnits;
+      input.unitIds = current.unitIds?.length ? current.unitIds : current.unitId ? [current.unitId] : [];
     }
     await assertTeacherCodeFree(input.code, id);
     res.json(await db.transaction((tx) => createRepository(tx).updateTeacher(id, input)));
@@ -334,15 +343,14 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.patch('/teachers/:id/status', async (req, res) => {
     const id = idParam(req);
-    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    await requireTeacherAccess(res, id, true);
     const { active } = parse(statusSchema, req.body);
     res.json(await repo.setTeacherActive(id, active));
   });
 
   api.delete('/teachers/:id', async (req, res) => {
     const id = idParam(req);
-    const teacher = await repo.getTeacher(id);
-    if (!teacher) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    const teacher = await requireTeacherAccess(res, id, true);
     const lessonCount = await repo.countLessonsBy('teacher_id', id);
     const withLessons = req.query.withLessons === 'true';
     if (lessonCount > 0 && !withLessons) {
@@ -357,7 +365,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   // ---------------- Dias e horários do professor na escola ----------------
   api.put('/teachers/:id/availability', async (req, res) => {
     const id = idParam(req);
-    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    await requireTeacherAccess(res, id, true);
     const input = parse(availabilitySchema, req.body);
     await db.transaction((tx) => createRepository(tx).setTeacherAvailability(id, input));
     res.json(await repo.getTeacher(id));
@@ -365,7 +373,9 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   // ---------------- Fotos dos professores ----------------
   api.get('/teachers/:id/photo', async (req, res) => {
-    const photo = await repo.getTeacherPhoto(idParam(req));
+    const id = idParam(req);
+    await requireTeacherAccess(res, id);
+    const photo = await repo.getTeacherPhoto(id);
     if (!photo) throw new HttpError(404, 'not_found', 'Este professor não tem foto.');
     // O endereço da foto muda a cada troca (?v=data), então ela pode ficar em cache no navegador.
     res.setHeader('Cache-Control', req.query.v ? 'private, max-age=31536000, immutable' : 'private, no-cache');
@@ -375,7 +385,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.put('/teachers/:id/photo', async (req, res) => {
     const id = idParam(req);
-    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    await requireTeacherAccess(res, id, true);
     const { mime, data } = decodePhoto(req.body?.dataUrl);
     await repo.setTeacherPhoto(id, mime, data);
     res.json(await repo.getTeacher(id));
@@ -383,7 +393,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.delete('/teachers/:id/photo', async (req, res) => {
     const id = idParam(req);
-    if (!(await repo.getTeacher(id))) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+    await requireTeacherAccess(res, id, true);
     await repo.deleteTeacherPhoto(id);
     res.json(await repo.getTeacher(id));
   });
@@ -442,7 +452,9 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.patch('/classes/:id/status', async (req, res) => {
     const id = idParam(req);
-    if (!(await repo.getClass(id))) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
+    const schoolClass = await repo.getClass(id);
+    if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
+    assertUnitAccess(res, schoolClass.unitId);
     const { active } = parse(statusSchema, req.body);
     res.json(await repo.setClassActive(id, active));
   });
@@ -451,6 +463,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const id = idParam(req);
     const schoolClass = await repo.getClass(id);
     if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
+    assertUnitAccess(res, schoolClass.unitId);
     const lessonCount = await repo.countLessonsBy('class_id', id);
     const withLessons = req.query.withLessons === 'true';
     if (lessonCount > 0 && !withLessons) {
@@ -477,12 +490,14 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   }
 
   api.post('/subjects', async (req, res) => {
+    assertAdmin(res);
     const input = parse(subjectSchema, req.body);
     await assertSubjectNameFree(input.name);
     res.status(201).json(await repo.createSubject(input));
   });
 
   api.put('/subjects/:id', async (req, res) => {
+    assertAdmin(res);
     const id = idParam(req);
     if (!(await repo.getSubject(id))) throw new HttpError(404, 'not_found', 'Disciplina não encontrada.');
     const input = parse(subjectSchema, req.body);
@@ -491,6 +506,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.delete('/subjects/:id', async (req, res) => {
+    assertAdmin(res);
     const id = idParam(req);
     const subject = await repo.getSubject(id);
     if (!subject) throw new HttpError(404, 'not_found', 'Disciplina não encontrada.');
@@ -509,6 +525,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.put('/periods/:shift', async (req, res) => {
+    assertAdmin(res);
     const shift = parse(shiftParamSchema, req.params.shift);
     const input = parse(periodsReplaceSchema, req.body);
     // As aulas guardam seus próprios horários: alterar períodos nunca modifica ou remove aulas.
@@ -521,6 +538,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   api.put('/settings', async (req, res) => {
+    assertAdmin(res);
     const input = parse(settingsSchema, req.body);
     await db.transaction((tx) => createRepository(tx).updateSettings(input));
     res.json(await repo.getSettings());
@@ -562,7 +580,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     res.json(await scopedLessons(res));
   });
 
-  async function validateOrThrow(tx: Repository, input: LessonInput, id?: number) {
+  async function validateOrThrow(res: Response, tx: Repository, input: LessonInput, id?: number) {
     const [lessons, teachers, classes, subjects, settings, periods] = await Promise.all([
       tx.listLessons(),
       tx.listTeachers(),
@@ -571,11 +589,24 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       tx.getSettings(),
       tx.listPeriods(),
     ]);
+    const schoolClass = classes.find((c) => c.id === input.classId);
+    assertUnitAccess(res, schoolClass?.unitId);
     const issues = validateLesson({ ...input, id }, { lessons, teachers, classes, subjects, settings, periods });
+    const allowed = visibleUnitIds(res);
+    if (allowed) {
+      for (const issue of issues) {
+        const other = lessons.find((lesson) => lesson.id === issue.relatedLessonId);
+        if (other?.unitId !== undefined && !allowed.includes(other.unitId)) {
+          const unit = await tx.getUnit(other.unitId);
+          issue.message = `Este professor já tem aula neste horário em ${unit?.name ?? 'outra unidade'}.`;
+          issue.hint = 'Escolha outro horário ou outro professor.';
+          delete issue.relatedLessonId;
+        }
+      }
+    }
 
     // Professor compartilhado: a aula só entra na unidade em que ele atua. É a mesma regra do gatilho
     // do banco, mas aqui com uma mensagem que explica o que fazer.
-    const schoolClass = classes.find((c) => c.id === input.classId);
     const teacher = teachers.find((t) => t.id === input.teacherId);
     if (schoolClass?.unitId && teacher) {
       const unitIds = await tx.teacherUnitIds(teacher.id);
@@ -621,7 +652,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   api.post('/lessons', async (req, res) => {
     const input = parse(lessonSchema, req.body);
     const result = await writeLesson(async (tx) => {
-      const warnings = await validateOrThrow(tx, input);
+      const warnings = await validateOrThrow(res, tx, input);
       return { lesson: await tx.createLesson(input), warnings };
     });
     res.status(201).json(result);
@@ -644,7 +675,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     await assertLessonUnit(res, id);
     const input = parse(lessonSchema, req.body);
     const result = await writeLesson(async (tx) => {
-      const warnings = await validateOrThrow(tx, input, id);
+      const warnings = await validateOrThrow(res, tx, input, id);
       return { lesson: (await tx.updateLesson(id, input))!, warnings };
     });
     res.json(result);
@@ -665,12 +696,12 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       const updated = [];
       for (const { id, input } of batch.updates) {
         if (!(await tx.getLesson(id))) throw new HttpError(409, 'stale', 'Uma das aulas foi alterada por outra pessoa. Feche e abra o quadro novamente.');
-        await validateOrThrow(tx, input, id);
+        await validateOrThrow(res, tx, input, id);
         updated.push((await tx.updateLesson(id, input))!);
       }
       const created = [];
       for (const input of batch.creates) {
-        await validateOrThrow(tx, input);
+        await validateOrThrow(res, tx, input);
         created.push(await tx.createLesson(input));
       }
       return { removed: batch.removeIds.length, updated, created };
@@ -700,22 +731,33 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       throw new HttpError(422, 'duplicate', 'A mesma disciplina aparece duas vezes para uma turma. Cada turma tem um professor por disciplina.');
     }
     const [teachers, classes, subjects] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects()]);
+    for (const { classId } of [...batch.upserts, ...batch.removes]) {
+      assertUnitAccess(res, classes.find((c) => c.id === classId)?.unitId);
+    }
     for (const a of batch.upserts) {
+      const schoolClass = classes.find((c) => c.id === a.classId);
+      const teacher = teachers.find((t) => t.id === a.teacherId);
+      if (teacher && schoolClass?.unitId && ![teacher.unitId, ...(teacher.unitIds ?? [])].includes(schoolClass.unitId)) {
+        throw new HttpError(403, 'wrong_unit', 'O professor não atua na unidade desta turma.');
+      }
       if (!teachers.some((t) => t.id === a.teacherId)) throw new HttpError(422, 'not_found', 'Um dos professores não existe mais. Atualize a página.');
       if (!classes.some((c) => c.id === a.classId)) throw new HttpError(422, 'not_found', 'Uma das turmas não existe mais. Atualize a página.');
       if (!subjects.some((s) => s.id === a.subjectId)) throw new HttpError(422, 'not_found', 'Uma das disciplinas não existe mais. Atualize a página.');
     }
     await db.transaction((tx) => createRepository(tx).applyAssignments(batch));
-    res.json(await repo.listAssignments());
+    const allowed = visibleUnitIds(res);
+    const classIds = new Set(classes.filter((c) => !allowed || (c.unitId !== undefined && allowed.includes(c.unitId))).map((c) => c.id));
+    res.json((await repo.listAssignments()).filter((a) => classIds.has(a.classId)));
   });
 
   // ---------------- Importação de planilhas ----------------
   api.post('/import/:kind', async (req, res) => {
     const kind = req.params.kind as ImportKind;
     if (!(IMPORT_KINDS as readonly string[]).includes(kind)) throw new HttpError(404, 'not_found', 'Tipo de importação desconhecido.');
+    if (kind !== 'assignments') assertAdmin(res);
     const request = parse(importRequestSchema, req.body);
     try {
-      res.json(await runImport(db, kind, request));
+      res.json(await runImport(db, kind, request, kind === 'assignments' ? visibleUnitIds(res) : null));
     } catch (error) {
       if (error instanceof ImportFailure) throw new HttpError(422, 'import_failed', error.message);
       throw error;

@@ -196,6 +196,9 @@ export const periodSchema = z
 export const periodsReplaceSchema = z
   .object({ periods: z.array(periodSchema).max(20, { error: 'Limite de 20 períodos por turno.' }) })
   .superRefine((v, ctx) => {
+    if (v.periods.filter((period) => period.kind === 'aula').length > 6) {
+      ctx.addIssue({ code: 'custom', path: ['periods'], message: 'Cada turno pode ter até 6 tempos de aula.' });
+    }
     const sorted = [...v.periods].map((p, i) => ({ ...p, i })).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
     for (let k = 1; k < sorted.length; k++) {
       if (toMinutes(sorted[k].start) < toMinutes(sorted[k - 1].end)) {

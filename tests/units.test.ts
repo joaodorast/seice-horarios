@@ -84,6 +84,24 @@ describe('unidades e permissões', () => {
     const professorCe = await admin('POST', '/teachers', { name: 'Professor CE', code: null, area: null, phone: null, notes: null, active: true, unitId: ce, unitIds: [ce], subjectIds: [] });
     const edicaoProfessor = await coordJp('PUT', `/teachers/${professorCe.body.id}`, { name: 'Professor alterado', code: null, area: null, phone: null, notes: null, active: true, subjectIds: [] });
     expect(edicaoProfessor.status).toBe(403);
+    expect((await coordJp('PATCH', `/classes/${turmaCe.body.id}/status`, { active: false })).status).toBe(403);
+    expect((await coordJp('DELETE', `/classes/${turmaCe.body.id}`)).status).toBe(403);
+    expect((await coordJp('PATCH', `/teachers/${professorCe.body.id}/status`, { active: false })).status).toBe(403);
+    expect((await coordJp('GET', `/teachers/${professorCe.body.id}/photo`)).status).toBe(403);
+
+    const aulaNaOutraUnidade = {
+      teacherId: professorCe.body.id,
+      classId: turmaCe.body.id,
+      subjectId: null,
+      weekday: 1,
+      start: '07:00',
+      end: '07:50',
+      notes: null,
+    };
+    expect((await coordJp('POST', '/lessons', aulaNaOutraUnidade)).status).toBe(403);
+    expect((await coordJp('POST', '/lessons/batch', { creates: [aulaNaOutraUnidade] })).status).toBe(403);
+    expect((await coordJp('POST', '/import/lessons', {})).status).toBe(403);
+
 
     const turmaJp = await coordJp('GET', '/classes');
     const aulaJp = await coordJp('POST', '/lessons', {
@@ -190,6 +208,9 @@ describe('unidades e permissões', () => {
     expect(conflito.status).toBe(409);
     const mensagem = conflito.body.error.issues[0].message as string;
     expect(mensagem).toContain('já tem aula neste horário');
+    expect(mensagem).toContain('Campos Elíseos');
+    expect(conflito.body.error.issues[0]).not.toHaveProperty('relatedLessonId');
+
 
     const livre = await coordJp('POST', '/lessons', {
       teacherId: compartilhado.id,
@@ -230,5 +251,27 @@ describe('unidades e permissões', () => {
     const res = await coordCe('POST', '/units', { code: 'XX', name: 'Unidade Teste', active: true });
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('admin_only');
+  });
+
+  it('importa atribuições por código e turno sem alcançar turmas de outra unidade', async () => {
+    const turma = await coordJp('POST', '/classes', { name: 'JP 2027 (9901)', grade: '9º ano', shift: 'tarde' });
+    const outra = await coordCe('POST', '/classes', { name: 'CE 2027 (9902)', grade: '9º ano', shift: 'tarde' });
+    expect(turma.status).toBe(201);
+    expect(outra.status).toBe(201);
+    const professor = await coordJp('POST', '/teachers', { name: 'Professor da planilha' });
+    expect(professor.status).toBe(201);
+    const disciplina = await admin('POST', '/subjects', { name: 'Disciplina da planilha' });
+    expect(disciplina.status).toBe(201);
+    const values = { teacher: 'Professor da planilha', subject: 'Disciplina da planilha', weekly: '2' };
+    const result = await coordJp('POST', '/import/assignments', { rows: [
+      { line: 2, values: { ...values, class: '9901', shift: 'Tarde' } },
+      { line: 3, values: { ...values, class: '9901', shift: 'Manhã' } },
+      { line: 4, values: { ...values, class: '9902', shift: 'Tarde' } },
+    ] });
+    expect(result.status).toBe(200);
+    expect(result.body.summary).toMatchObject({ create: 1, error: 2 });
+    expect((await coordJp('GET', '/assignments')).body).toContainEqual(expect.objectContaining({
+      classId: turma.body.id, teacherId: professor.body.id, weeklyLessons: 2,
+    }));
   });
 });

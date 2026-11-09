@@ -60,7 +60,8 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     fileName: 'modelo-atribuicoes',
     columns: [
       { key: 'teacher', label: 'Professor', required: true, aliases: ['professor', 'professora', 'docente', 'nome do professor', 'matricula'], hint: 'Nome ou matrícula do professor.' },
-      { key: 'class', label: 'Turmas', required: true, aliases: ['turma', 'turmas', 'classe', 'classes'], hint: 'Uma ou várias turmas separadas por vírgula. Ex.: 6º A, 7º A.' },
+      { key: 'class', label: 'Turmas', required: true, aliases: ['turma', 'turmas', 'classe', 'classes'], hint: 'Nome ou código numérico. Para turmas com o mesmo turno e carga, separe os códigos por vírgula.' },
+      { key: 'shift', label: 'Turno', required: false, aliases: ['turno', 'turno da turma'], hint: 'Use outra linha se o turno ou a carga mudar.', options: CLASS_SHIFT_OPTIONS },
       { key: 'subject', label: 'Disciplina', required: true, aliases: ['disciplina', 'materia', 'componente', 'componente curricular'], hint: 'Ex.: Matemática.' },
       {
         key: 'weekly',
@@ -71,9 +72,9 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
       },
     ],
     examples: [
-      { teacher: 'Ana Paula Souza', class: '6º A, 7º A', subject: 'Matemática', weekly: '5' },
-      { teacher: 'Bruno Lima', class: '6º A', subject: 'Língua Portuguesa', weekly: '5' },
-      { teacher: 'Eduarda Costa', class: '8º A, 9º A', subject: 'Geografia', weekly: '2' },
+      { teacher: 'Ana Paula Souza', class: '6001, 7001', shift: 'Manhã', subject: 'Matemática', weekly: '5' },
+      { teacher: 'Ana Paula Souza', class: '6003', shift: 'Tarde', subject: 'Matemática', weekly: '2' },
+      { teacher: 'Eduarda Costa', class: '8001, 9001', shift: 'Manhã', subject: 'Geografia', weekly: '2' },
     ],
     notes: [
       'Cada turma tem um professor por disciplina: importar de novo a mesma turma e disciplina troca o professor ou a quantidade.',

@@ -27,6 +27,7 @@ import { validateLesson } from '../shared/conflicts.js';
 import { periodsForClassShift } from '../shared/grid.js';
 import { SHIFT_LABEL, WEEKDAY_SHORT } from '../shared/labels.js';
 import { formatRange, toMinutes } from '../shared/time.js';
+import { SEGMENT_KEYS, SEGMENT_LABEL, SEGMENT_SHORT, sortSegments, type SegmentKey } from '../shared/segments.js';
 import { SUBJECT_COLORS, type Lesson, type SchoolClass, type ShiftKey, type Subject, type SubjectColor, type Teacher, type Unit, type Weekday } from '../shared/types.js';
 
 /** Erro que impede a importação inteira (ex.: professor fixo inexistente). */
@@ -156,6 +157,33 @@ function parseUnits(cell: string, units: Unit[]): { ids?: number[]; error?: stri
   return { ids };
 }
 
+/**
+ * Segmentos citados numa célula ("Fund. II", "Médio, Técnico", "Fundamental 1").
+ * Devolve undefined quando a célula está vazia e um erro quando o texto não é reconhecido.
+ */
+function parseSegments(cell: string): { keys?: SegmentKey[]; error?: string } {
+  const parts = cell.split(/[,;/|]/).map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return {};
+  const keys: SegmentKey[] = [];
+  for (const part of parts) {
+    const key = nameKey(part);
+    const found = SEGMENT_KEYS.find((k) => nameKey(SEGMENT_SHORT[k]) === key || nameKey(SEGMENT_LABEL[k]) === key || nameKey(k) === key);
+    const aproximado =
+      found ??
+      (key.startsWith('fund') && /1|i$/.test(key) ? 'fund1' : undefined) ??
+      (key.startsWith('fund') ? 'fund2' : undefined) ??
+      (key.startsWith('infant') ? 'infantil' : undefined) ??
+      (key.startsWith('tecnic') || key.startsWith('tecnico') ? 'tecnico' : undefined) ??
+      (key.startsWith('medi') || key.startsWith('médi') ? 'medio' : undefined) ??
+      (key.startsWith('multi') ? 'multidisciplinar' : undefined);
+    if (!aproximado) {
+      return { error: `Segmentos: "${part}" não reconhecido. Use ${SEGMENT_KEYS.map((k) => SEGMENT_SHORT[k]).join(', ')}.` };
+    }
+    if (!keys.includes(aproximado)) keys.push(aproximado);
+  }
+  return { keys: sortSegments(keys) };
+}
+
 async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
   const all = await ctx.repo.listTeachers();
   const units = await ctx.repo.listUnits();
@@ -173,6 +201,10 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
 
     const active = parseActive(v('active'));
     if (active === null) errors.push('Situação: use Ativo ou Inativo.');
+
+    // Segmentos: em branco mantém os do cadastro.
+    const segmentsCell = parseSegments(v('segments'));
+    if (segmentsCell.error) errors.push(segmentsCell.error);
 
     // Unidade: em branco mantém a do cadastro (ou a unidade de quem está importando).
     const unitsCell = parseUnits(v('units'), units);
@@ -219,10 +251,11 @@ async function importTeachers(ctx: Ctx, rows: ImportRowInput[], options: ImportO
           // Coluna vazia mantém as unidades atuais; preenchida, substitui.
           unitId: unitsCell.ids ? unitsCell.ids[0] : match.unitId,
           unitIds: unitsCell.ids ?? match.unitIds ?? [],
+          segments: segmentsCell.keys ?? match.segments ?? [],
           // Coluna vazia mantém as disciplinas atuais; preenchida, soma as novas às que já existiam.
           subjectIds: [...new Set([...match.subjectIds, ...subjectIds])],
         }
-      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true, unitId: unitsCell.ids?.[0], unitIds: unitsCell.ids ?? [], subjectIds };
+      : { name, code, area: v('area'), phone: v('phone'), notes: v('notes'), active: active ?? true, unitId: unitsCell.ids?.[0], unitIds: unitsCell.ids ?? [], segments: segmentsCell.keys ?? [], subjectIds };
     const parsed = teacherSchema.safeParse(raw);
     if (!parsed.success) {
       push(ctx, row.line, 'error', label, zodMessages(parsed.error, 'teachers'));
@@ -340,6 +373,9 @@ async function importSubjects(ctx: Ctx, rows: ImportRowInput[], options: ImportO
     const colorText = v('color');
     const color = colorText ? parseColor(colorText) : undefined;
     if (color === null) errors.push(`Cor: "${colorText}" não reconhecida. Deixe em branco para o sistema escolher.`);
+    // Segmentos: em branco mantém os do cadastro (ou deixa a disciplina disponível em todos).
+    const segmentsCell = parseSegments(v('segments'));
+    if (segmentsCell.error) errors.push(segmentsCell.error);
     const key = nameKey(name);
     if (name && seen.has(key)) errors.push(`Disciplina repetida na planilha (já aparece na linha ${seen.get(key)}).`);
     else if (name) seen.set(key, row.line);
@@ -349,12 +385,16 @@ async function importSubjects(ctx: Ctx, rows: ImportRowInput[], options: ImportO
     }
 
     const match = name ? byName.get(key) : undefined;
-    if (match && (options.existing === 'skip' || !color || color === match.color)) {
+    if (match && (options.existing === 'skip' || (!color && !segmentsCell.keys) || (color === match.color && !segmentsCell.keys))) {
       push(ctx, row.line, 'skip', match.name, [options.existing === 'skip' ? 'Já cadastrada. Mantida sem alterações.' : 'Já cadastrada com os mesmos dados.']);
       continue;
     }
 
-    const parsed = subjectSchema.safeParse({ name: match ? match.name : name, color: color ?? nextColor(subjects) });
+    const parsed = subjectSchema.safeParse({
+      name: match ? match.name : name,
+      color: color ?? match?.color ?? nextColor(subjects),
+      segments: segmentsCell.keys ?? match?.segments ?? [],
+    });
     if (!parsed.success) {
       push(ctx, row.line, 'error', label, zodMessages(parsed.error, 'subjects'));
       continue;
@@ -591,7 +631,7 @@ async function importLessons(ctx: Ctx, rows: ImportRowInput[], options: ImportOp
       if (pendingSubject) {
         let created = subjectByName.get(nameKey(pendingSubject));
         if (!created) {
-          created = await repo.createSubject({ name: pendingSubject, color: nextColor(subjects) });
+          created = await repo.createSubject({ name: pendingSubject, color: nextColor(subjects), segments: [] });
           subjects.push(created);
           subjectByName.set(nameKey(created.name), created);
           ctx.createdSubjects.push(created.name);

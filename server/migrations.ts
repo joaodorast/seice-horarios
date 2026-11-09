@@ -350,6 +350,26 @@ ALTER TABLE users DROP CONSTRAINT users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'coordenador', 'demo'));
 `;
 
+const SEGMENTS = /* sql */ `
+-- Segmentos de ensino em que o professor leciona: Educação Infantil, Fundamental I,
+-- Fundamental II, Médio, Médio/Técnico e Multidisciplinar. Um professor pode ter mais de um
+-- (a Nayssa dá Ciências no 9º ano e Química no 2º ano do Médio, por exemplo).
+CREATE TABLE teacher_segments (
+  teacher_id  integer NOT NULL REFERENCES teachers (id) ON DELETE CASCADE,
+  segment     text NOT NULL CHECK (segment IN ('infantil', 'fund1', 'fund2', 'medio', 'tecnico', 'multidisciplinar')),
+  PRIMARY KEY (teacher_id, segment)
+);
+CREATE INDEX teacher_segments_segment_idx ON teacher_segments (segment);
+
+-- Em quais segmentos cada disciplina aparece. Sem linhas: aparece em todos.
+CREATE TABLE subject_segments (
+  subject_id  integer NOT NULL REFERENCES subjects (id) ON DELETE CASCADE,
+  segment     text NOT NULL CHECK (segment IN ('infantil', 'fund1', 'fund2', 'medio', 'tecnico', 'multidisciplinar')),
+  PRIMARY KEY (subject_id, segment)
+);
+CREATE INDEX subject_segments_segment_idx ON subject_segments (segment);
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
@@ -360,4 +380,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 6, name: 'disponibilidade_dos_professores', sql: TEACHER_AVAILABILITY },
   { version: 7, name: 'unidades_e_acesso_por_unidade', sql: UNITS },
   { version: 8, name: 'perfil_de_demonstracao', sql: DEMO_ROLE },
+  { version: 9, name: 'segmentos_de_ensino', sql: SEGMENTS },
 ];

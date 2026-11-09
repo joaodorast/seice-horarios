@@ -7,6 +7,7 @@ import { useSaveTeacher, useTeachers } from '@/api/hooks';
 import { useFixedUnitId, useUnits } from '@/api/units';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
 import { SubjectPicker } from '@/features/SubjectPicker';
+import { SEGMENT_KEYS, SEGMENT_LABEL, SEGMENT_SHORT, sortSegments, type SegmentKey } from '@shared/segments';
 import { Check, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ApiError, errorMessage } from '@/api/client';
@@ -50,6 +51,7 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
     control,
     setValue,
     setError,
+    watch,
     formState: { errors },
   } = useForm<TeacherFormValues, unknown, TeacherInput>({
     resolver: zodResolver(teacherSchema),
@@ -62,9 +64,12 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
       active: teacher?.active ?? true,
       unitId: teacher?.unitId ?? fixedUnitId ?? units.data?.[0]?.id,
       unitIds: teacher?.unitIds?.length ? teacher.unitIds : fixedUnitId ? [fixedUnitId] : units.data?.[0] ? [units.data[0].id] : [],
+      segments: teacher?.segments ?? [],
       subjectIds: teacher?.subjectIds ?? [],
     },
   });
+
+  const segmentos = (watch('segments') as SegmentKey[] | undefined) ?? [];
 
   const onSubmit = handleSubmit(async (input) => {
     setFormError(null);
@@ -129,13 +134,55 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
           />
         )}
       />
+      <Controller
+        control={control}
+        name="segments"
+        render={({ field }) => (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink-2">
+              Segmentos em que leciona <span className="text-danger">*</span>
+            </span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Segmentos em que leciona">
+              {SEGMENT_KEYS.map((key) => {
+                const atual = ((field.value as SegmentKey[] | undefined) ?? []) as SegmentKey[];
+                const on = atual.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => field.onChange(on ? atual.filter((k) => k !== key) : sortSegments([...atual, key]))}
+                    title={SEGMENT_LABEL[key]}
+                    className={cn(
+                      'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors',
+                      on ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface text-ink-2 hover:border-soft hover:bg-subtle',
+                    )}
+                  >
+                    {on ? <Check className="size-3.5 text-brand" strokeWidth={3} /> : <span className="size-2.5 rounded-full border-2 border-soft" aria-hidden="true" />}
+                    {SEGMENT_SHORT[key]}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted">
+              Marque mais de um quando ele der aula em segmentos diferentes (ex.: Ciências no Fundamental II e Química no Médio).
+              O coordenador de cada segmento vê só os professores dele.
+            </p>
+            {errors.segments && <p className="text-[13px] font-medium text-danger">{errors.segments.message}</p>}
+          </div>
+        )}
+      />
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink-2">
           Disciplinas que leciona <span className="text-xs font-medium text-soft">opcional</span>
         </span>
-        <Controller control={control} name="subjectIds" render={({ field }) => <SubjectPicker value={field.value ?? []} onChange={field.onChange} onNavigate={onClose} />} />
+        <Controller
+          control={control}
+          name="subjectIds"
+          render={({ field }) => <SubjectPicker value={field.value ?? []} onChange={field.onChange} onNavigate={onClose} segments={segmentos} />}
+        />
         <p className="text-xs text-muted">
-          Marque todas. Ao lançar uma aula, o sistema sugere a disciplina certa para cada horário, e aprende sozinho com as aulas salvas.
+          As disciplinas mostradas são as dos segmentos marcados acima. Ao lançar uma aula, o sistema sugere a disciplina certa para cada horário.
         </p>
       </div>
       <Field label="Área de atuação" optional error={errors.area?.message} hint="Informação livre, só para consulta. Ex.: Ciências Humanas.">

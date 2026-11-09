@@ -10,6 +10,7 @@ import type {
   TeacherInput,
 } from '../shared/schemas.js';
 import type { Assignment, AvailabilitySlot, Lesson, Period, SchoolClass, Settings, ShiftKey, Subject, SubjectColor, Teacher, Unit } from '../shared/types.js';
+import type { SegmentKey } from '../shared/segments.js';
 import type { UnitInput } from '../shared/schemas.js';
 
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
@@ -26,6 +27,7 @@ function toTeacher(r: Row): Teacher {
     active: Boolean(r.active),
     unitId: Number(r.unit_id),
     unitIds: Array.isArray(r.unit_ids) ? (r.unit_ids as unknown[]).map(Number) : [],
+    segments: Array.isArray(r.segments) ? (r.segments as string[]).filter(Boolean) as SegmentKey[] : [],
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
     photoUpdatedAt: r.photo_updated_at ? iso(r.photo_updated_at) : null,
@@ -37,6 +39,7 @@ function toTeacher(r: Row): Teacher {
 /** Professores com a data da foto (se houver), sem carregar a imagem em si. */
 const TEACHER_SELECT = `SELECT t.*, p.updated_at AS photo_updated_at,
   (SELECT COALESCE(array_agg(tu.unit_id ORDER BY tu.unit_id), '{}') FROM teacher_units tu WHERE tu.teacher_id = t.id) AS unit_ids,
+  (SELECT COALESCE(array_agg(tsg.segment ORDER BY tsg.segment), '{}') FROM teacher_segments tsg WHERE tsg.teacher_id = t.id) AS segments,
   (SELECT COALESCE(array_agg(ts.subject_id ORDER BY ts.subject_id), '{}') FROM teacher_subjects ts WHERE ts.teacher_id = t.id) AS subject_ids,
   (SELECT COALESCE(json_agg(json_build_object('weekday', a.weekday, 'start', a.start_time, 'end', a.end_time) ORDER BY a.weekday, a.start_time), '[]'::json)
      FROM teacher_availability a WHERE a.teacher_id = t.id) AS availability
@@ -73,8 +76,18 @@ function toUnit(r: Row): Unit {
 }
 
 function toSubject(r: Row): Subject {
-  return { id: Number(r.id), name: String(r.name), color: r.color as SubjectColor, createdAt: iso(r.created_at) };
+  return {
+    id: Number(r.id),
+    name: String(r.name),
+    color: r.color as SubjectColor,
+    segments: Array.isArray(r.segments) ? (r.segments as string[]).filter(Boolean) as SegmentKey[] : [],
+    createdAt: iso(r.created_at),
+  };
 }
+
+/** Disciplinas com os segmentos em que aparecem (vazio = em todos). */
+const SUBJECT_SELECT = `SELECT s.*, (SELECT COALESCE(array_agg(ss.segment ORDER BY ss.segment), '{}') FROM subject_segments ss WHERE ss.subject_id = s.id) AS segments
+  FROM subjects s`;
 
 function toPeriod(r: Row): Period {
   return {
@@ -157,6 +170,7 @@ export function createRepository(db: Database) {
       const id = Number(r!.id);
       await this.setTeacherUnits(id, input.unitIds.length ? input.unitIds : [input.unitId ?? 1]);
       await this.setTeacherSubjects(id, input.subjectIds);
+      await this.setTeacherSegments(id, input.segments ?? []);
       return (await this.getTeacher(id))!;
     },
     async updateTeacher(id: number, input: TeacherInput): Promise<Teacher | undefined> {
@@ -172,7 +186,15 @@ export function createRepository(db: Database) {
       // Só mexe nas unidades quando o formulário as enviou (as demais telas não enviam).
       if (input.unitIds.length) await this.setTeacherUnits(id, input.unitIds);
       await this.setTeacherSubjects(id, input.subjectIds);
+      // Só mexe nos segmentos quando o formulário os enviou (as demais telas não enviam).
+      if (input.segments?.length) await this.setTeacherSegments(id, input.segments);
       return this.getTeacher(id);
+    },
+    /** Substitui os segmentos em que o professor leciona. */
+    async setTeacherSegments(id: number, segments: SegmentKey[]): Promise<void> {
+      await db.query('DELETE FROM teacher_segments WHERE teacher_id = $1', [id]);
+      if (!segments.length) return;
+      await db.query('INSERT INTO teacher_segments (teacher_id, segment) SELECT $1, s FROM unnest($2::text[]) AS s ON CONFLICT DO NOTHING', [id, segments]);
     },
     /** Substitui as unidades em que o professor atua (ids inexistentes são ignorados). */
     async setTeacherUnits(id: number, unitIds: number[]): Promise<void> {
@@ -302,23 +324,32 @@ export function createRepository(db: Database) {
 
     // ---------- Disciplinas ----------
     async listSubjects(): Promise<Subject[]> {
-      return (await db.query('SELECT * FROM subjects ORDER BY lower(name), id')).map(toSubject);
+      return (await db.query(`${SUBJECT_SELECT} ORDER BY lower(s.name), s.id`)).map(toSubject);
     },
     async getSubject(id: number): Promise<Subject | undefined> {
-      const r = await one('SELECT * FROM subjects WHERE id = $1', [id]);
+      const r = await one(`${SUBJECT_SELECT} WHERE s.id = $1`, [id]);
       return r ? toSubject(r) : undefined;
     },
     async findSubjectByName(name: string): Promise<Subject | undefined> {
-      const r = await one('SELECT * FROM subjects WHERE lower(btrim(name)) = lower($1)', [name.trim()]);
+      const r = await one(`${SUBJECT_SELECT} WHERE lower(btrim(s.name)) = lower($1)`, [name.trim()]);
       return r ? toSubject(r) : undefined;
     },
     async createSubject(input: SubjectInput): Promise<Subject> {
-      const r = await one('INSERT INTO subjects (name, color) VALUES ($1, $2) RETURNING *', [input.name, input.color]);
-      return toSubject(r!);
+      const r = await one('INSERT INTO subjects (name, color) VALUES ($1, $2) RETURNING id', [input.name, input.color]);
+      const id = Number(r!.id);
+      await this.setSubjectSegments(id, input.segments ?? []);
+      return (await this.getSubject(id))!;
     },
     async updateSubject(id: number, input: SubjectInput): Promise<Subject | undefined> {
-      const r = await one('UPDATE subjects SET name = $1, color = $2 WHERE id = $3 RETURNING *', [input.name, input.color, id]);
-      return r ? toSubject(r) : undefined;
+      await db.query('UPDATE subjects SET name = $1, color = $2 WHERE id = $3', [input.name, input.color, id]);
+      await this.setSubjectSegments(id, input.segments ?? []);
+      return this.getSubject(id);
+    },
+    /** Substitui os segmentos de uma disciplina (vazio = aparece em todos). */
+    async setSubjectSegments(id: number, segments: SegmentKey[]): Promise<void> {
+      await db.query('DELETE FROM subject_segments WHERE subject_id = $1', [id]);
+      if (!segments.length) return;
+      await db.query('INSERT INTO subject_segments (subject_id, segment) SELECT $1, s FROM unnest($2::text[]) AS s ON CONFLICT DO NOTHING', [id, segments]);
     },
     async deleteSubject(id: number, detachLessons: boolean): Promise<void> {
       if (detachLessons) await db.query('UPDATE lessons SET subject_id = NULL, updated_at = now() WHERE subject_id = $1', [id]);

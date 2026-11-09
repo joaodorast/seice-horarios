@@ -6,9 +6,10 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Badge, Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
 import { TeacherFormModal } from '@/features/TeacherForm';
 import { useEntityActions } from '@/features/EntityActions';
-import { ImportButton } from '@/features/import/ImportDialog';
+import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { useLessons, useSubjects, useTeachers } from '@/api/hooks';
 import { useIsAdmin, useUnits } from '@/api/units';
+import { SEGMENT_KEYS, SEGMENT_SHORT, type SegmentKey } from '@shared/segments';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useOpenFromUrl } from '@/hooks/useOpenFromUrl';
 import { initials, matches, normalize, plural } from '@/lib/text';
@@ -36,6 +37,7 @@ export function TeachersPage() {
   const status = (params.get('situacao') as StatusFilter) || 'ativos';
   const area = params.get('area') ?? '';
   const unit = params.get('unidade') ?? '';
+  const segment = (params.get('segmento') as SegmentKey | null) ?? '';
 
   const setParam = (key: string, value: string, fallback = '') => {
     setParams(
@@ -76,9 +78,10 @@ export function TeachersPage() {
       (status === 'todos' || (status === 'ativos' ? t.active : !t.active)) &&
       (!area || (t.area && normalize(t.area) === normalize(area))) &&
       (!unit || unitsOf(t).includes(Number(unit))) &&
+      (!segment || (t.segments ?? []).includes(segment)) &&
       matches([t.name, t.code, t.area, t.phone, ...t.subjectIds.map(subjectName)], query),
   );
-  const hasFilters = Boolean(query || area || unit || status !== 'ativos');
+  const hasFilters = Boolean(query || area || unit || segment || status !== 'ativos');
 
   const clearFilters = () => setParams(new URLSearchParams(), { replace: true });
 
@@ -90,6 +93,7 @@ export function TeachersPage() {
       description={teachers.data ? `${plural(counts.ativos, 'professor ativo', 'professores ativos')}${counts.inativos ? ` · ${counts.inativos} inativo(s)` : ''}` : undefined}
       actions={
         <>
+          <TemplateButton kind="teachers" />
           <ImportButton kind="teachers" />
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
             Novo professor
@@ -107,6 +111,7 @@ export function TeachersPage() {
                 description="Cadastre os professores para começar a montar os quadros de horários, ou importe a lista completa de uma planilha Excel ou CSV."
                 action={
                   <>
+                    <TemplateButton kind="teachers" label="Baixar modelo" />
                     <ImportButton kind="teachers" label="Importar planilha" />
                     <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew}>
                       Cadastrar primeiro professor
@@ -135,6 +140,16 @@ export function TeachersPage() {
                     { value: 'todos', label: 'Todos', count: counts.todos },
                   ]}
                 />
+                <div className="lg:w-48">
+                  <Select aria-label="Filtrar por segmento" value={segment} onChange={(e) => setParam('segmento', e.target.value)}>
+                    <option value="">Todos os segmentos</option>
+                    {SEGMENT_KEYS.map((k) => (
+                      <option key={k} value={k}>
+                        {SEGMENT_SHORT[k]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
                 {(units.data?.length ?? 0) > 1 && (
                   <div className="lg:w-52">
                     <Select aria-label="Filtrar por unidade" value={unit} onChange={(e) => setParam('unidade', e.target.value)}>
@@ -185,6 +200,7 @@ export function TeachersPage() {
                       <tr className="border-b border-line text-left text-xs text-muted">
                         <th scope="col" className="px-4 py-2.5 font-semibold">Professor</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Disciplinas</th>
+                        <th scope="col" className="hidden px-4 py-2.5 font-semibold xl:table-cell">Segmentos</th>
                         {isAdmin && <th scope="col" className="hidden px-4 py-2.5 font-semibold xl:table-cell">Unidade</th>}
                         <th scope="col" className="hidden px-4 py-2.5 font-semibold lg:table-cell">Telefone</th>
                         <th scope="col" className="px-4 py-2.5 font-semibold">Carga semanal</th>
@@ -218,6 +234,19 @@ export function TeachersPage() {
                             </td>
                             <td className="px-4 py-3">
                               <SubjectChips ids={t.subjectIds} max={2} fallback={t.area} />
+                            </td>
+                            <td className="hidden px-4 py-3 xl:table-cell">
+                              <span className="flex flex-wrap gap-1">
+                                {(t.segments ?? []).length ? (
+                                  (t.segments ?? []).map((k) => (
+                                    <Badge key={k} tone="neutral">
+                                      {SEGMENT_SHORT[k]}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <span className="text-soft">—</span>
+                                )}
+                              </span>
                             </td>
                             {isAdmin && (
                               <td className="hidden px-4 py-3 xl:table-cell">

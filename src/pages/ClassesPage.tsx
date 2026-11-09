@@ -6,7 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Badge, Button, Card, EmptyState, IconButton, Menu, SearchInput, Segmented, Select, StatusBadge } from '@/components/ui';
 import { ClassFormModal } from '@/features/ClassForm';
 import { useEntityActions } from '@/features/EntityActions';
-import { ImportButton } from '@/features/import/ImportDialog';
+import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { useScheduleData } from '@/api/hooks';
 import { useIsAdmin, useUnits } from '@/api/units';
 import { useHotkey } from '@/hooks/useHotkey';
@@ -81,6 +81,7 @@ export function ClassesPage() {
       description={schedule.data ? `${plural(counts.ativos, 'turma ativa', 'turmas ativas')}${counts.inativos ? ` · ${counts.inativos} inativa(s)` : ''}` : undefined}
       actions={
         <>
+          <TemplateButton kind="classes" />
           <ImportButton kind="classes" />
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
             Nova turma

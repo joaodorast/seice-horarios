@@ -23,6 +23,8 @@ export type SubjectColor = (typeof SUBJECT_COLORS)[number];
 
 export type PeriodKind = 'aula' | 'intervalo';
 
+import type { SegmentKey } from './segments.js';
+
 /** Unidade da instituição (ex.: CE = Campos Elíseos, JP = Jardim Primavera). */
 export interface Unit {
   id: number;
@@ -50,6 +52,8 @@ export interface Teacher {
   unitId?: number;
   /** Todas as unidades em que ele atua (pode ser mais de uma: professor compartilhado). */
   unitIds?: number[];
+  /** Segmentos em que leciona (Infantil, Fund. I, Fund. II, Médio, Técnico). */
+  segments?: SegmentKey[];
   createdAt: string;
   updatedAt: string;
   /** Data da foto atual (usada para atualizar a imagem em cache), ou null sem foto. */
@@ -84,6 +88,8 @@ export interface Subject {
   id: number;
   name: string;
   color: SubjectColor;
+  /** Segmentos em que a disciplina aparece. Vazio = aparece em todos. */
+  segments?: SegmentKey[];
   createdAt: string;
 }
 

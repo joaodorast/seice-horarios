@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CLASS_SHIFTS, SHIFT_KEYS, SUBJECT_COLORS, WEEKDAYS } from './types.js';
+import { SEGMENT_KEYS, type SegmentKey } from './segments.js';
 import { TIME_PATTERN, toMinutes } from './time.js';
 import { MAX_IMPORT_ROWS } from './import.js';
 
@@ -28,6 +29,13 @@ function capitalize(s: string) {
 const time = (label: string) =>
   z.string({ error: `Informe o horário de ${label}.` }).regex(TIME_PATTERN, { error: `Horário de ${label} inválido (use HH:MM).` });
 
+/** Segmentos em que o professor leciona (um ou mais). */
+const segments = z
+  .array(z.enum(SEGMENT_KEYS))
+  .max(SEGMENT_KEYS.length, { error: 'Selecione os segmentos em que o professor leciona.' })
+  .default([])
+  .transform((list) => SEGMENT_KEYS.filter((s) => list.includes(s)) as SegmentKey[]);
+
 /** Unidades em que o professor atua (uma ou mais). */
 const unitIds = z
   .array(z.coerce.number().int().positive())
@@ -49,6 +57,8 @@ export const teacherSchema = z.object({
   unitId: z.coerce.number().int().positive().optional(),
   /** Unidades em que o professor atua. Vazio: a unidade principal. */
   unitIds,
+  /** Segmentos em que leciona. */
+  segments,
   /** Disciplinas que o professor leciona. */
   subjectIds: z
     .array(z.number().int().positive())
@@ -73,6 +83,12 @@ export type ClassFormValues = z.input<typeof classSchema>;
 export const subjectSchema = z.object({
   name: requiredText(60, 'o nome da disciplina'),
   color: z.enum(SUBJECT_COLORS).default('slate'),
+  /** Segmentos em que a disciplina aparece. Vazio: em todos. */
+  segments: z
+    .array(z.enum(SEGMENT_KEYS))
+    .max(SEGMENT_KEYS.length)
+    .default([])
+    .transform((list) => SEGMENT_KEYS.filter((s) => list.includes(s)) as SegmentKey[]),
 });
 export type SubjectInput = z.output<typeof subjectSchema>;
 

@@ -3,16 +3,50 @@ import { Check } from 'lucide-react';
 import { useSubjects } from '@/api/hooks';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { cn } from '@/lib/cn';
+import { SEGMENT_SHORT, type SegmentKey } from '@shared/segments';
+import type { Subject } from '@shared/types';
+
+/**
+ * Disciplinas que fazem sentido para os segmentos escolhidos: as marcadas para o segmento e as que
+ * aparecem em todos. Sem segmento escolhido, mostra o catálogo inteiro.
+ */
+export function subjectsForSegments(subjects: Subject[], segments: SegmentKey[]): Subject[] {
+  if (!segments.length) return subjects;
+  return subjects.filter((s) => !s.segments?.length || s.segments.some((x) => segments.includes(x)));
+}
 
 /** Escolha de várias disciplinas por botões que ligam e desligam (ex.: Geografia + Projeto de Vida). */
-export function SubjectPicker({ value, onChange, onNavigate }: { value: number[]; onChange: (ids: number[]) => void; onNavigate?: () => void }) {
-  const { data: subjects = [] } = useSubjects();
+export function SubjectPicker({
+  value,
+  onChange,
+  onNavigate,
+  segments = [],
+}: {
+  value: number[];
+  onChange: (ids: number[]) => void;
+  onNavigate?: () => void;
+  /** Segmentos do professor: a lista mostra só as disciplinas deles. */
+  segments?: SegmentKey[];
+}) {
+  const { data: all = [] } = useSubjects();
+  const subjects = subjectsForSegments(all, segments);
   const toggle = (id: number) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+
+  if (all.length === 0) {
+    return (
+      <p className="rounded-lg bg-subtle px-3.5 py-2.5 text-[13.5px] text-muted">
+        Nenhuma disciplina cadastrada.{' '}
+        <Link to="/disciplinas" onClick={onNavigate} className="font-semibold text-ink underline underline-offset-2">
+          Cadastrar disciplinas
+        </Link>
+      </p>
+    );
+  }
 
   if (subjects.length === 0) {
     return (
       <p className="rounded-lg bg-subtle px-3.5 py-2.5 text-[13.5px] text-muted">
-        Nenhuma disciplina cadastrada.{' '}
+        Nenhuma disciplina cadastrada para {segments.map((s) => SEGMENT_SHORT[s]).join(' e ')}.{' '}
         <Link to="/disciplinas" onClick={onNavigate} className="font-semibold text-ink underline underline-offset-2">
           Cadastrar disciplinas
         </Link>

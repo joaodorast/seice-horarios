@@ -6,6 +6,7 @@ import { ApiError, errorMessage } from '@/api/client';
 import { subjectSchema } from '@shared/schemas';
 import { SUBJECT_COLORS, type Subject, type SubjectColor } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
+import { SEGMENT_KEYS, SEGMENT_SHORT, sortSegments, type SegmentKey } from '@shared/segments';
 import { cn } from '@/lib/cn';
 
 export function SubjectFormModal({ subject, onClose }: { subject: Subject | 'new' | null; onClose: () => void }) {
@@ -21,13 +22,14 @@ export function SubjectFormModal({ subject, onClose }: { subject: Subject | 'new
 function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: () => void }) {
   const [name, setName] = useState(subject?.name ?? '');
   const [color, setColor] = useState<SubjectColor>(subject?.color ?? 'indigo');
+  const [segments, setSegments] = useState<SegmentKey[]>((subject?.segments ?? []) as SegmentKey[]);
   const [error, setError] = useState<string | undefined>();
   const save = useSaveSubject();
   const toast = useToast();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = subjectSchema.safeParse({ name, color });
+    const parsed = subjectSchema.safeParse({ name, color, segments });
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     try {
       const saved = await save.mutateAsync({ id: subject?.id, input: parsed.data });
@@ -43,6 +45,34 @@ function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: (
       <Field label="Nome da disciplina" required error={error}>
         <Input value={name} onChange={(e) => (setName(e.target.value), setError(undefined))} maxLength={60} placeholder="Ex.: Língua Portuguesa" autoComplete="off" />
       </Field>
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-ink-2">
+          Segmentos em que aparece <span className="font-medium text-soft">(em branco: todos)</span>
+        </legend>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Segmentos da disciplina">
+          {SEGMENT_KEYS.map((key) => {
+            const on = segments.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setSegments(on ? segments.filter((k) => k !== key) : sortSegments([...segments, key]))}
+                className={cn(
+                  'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition-colors',
+                  on ? 'border-ink bg-ink text-white' : 'border-line-strong bg-surface text-ink-2 hover:border-soft hover:bg-subtle',
+                )}
+              >
+                {on && <Check className="size-3 text-brand" strokeWidth={3} />}
+                {SEGMENT_SHORT[key]}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Marque os segmentos em que a disciplina é usada. Ela só aparece nas escolhas de quem leciona neles.
+        </p>
+      </fieldset>
       <fieldset>
         <legend className="mb-2 text-[13px] font-semibold text-ink-2">Cor nas grades</legend>
         <div className="flex flex-wrap gap-2" role="radiogroup">

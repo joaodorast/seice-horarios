@@ -5,7 +5,7 @@ import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, IconButton, Menu, SearchInput, Segmented, useToast } from '@/components/ui';
 import { SubjectFormModal } from '@/features/SubjectForm';
-import { ImportButton } from '@/features/import/ImportDialog';
+import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { useDeleteSubject, useScheduleData } from '@/api/hooks';
 import { errorMessage } from '@/api/client';
 import { useHotkey } from '@/hooks/useHotkey';
@@ -104,6 +104,7 @@ export function SubjectsPage() {
       }
       actions={
         <>
+          <TemplateButton kind="subjects" />
           <ImportButton kind="subjects" />
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={openNew} title="Atalho: N">
             Nova disciplina

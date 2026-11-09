@@ -880,7 +880,7 @@ function TeacherSubjectsBar({ teacherId, data }: { teacherId: number; data: Sche
     try {
       await save.mutateAsync({
         id: teacher.id,
-        input: { name: teacher.name, code: teacher.code, area: teacher.area, phone: teacher.phone, notes: teacher.notes, active: teacher.active, unitId: teacher.unitId, unitIds: teacher.unitIds ?? [], subjectIds: draft },
+        input: { name: teacher.name, code: teacher.code, area: teacher.area, phone: teacher.phone, notes: teacher.notes, active: teacher.active, unitId: teacher.unitId, unitIds: teacher.unitIds ?? [], segments: teacher.segments ?? [], subjectIds: draft },
       });
       toast.success('Disciplinas atualizadas', teacher.name);
       setEditing(false);

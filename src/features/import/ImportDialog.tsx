@@ -672,6 +672,24 @@ function Footer({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Botão "Modelo" para baixar a planilha de exemplo sem abrir o assistente de importação.
+ * Fica ao lado de "Importar" nas listas, para quem quer só preencher a planilha primeiro.
+ */
+export function TemplateButton({ kind, label = 'Modelo', size }: { kind: ImportKind; label?: string; size?: 'sm' | 'md' }) {
+  const spec = IMPORT_SPECS[kind];
+  return (
+    <Button
+      size={size}
+      icon={<FileSpreadsheet className="size-4" />}
+      onClick={() => void downloadTemplate(spec)}
+      title="Baixar a planilha modelo, com exemplos e instruções"
+    >
+      {label}
+    </Button>
+  );
+}
+
 /** Botão "Importar" que abre o assistente. */
 export function ImportButton({
   kind,

@@ -88,6 +88,7 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     columns: [
       { key: 'name', label: 'Nome', required: true, aliases: ['nome', 'nome completo', 'professor', 'professora', 'docente', 'nome do professor'], hint: 'Nome completo (mínimo 3 letras).' },
       { key: 'units', label: 'Unidade', aliases: ['unidade', 'unidades', 'unit', 'escola', 'colégio', 'colegio', 'campus'], hint: 'CE, JP ou as duas separadas por vírgula. Em branco: a sua unidade.' },
+      { key: 'segments', label: 'Segmentos', aliases: ['segmento', 'segmentos', 'segmento de ensino', 'etapa', 'nivel', 'nível'], hint: 'Infantil, Fund. I, Fund. II, Médio, Técnico. Separe por vírgula.' },
       { key: 'code', label: 'Matrícula', aliases: ['matricula', 'codigo', 'cod', 'registro', 'id', 'mat'], hint: 'Identifica o professor nas próximas importações.' },
       { key: 'area', label: 'Área de atuação', aliases: ['area', 'area de atuacao', 'especialidade', 'formacao'], hint: 'Ex.: Ciências Humanas.' },
       { key: 'subjects', label: 'Disciplinas', aliases: ['disciplinas', 'disciplina', 'materias', 'materia', 'leciona', 'componentes'], hint: 'Uma ou mais, separadas por vírgula. Ex.: Geografia, Projeto de Vida.' },
@@ -96,8 +97,8 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
       { key: 'active', label: 'Situação', aliases: ['situacao', 'status', 'ativo', 'ativa'], hint: 'Ativo ou Inativo. Em branco: Ativo.', options: YES_NO },
     ],
     examples: [
-      { name: 'Ana Paula Souza', units: 'CE', code: 'P-001', area: 'Exatas', subjects: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
-      { name: 'Bruno Lima', units: 'CE, JP', code: 'P-002', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
+      { name: 'Ana Paula Souza', units: 'CE', segments: 'Fund. II', code: 'P-001', area: 'Exatas', subjects: 'Matemática', phone: '(21) 99999-0001', notes: '', active: 'Ativo' },
+      { name: 'Bruno Lima', units: 'CE, JP', segments: 'Fund. II, Médio', code: 'P-002', area: 'Ciências Humanas', subjects: 'Geografia, Projeto de Vida', phone: '', notes: 'Disponível só pela manhã', active: 'Ativo' },
     ],
     notes: [
       'Professores já cadastrados são reconhecidos pela matrícula ou, sem ela, pelo nome.',
@@ -131,6 +132,7 @@ export const IMPORT_SPECS: Record<ImportKind, ImportSpec> = {
     fileName: 'modelo-disciplinas',
     columns: [
       { key: 'name', label: 'Disciplina', required: true, aliases: ['disciplina', 'nome', 'materia', 'componente', 'componente curricular'], hint: 'Ex.: Língua Portuguesa.' },
+      { key: 'segments', label: 'Segmentos', aliases: ['segmento', 'segmentos', 'segmento de ensino', 'etapa', 'nivel', 'nível'], hint: 'Infantil, Fund. I, Fund. II, Médio, Técnico. Em branco: todos.' },
       { key: 'color', label: 'Cor', aliases: ['cor', 'cor na grade'], hint: 'Em branco: o sistema escolhe uma cor.', options: Object.values(COLOR_NAMES) },
     ],
     examples: [

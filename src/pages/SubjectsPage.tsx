@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { BookOpen, FilterX, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, IconButton, Menu, SearchInput, Segmented, useToast } from '@/components/ui';
+import { Button, Card, ConfirmDialog, EmptyState, IconButton, Menu, SearchInput, Segmented, useToast } from '@/components/ui';
 import { SubjectFormModal } from '@/features/SubjectForm';
 import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { useDeleteSubject, useScheduleData } from '@/api/hooks';
@@ -141,7 +141,7 @@ export function SubjectsPage() {
                   options={[
                     { value: 'todas', label: 'Todas', count: counts.todas },
                     { value: 'em-uso', label: 'Em uso', count: counts['em-uso'] },
-                    { value: 'sem-aulas', label: 'Sem aulas', count: counts['sem-aulas'] },
+                    { value: 'sem-aulas', label: 'Sem aula no quadro', count: counts['sem-aulas'] },
                   ]}
                 />
                 {hasFilters && (
@@ -192,7 +192,15 @@ export function SubjectsPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="tabular px-4 py-3 text-ink-2">{u ? <strong className="font-semibold text-ink">{u.lessons}</strong> : <Badge>Sem aulas</Badge>}</td>
+                            <td className="tabular px-4 py-3 text-ink-2">
+                              {u ? (
+                                <strong className="font-semibold text-ink">{u.lessons}</strong>
+                              ) : (
+                                <span className="text-soft" title="Ainda não há aula lançada com esta disciplina no quadro">
+                                  —
+                                </span>
+                              )}
+                            </td>
                             <td className="tabular px-4 py-3 text-ink-2">{u ? formatHours(u.minutes) : <span className="text-soft">—</span>}</td>
                             <td className="tabular px-4 py-3 text-ink-2">{u?.teachers ?? <span className="text-soft">—</span>}</td>
                             <td className="tabular px-4 py-3 text-ink-2">{u?.classes ?? <span className="text-soft">—</span>}</td>
@@ -214,7 +222,7 @@ export function SubjectsPage() {
                           <button type="button" onClick={() => setEditing(s)} className="min-w-0 flex-1 text-left">
                             <span className="block truncate font-semibold">{s.name}</span>
                             <span className="block truncate text-xs text-muted">
-                              {u ? `${plural(u.lessons, 'aula', 'aulas')} · ${plural(u.classes, 'turma', 'turmas')}` : 'Sem aulas'}
+                              {u ? `${plural(u.lessons, 'aula', 'aulas')} · ${plural(u.classes, 'turma', 'turmas')}` : 'Sem aula no quadro'}
                             </span>
                           </button>
                           <RowActions subject={s} compact onEdit={() => setEditing(s)} onDelete={() => setRemoving(s)} />

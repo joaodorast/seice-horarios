@@ -6,7 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Button, Card, Combobox, EmptyState, Modal, SearchInput, Segmented, Spinner, useToast } from '@/components/ui';
 import { useSaveAssignments, useScheduleData, type ScheduleData } from '@/api/hooks';
 import { errorMessage } from '@/api/client';
-import { ImportButton } from '@/features/import/ImportDialog';
+import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { Avatar } from '@/pages/TeachersPage';
 import { assignmentKey, assignmentProgress, classCapacity, type AssignmentProgress } from '@shared/assignments';
@@ -39,6 +39,7 @@ export function AssignmentsPage({ view }: { view: View }) {
       description="Defina quais turmas cada professor assume, em qual disciplina e com quantas aulas por semana. Depois, no Montar quadro, o professor certo já aparece sozinho."
       actions={
         <>
+          <TemplateButton kind="assignments" />
           <ImportButton kind="assignments" label="Importar planilha" />
           <Segmented
             label="Ver atribuições"

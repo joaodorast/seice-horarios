@@ -118,7 +118,10 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const narrowing = Boolean(teacherId || subjectId);
   const hasFilters = Boolean(teacherId || classId || subjectId);
 
-  const periods = periodsForShifts(data.periods, [shift]);
+  let timeNumber = 0;
+  const periods = periodsForShifts(data.periods, [shift]).map((period) =>
+    period.kind === 'aula' ? { ...period, label: `${++timeNumber}º tempo` } : period,
+  );
   const lessonPeriods = periods.filter((p) => p.kind === 'aula');
 
   const dayLessons = useMemo(
@@ -294,7 +297,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         ) : (
         <>
           <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
-          <MatrixMobile rows={rows} periods={lessonPeriods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
+          <MatrixMobile rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
         </>
         )
       )}
@@ -333,11 +336,8 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
                   <span className="sr-only">{p.label}</span>
                 </th>
               ) : (
-                <th key={p.id} scope="col" className="min-w-[148px] border-l border-nav-line bg-nav px-3 py-2.5 text-left text-white">
+                <th key={p.id} scope="col" title={`${p.start}–${p.end}`} className="min-w-[86px] border-l border-nav-line bg-nav px-2 py-2.5 text-left text-white">
                   <span className="block text-[14px] font-bold">{p.label}</span>
-                  <span className="tabular block text-xs font-semibold text-nav-text">
-                    {p.start}–{p.end}
-                  </span>
                 </th>
               ),
             )}
@@ -396,7 +396,7 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<Mat
         <thead>
           <tr>
             <th scope="col" className="sticky left-0 z-10 bg-nav px-3 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
-              Horário
+              Tempo
             </th>
             {days.map((d) => (
               <th key={d} scope="col" className={cn('border-l border-nav-line px-3 py-3 text-left text-[14px] font-bold', d === today ? 'bg-brand text-ink' : 'bg-nav text-white')}>
@@ -411,22 +411,16 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<Mat
           {periods.map((p) =>
             p.kind === 'intervalo' ? (
               <tr key={p.id}>
-                <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-3 py-1 text-left text-xs font-bold text-ink-2">
-                  {p.start}–{p.end}
+                <th scope="row" title={`${p.label} ${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-3 py-1 text-left text-ink-2">
+                  <Coffee className="size-3.5" aria-hidden="true" />
+                  <span className="sr-only">{p.label}</span>
                 </th>
-                <td colSpan={days.length} className="border-b border-l border-line-strong bg-canvas px-3 py-1 text-xs font-bold text-ink-2">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Coffee className="size-3.5" /> {p.label}
-                  </span>
-                </td>
+                <td colSpan={days.length} className="border-b border-l border-line-strong bg-canvas" />
               </tr>
             ) : (
               <tr key={p.id}>
-                <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
+                <th scope="row" title={`${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
                   <span className="block text-[14px] font-bold text-ink">{p.label}</span>
-                  <span className="tabular block text-xs font-semibold text-ink-2">
-                    {p.start}–{p.end}
-                  </span>
                 </th>
                 {days.map((d) => (
                   <td key={d} className={cn('border-b border-l border-line-strong p-1.5 align-top', d === today ? 'bg-brand-soft/40' : 'bg-subtle/70')}>
@@ -512,13 +506,20 @@ function MatrixMobile({ rows, periods, day, lessons, index, narrowing }: MatrixP
             </div>
             <ul>
               {periods.map((p) => {
+                if (p.kind === 'intervalo') {
+                  return narrowing ? null : (
+                    <li key={p.id} title={`${p.label} ${p.start}–${p.end}`} className="border-b border-line bg-canvas px-4 py-2 text-muted">
+                      <Coffee className="size-3.5" aria-hidden="true" />
+                      <span className="sr-only">{p.label}</span>
+                    </li>
+                  );
+                }
                 const ls = lessonsInPeriod(classLessons, day, p);
                 if (narrowing && ls.length === 0) return null;
                 return (
                   <li key={p.id} className="flex gap-3 border-b border-line px-4 py-2 last:border-b-0">
-                    <span className="w-16 shrink-0 pt-1.5">
+                    <span title={`${p.start}–${p.end}`} className="w-16 shrink-0 pt-1.5">
                       <span className="block text-xs font-bold">{p.label}</span>
-                      <span className="tabular block text-[11px] text-muted">{p.start}</span>
                     </span>
                     <div className="min-w-0 flex-1">
                       <Cell

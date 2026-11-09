@@ -38,6 +38,7 @@ class DryRunRollback extends Error {}
 interface Ctx {
   tx: Database;
   repo: Repository;
+  assignmentUnitIds: readonly number[] | null;
   results: ImportRowResult[];
   removed: number;
   createdSubjects: string[];
@@ -56,12 +57,12 @@ class FastPathFailure extends Error {
  * Executa a importação numa única transação. Na prévia (dryRun) roda exatamente a mesma lógica,
  * incluindo as gravações, e desfaz tudo no final — o relatório da prévia é o que de fato aconteceria.
  */
-export async function runImport(db: Database, kind: ImportKind, request: ImportRequest): Promise<ImportReport> {
+export async function runImport(db: Database, kind: ImportKind, request: ImportRequest, assignmentUnitIds: readonly number[] | null = null): Promise<ImportReport> {
   let ctx: Ctx | undefined;
   const run = async (safe: boolean) => {
     try {
       await db.transaction(async (tx) => {
-        ctx = { tx, repo: createRepository(tx), results: [], removed: 0, createdSubjects: [], safe };
+        ctx = { tx, repo: createRepository(tx), assignmentUnitIds, results: [], removed: 0, createdSubjects: [], safe };
         await HANDLERS[kind](ctx, request.rows, request.options ?? {});
         if (request.dryRun) throw new DryRunRollback();
       });
@@ -659,10 +660,13 @@ async function importLessons(ctx: Ctx, rows: ImportRowInput[], options: ImportOp
 
 async function importAssignments(ctx: Ctx, rows: ImportRowInput[], options: ImportOptions) {
   const { repo } = ctx;
-  const [teachers, classes, subjects, current] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects(), repo.listAssignments()]);
+  const [allTeachers, allClasses, subjects, current] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects(), repo.listAssignments()]);
+  const teacherUnits = (t: Teacher) => t.unitIds?.length ? t.unitIds : t.unitId === undefined ? [] : [t.unitId];
+  const allowed = ctx.assignmentUnitIds;
+  const teachers = allowed ? allTeachers.filter((t) => teacherUnits(t).some((id) => allowed.includes(id))) : allTeachers;
+  const classes = allowed ? allClasses.filter((c) => c.unitId !== undefined && allowed.includes(c.unitId)) : allClasses;
   const teacherByCode = new Map(teachers.filter((t) => t.code).map((t) => [fold(t.code!), t]));
   const teachersByName = groupBy(teachers, (t) => nameKey(t.name));
-  const classByName = new Map(classes.map((c) => [nameKey(c.name), c]));
   const subjectByName = new Map(subjects.map((s) => [nameKey(s.name), s]));
   const existing = new Map(current.map((a) => [`${a.classId}:${a.subjectId}`, a]));
   const seen = new Map<string, number>();
@@ -689,13 +693,22 @@ async function importAssignments(ctx: Ctx, rows: ImportRowInput[], options: Impo
     if (!subjectText) errors.push('Disciplina: informe a disciplina.');
     else if (!subject) errors.push(`Disciplina: "${subjectText}" não está cadastrada.`);
 
-    const names = v('class').split(/[,;\/|]|\s+e\s+/).map(clean).filter(Boolean);
+    const shiftText = v('shift');
+    const shift = parseClassShift(shiftText);
+    if (shiftText && !shift) errors.push('Turno: informe Manhã, Tarde, Noite ou Integral.');
+    const classText = v('class');
+    const exactName = classes.some((c) => nameKey(c.name) === nameKey(classText));
+    const names = (exactName ? [classText] : classText.split(/[,;\/|]|\s+e\s+/)).map(clean).filter(Boolean);
     const targets: SchoolClass[] = [];
     if (names.length === 0) errors.push('Turmas: informe pelo menos uma turma.');
     for (const n of names) {
-      const c = classByName.get(nameKey(n));
-      if (!c) errors.push(`Turma: "${n}" não está cadastrada.`);
-      else if (!targets.includes(c)) targets.push(c);
+      const matches = classes.filter((c) => nameKey(c.name) === nameKey(n)
+        || (/^\d+$/.test(n) && Array.from(c.name.matchAll(/\((\d+)(?=\D|$)/g)).some(([, code]) => code === n)));
+      const inShift = shift ? matches.filter((c) => c.shift === shift) : matches;
+      if (!matches.length) errors.push(`Turma: "${n}" não está cadastrada.`);
+      else if (!inShift.length) errors.push(`Turma: "${n}" não está cadastrada no turno informado.`);
+      else if (inShift.length > 1) errors.push(`Turma: "${n}" identifica mais de uma turma. Informe o nome completo.`);
+      else if (!targets.includes(inShift[0])) targets.push(inShift[0]);
     }
 
     const weekly = assignmentSchema.shape.weeklyLessons.safeParse(v('weekly').replace(',', '.'));
@@ -705,6 +718,9 @@ async function importAssignments(ctx: Ctx, rows: ImportRowInput[], options: Impo
     for (const c of targets) {
       const key = `${c.id}:${subject?.id}`;
       if (subject && seen.has(key)) errors.push(`${c.name} já recebeu ${subject.name} na linha ${seen.get(key)}.`);
+      if (teacher && c.unitId !== undefined && !teacherUnits(teacher).includes(c.unitId)) {
+        errors.push(`O professor não atua na unidade de ${c.name}.`);
+      }
     }
     if (errors.length || !teacher || !subject || !weekly.success) {
       push(ctx, row.line, 'error', label, errors);

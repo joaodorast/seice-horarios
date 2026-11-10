@@ -11,6 +11,7 @@ import { OutsideGrid } from '@/components/schedule/EntitySchedule';
 import { useScheduleActions } from '@/components/schedule/ScheduleActions';
 import { ImportButton } from '@/features/import/ImportDialog';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
+import { useIsAdmin, useUnits } from '@/api/units';
 import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { useHotkey } from '@/hooks/useHotkey';
 import { cn } from '@/lib/cn';
@@ -73,6 +74,14 @@ function todayOr(days: Weekday[]): Weekday {
 function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex }) {
   const actions = useScheduleActions();
   const [params, setParams] = useSearchParams();
+  const isAdmin = useIsAdmin();
+  const { data: units = [] } = useUnits();
+  const selectedUnit = isAdmin ? units.find((u) => u.code === params.get('unidade')) : undefined;
+  const unitCodes = new Map(isAdmin ? units.map((u) => [u.id, u.code]) : []);
+  const classLabel = (c: SchoolClass) => {
+    const code = c.unitId === undefined ? undefined : unitCodes.get(c.unitId);
+    return code ? `${code} · ${c.name}` : c.name;
+  };
   const days = data.settings.enabledDays;
   const shifts = data.settings.enabledShifts;
 
@@ -96,6 +105,10 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const set = (key: string, value: string | number | null) =>
     setParams(
       (p) => {
+        if (key === 'unidade') {
+          p.delete('professor');
+          p.delete('turma');
+        }
         if (value === null || value === '') p.delete(key);
         else p.set(key, String(value));
         return p;
@@ -108,15 +121,16 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         p.delete('professor');
         p.delete('turma');
         p.delete('disciplina');
+        p.delete('unidade');
         return p;
       },
       { replace: true },
     );
 
   const lessonFilter = (l: Lesson) =>
-    (!teacherId || l.teacherId === teacherId) && (!classId || l.classId === classId) && (!subjectId || l.subjectId === subjectId);
+    (!selectedUnit || l.unitId === selectedUnit.id) && (!teacherId || l.teacherId === teacherId) && (!classId || l.classId === classId) && (!subjectId || l.subjectId === subjectId);
   const narrowing = Boolean(teacherId || subjectId);
-  const hasFilters = Boolean(teacherId || classId || subjectId);
+  const hasFilters = Boolean(teacherId || classId || subjectId || selectedUnit);
 
   let timeNumber = 0;
   const periods = periodsForShifts(data.periods, [shift]).map((period) =>
@@ -126,11 +140,12 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
 
   const dayLessons = useMemo(
     () => data.lessons.filter((l) => (week ? days.includes(l.weekday) : l.weekday === day) && lessonFilter(l)),
-    [data.lessons, week, days, day, teacherId, classId, subjectId],
+    [data.lessons, week, days, day, teacherId, classId, subjectId, selectedUnit],
   );
   const viewDays = week ? days : [day];
 
-  const rows: SchoolClass[] = data.classes
+  const unitClasses = data.classes.filter((c) => !selectedUnit || c.unitId === selectedUnit.id);
+  const rows: SchoolClass[] = unitClasses
     .filter((c) => shiftsOfClass(c.shift).includes(shift))
     .filter((c) => c.active || data.lessons.some((l) => l.classId === c.id && viewDays.includes(l.weekday)))
     .filter((c) => !classId || c.id === classId)
@@ -153,10 +168,12 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
 
   const visibleCount = dayLessons.filter((l) => rows.some((r) => r.id === l.classId)).length;
   const outside = lessonsOutsideGrid(data.lessons.filter(lessonFilter), data.periods, days);
-  const conflictLessons = data.lessons.filter((l) => index.conflictLessonIds.has(l.id));
+  const conflictLessons = data.lessons.filter((l) => (!selectedUnit || l.unitId === selectedUnit.id) && index.conflictLessonIds.has(l.id));
 
-  const teacherOptions = data.teachers.map((t) => ({ value: t.id, label: t.name, description: t.active ? t.area ?? undefined : 'Inativo' }));
-  const classOptions = data.classes.map((c) => ({ value: c.id, label: c.name, description: `${c.grade} · ${SHIFT_LABEL[c.shift]}` }));
+  const teacherOptions = data.teachers
+    .filter((t) => !selectedUnit || t.unitId === selectedUnit.id || t.unitIds?.includes(selectedUnit.id))
+    .map((t) => ({ value: t.id, label: t.name, description: t.active ? t.area ?? undefined : 'Inativo' }));
+  const classOptions = unitClasses.map((c) => ({ value: c.id, label: classLabel(c), description: `${c.grade} · ${SHIFT_LABEL[c.shift]}` }));
   const subjectOptions = data.subjects.map((s) => ({
     value: s.id,
     label: s.name,
@@ -219,6 +236,17 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
             <Segmented label="Turno" value={shift} onChange={(v) => set('turno', v)} options={shifts.map((s) => ({ value: s, label: SHIFT_LABEL[s], count: countByShift.get(s) }))} />
           )}
         </div>
+        {isAdmin && units.length > 0 && (
+          <Segmented
+            label="Unidade"
+            value={selectedUnit?.code ?? ''}
+            onChange={(code) => set('unidade', code)}
+            options={[
+              { value: '', label: 'Todas as unidades' },
+              ...units.map((u) => ({ value: u.code, label: `${u.code} · ${u.name}` })),
+            ]}
+          />
+        )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
           <FilterCombo label="Professor" options={teacherOptions} value={teacherId} onChange={(v) => set('professor', v)} placeholder="Todos os professores" />
           <FilterCombo label="Turma" options={classOptions} value={classId} onChange={(v) => set('turma', v)} placeholder="Todas as turmas" />
@@ -293,11 +321,11 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </Card>
       ) : (
         week ? (
-          <WeekMatrix rows={rows} periods={periods} days={days} lessons={dayLessons} index={index} narrowing={narrowing} />
+          <WeekMatrix rows={rows} periods={periods} days={days} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
         ) : (
         <>
-          <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
-          <MatrixMobile rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} />
+          <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
+          <MatrixMobile rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
         </>
         )
       )}
@@ -314,9 +342,10 @@ interface MatrixProps {
   lessons: Lesson[];
   index: ScheduleIndex;
   narrowing: boolean;
+  classLabel: (schoolClass: SchoolClass) => string;
 }
 
-function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: MatrixProps) {
+function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLabel }: MatrixProps) {
   const actions = useScheduleActions();
   return (
     <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
@@ -350,7 +379,7 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
               <tr key={c.id}>
                 <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-4 py-2 text-left align-middle">
                   <Link to={`/horarios/turma/${c.id}`} className="text-[15px] font-bold text-ink hover:underline underline-offset-2">
-                    {c.name}
+                    {classLabel(c)}
                   </Link>
                   <span className="block max-w-[150px] truncate text-xs font-semibold text-ink-2">{c.grade}</span>
                 </th>
@@ -365,7 +394,7 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
                         period={p}
                         canCreate={c.active && !narrowing}
                         onCreate={() => actions.createLesson({ classId: c.id, weekday: day, start: p.start, end: p.end })}
-                        label={`turma ${c.name}, ${p.label}`}
+                        label={`turma ${classLabel(c)}, ${p.label}`}
                       />
                     </td>
                   ),
@@ -380,7 +409,7 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing }: Matrix
 }
 
 /** Semana inteira em uma tela: horários nas linhas, dias nas colunas e, em cada quadro, uma linha por turma. */
-function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
+function WeekMatrix({ rows, periods, days, lessons, index, narrowing, classLabel }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
   const actions = useScheduleActions();
   const today = new Date().getDay();
   return (
@@ -436,9 +465,9 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<Mat
                               disabled={!c.active}
                               onClick={() => actions.createLesson({ classId: c.id, weekday: d, start: p.start, end: p.end })}
                               className="group flex h-[38px] items-center gap-2 rounded-md border border-dashed border-line-strong px-1.5 text-left text-xs text-muted hover:border-ink/40 hover:bg-surface hover:text-ink disabled:pointer-events-none"
-                              aria-label={`Adicionar aula: turma ${c.name}, ${WEEKDAY_LABEL[d]}, ${p.label}`}
+                              aria-label={`Adicionar aula: turma ${classLabel(c)}, ${WEEKDAY_LABEL[d]}, ${p.label}`}
                             >
-                              <ClassTag name={c.name} muted />
+                              <ClassTag name={classLabel(c)} muted />
                               <span className="font-semibold">vago</span>
                               <Plus className="ml-auto size-3.5 opacity-0 group-hover:opacity-100" />
                             </button>
@@ -454,14 +483,14 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing }: Omit<Mat
                               key={l.id}
                               type="button"
                               onClick={() => actions.openLesson(l)}
-                              title={`${c.name} · ${subject?.name ?? 'Sem disciplina'} · ${teacher?.name ?? ''} · ${l.start}–${l.end}`}
+                              title={`${classLabel(c)} · ${subject?.name ?? 'Sem disciplina'} · ${teacher?.name ?? ''} · ${l.start}–${l.end}`}
                               className={cn(
                                 'flex min-h-[38px] items-center gap-2 rounded-md px-1.5 py-1 text-left ring-1 ring-inset transition-shadow hover:shadow-raise',
                                 style ? `${style.chip} ${style.ring}` : 'bg-surface ring-line-strong',
                                 conflict && 'ring-2 ring-danger',
                               )}
                             >
-                              <ClassTag name={c.name} />
+                              <ClassTag name={classLabel(c)} />
                               <span className="min-w-0 flex-1 leading-tight">
                                 <span className="block truncate text-[12.5px] font-bold">{subject?.name ?? 'Sem disciplina'}</span>
                                 <span className="block truncate text-[11.5px] font-medium opacity-90">{teacher?.name ?? '—'}</span>
@@ -490,7 +519,7 @@ function ClassTag({ name, muted }: { name: string; muted?: boolean }) {
   );
 }
 
-function MatrixMobile({ rows, periods, day, lessons, index, narrowing }: MatrixProps) {
+function MatrixMobile({ rows, periods, day, lessons, index, narrowing, classLabel }: MatrixProps) {
   const actions = useScheduleActions();
   return (
     <div className="flex flex-col gap-3 md:hidden">
@@ -500,7 +529,7 @@ function MatrixMobile({ rows, periods, day, lessons, index, narrowing }: MatrixP
           <Card key={c.id} className="overflow-hidden">
             <div className="flex items-baseline justify-between border-b border-line px-4 py-2.5">
               <Link to={`/horarios/turma/${c.id}`} className="font-bold">
-                Turma {c.name}
+                Turma {classLabel(c)}
               </Link>
               <span className="text-xs text-muted">{c.grade}</span>
             </div>
@@ -529,7 +558,7 @@ function MatrixMobile({ rows, periods, day, lessons, index, narrowing }: MatrixP
                         canCreate={c.active && !narrowing}
                         alwaysVisible
                         onCreate={() => actions.createLesson({ classId: c.id, weekday: day, start: p.start, end: p.end })}
-                        label={`turma ${c.name}, ${p.label}`}
+                        label={`turma ${classLabel(c)}, ${p.label}`}
                       />
                     </div>
                   </li>

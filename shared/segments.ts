@@ -36,8 +36,8 @@ export const SEGMENT_SHORT: Record<SegmentKey, string> = {
  * O que estiver aqui e não existir no banco ainda é oferecido como sugestão para cadastrar.
  */
 export const SEGMENT_SUBJECTS: Record<SegmentKey, string[]> = {
-  infantil: ['Português', 'Matemática', 'Ciências', 'Leitura', 'Artes', 'Inglês', 'Dança/Futebol', 'Música', 'Educação Física', 'Sociedade', 'Recreação Aquática'],
-  fund1: ['Português', 'Matemática', 'Ciências', 'História', 'Geografia', 'Inglês', 'Artes', 'Produção Textual', 'Música/Informática', 'Dança/Futebol', 'Educação Física', 'Recreação Aquática'],
+  infantil: ['Português', 'Matemática', 'Ciências', 'Leitura', 'Artes', 'Inglês', 'Dança', 'Futebol', 'Música', 'Educação Física', 'Sociedade', 'Recreação Aquática'],
+  fund1: ['Português', 'Matemática', 'Ciências', 'História', 'Geografia', 'Inglês', 'Artes', 'Produção Textual', 'Música', 'Dança', 'Futebol', 'Educação Física', 'Recreação Aquática'],
   fund2: [
     'Português',
     'Matemática',
@@ -106,7 +106,7 @@ export const SEGMENT_SUBJECTS: Record<SegmentKey, string[]> = {
     'Centro Cirúrgico e Recuperação Perioperatória II',
     'Fundamentos do Direito',
   ],
-  multidisciplinar: ['Projeto de Vida', 'Socioemocional', 'Projeto Integrador', 'Orientação TCC I', 'Orientação TCC II', 'Recreação', 'Recreação Aquática', 'Dança', 'Dança/Futebol', 'Música', 'Música/Informática', 'Informática'],
+  multidisciplinar: ['Projeto de Vida', 'Socioemocional', 'Projeto Integrador', 'Orientação TCC I', 'Orientação TCC II', 'Recreação', 'Recreação Aquática', 'Dança', 'Futebol', 'Música', 'Informática'],
 };
 
 /** Disciplinas que não pertencem a um segmento específico (aparecem em todos). */

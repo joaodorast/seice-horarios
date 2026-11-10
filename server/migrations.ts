@@ -370,6 +370,50 @@ CREATE TABLE subject_segments (
 CREATE INDEX subject_segments_segment_idx ON subject_segments (segment);
 `;
 
+const SEPARATE_SUBJECTS = /* sql */ `
+DO $$
+DECLARE
+  combined subjects%ROWTYPE;
+  separate_id integer;
+  separate_name text;
+BEGIN
+  FOR combined IN
+    SELECT * FROM subjects WHERE lower(btrim(name)) IN ('dança/futebol', 'música/informática')
+  LOOP
+    -- Uma aula ou atribuição existente precisa da disciplina real para ser reclassificada.
+    IF EXISTS (SELECT 1 FROM lessons WHERE subject_id = combined.id)
+      OR EXISTS (SELECT 1 FROM assignments WHERE subject_id = combined.id) THEN
+      RAISE EXCEPTION 'Revise as aulas e atribuições de % antes de separar a disciplina.', combined.name;
+    END IF;
+
+    FOREACH separate_name IN ARRAY (CASE lower(btrim(combined.name))
+      WHEN 'dança/futebol' THEN ARRAY['Dança', 'Futebol']
+      ELSE ARRAY['Música']
+    END) LOOP
+      SELECT id INTO separate_id FROM subjects WHERE lower(btrim(name)) = lower(separate_name);
+      IF separate_id IS NULL THEN
+        INSERT INTO subjects (name, color) VALUES (separate_name, combined.color)
+          RETURNING id INTO separate_id;
+        INSERT INTO subject_segments (subject_id, segment)
+          SELECT separate_id, segment FROM subject_segments WHERE subject_id = combined.id;
+      ELSIF NOT EXISTS (SELECT 1 FROM subject_segments WHERE subject_id = combined.id) THEN
+        DELETE FROM subject_segments WHERE subject_id = separate_id;
+      ELSIF EXISTS (SELECT 1 FROM subject_segments WHERE subject_id = separate_id) THEN
+        INSERT INTO subject_segments (subject_id, segment)
+          SELECT separate_id, segment FROM subject_segments WHERE subject_id = combined.id
+          ON CONFLICT DO NOTHING;
+      END IF;
+
+      INSERT INTO teacher_subjects (teacher_id, subject_id)
+        SELECT teacher_id, separate_id FROM teacher_subjects WHERE subject_id = combined.id
+        ON CONFLICT DO NOTHING;
+    END LOOP;
+
+    DELETE FROM subjects WHERE id = combined.id;
+  END LOOP;
+END $$;
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
@@ -381,4 +425,5 @@ export const MIGRATIONS: Migration[] = [
   { version: 7, name: 'unidades_e_acesso_por_unidade', sql: UNITS },
   { version: 8, name: 'perfil_de_demonstracao', sql: DEMO_ROLE },
   { version: 9, name: 'segmentos_de_ensino', sql: SEGMENTS },
+  { version: 10, name: 'separar_danca_futebol_e_musica', sql: SEPARATE_SUBJECTS },
 ];

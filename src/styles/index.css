@@ -253,6 +253,33 @@
   scrollbar-color: var(--color-line-strong) transparent;
 }
 
+@media screen {
+  html {
+    scrollbar-gutter: stable;
+    scrollbar-color: #68727e #e4e8ed;
+  }
+
+  @supports selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-color: auto;
+    }
+    html::-webkit-scrollbar {
+      width: 14px;
+    }
+    html::-webkit-scrollbar-track {
+      background: #e4e8ed;
+    }
+    html::-webkit-scrollbar-thumb {
+      border: 2px solid #e4e8ed;
+      border-radius: 8px;
+      background: #68727e;
+    }
+    html::-webkit-scrollbar-thumb:hover {
+      background: #46515e;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

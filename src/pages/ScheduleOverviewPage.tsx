@@ -111,6 +111,23 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
           p.delete('professor');
           p.delete('turma');
         }
+        if (key === 'professor' && value) {
+          const lessons = data.lessons
+            .filter((lesson) => lesson.teacherId === Number(value)
+              && (!selectedUnit || lesson.unitId === selectedUnit.id)
+              && (!classId || lesson.classId === classId)
+              && (!subjectId || lesson.subjectId === subjectId))
+            .sort((a, b) => Number(b.weekday === day) - Number(a.weekday === day) || a.weekday - b.weekday || a.start.localeCompare(b.start));
+          const lesson = lessons[0];
+          if (lesson) {
+            const schoolClass = data.classes.find((item) => item.id === lesson.classId);
+            const period = data.periods.find((item) => item.kind === 'aula'
+              && (!schoolClass || shiftsOfClass(schoolClass.shift).includes(item.shift))
+              && item.start < lesson.end && lesson.start < item.end);
+            if (period && shifts.includes(period.shift)) p.set('turno', period.shift);
+            if (!week) p.set('dia', String(lesson.weekday));
+          }
+        }
         if (value === null || value === '') p.delete(key);
         else p.set(key, String(value));
         return p;
@@ -291,6 +308,12 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </p>
       </div>
 
+      {teacherId && (
+        <p className="text-sm text-ink-2">
+          Consultando {index.teacherById.get(teacherId)?.name} em {week ? 'toda a semana' : WEEKDAY_LABEL[day].toLowerCase()}, turno {SHIFT_LABEL[shift].toLowerCase()}.
+          {' '}<Link to={`/horarios/professor/${teacherId}`} className="font-bold underline underline-offset-2">Ver a semana completa deste professor</Link>
+        </p>
+      )}
       {lessonPeriods.length > 0 && rows.length > 0 && <GridLegend variant={week ? 'week' : 'day'} className="-mt-2" />}
 
       {lessonPeriods.length === 0 ? (

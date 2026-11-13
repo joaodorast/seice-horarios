@@ -209,6 +209,10 @@ describe('unidades e permissões', () => {
     const mensagem = conflito.body.error.issues[0].message as string;
     expect(mensagem).toContain('já tem aula neste horário');
     expect(mensagem).toContain('Campos Elíseos');
+    expect(mensagem).toContain('Naissa Compartilhada');
+    expect(mensagem).toContain('quinta-feira');
+    expect(mensagem).toContain('07:00');
+    expect(mensagem).not.toContain('8º A CE');
     expect(conflito.body.error.issues[0]).not.toHaveProperty('relatedLessonId');
 
 

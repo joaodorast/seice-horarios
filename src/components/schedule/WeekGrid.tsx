@@ -1,3 +1,4 @@
+import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from './ScheduleDisplay';
 import { Fragment, useMemo, useState } from 'react';
 import { Coffee, Plus } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -29,6 +30,8 @@ const todayWeekday = (): Weekday | null => {
  * Em telas estreitas, troca para uma visão por dia, mantendo todas as informações legíveis.
  */
 export function WeekGrid({ periods, days, lessons, index, perspective, onCreate, onOpen, caption }: WeekGridProps) {
+  const { showTimes, showBreaks } = useScheduleDisplay();
+  periods = displayPeriods(periods, showBreaks);
   const today = todayWeekday();
   const [mobileDay, setMobileDay] = useState<Weekday>(() => (today && days.includes(today) ? today : days[0] ?? 1));
   const activeMobileDay = days.includes(mobileDay) ? mobileDay : days[0];
@@ -42,6 +45,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
 
   return (
     <>
+      <ScheduleDisplay />
       {/* Desktop e tablet largo */}
       <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
         <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0">
@@ -55,7 +59,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
           <thead>
             <tr>
               <th scope="col" className="sticky left-0 z-10 bg-nav px-4 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
-                Horário
+                Tempo
               </th>
               {days.map((d) => (
                 <th
@@ -96,7 +100,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                   {period.kind === 'intervalo' ? (
                     <tr>
                       <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-4 py-2 text-left">
-                        <span className="tabular block text-xs font-bold text-ink-2">
+                        <span hidden={!showTimes} className="tabular block text-xs font-bold text-ink-2">
                           {period.start}–{period.end}
                         </span>
                       </th>
@@ -114,7 +118,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                     <tr>
                       <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-4 py-3 text-left align-top">
                         <span className="block text-[14px] font-bold text-ink">{period.label}</span>
-                        <span className="tabular block text-xs font-semibold text-ink-2">
+                        <span hidden={!showTimes} className="tabular block text-xs font-semibold text-ink-2">
                           {period.start}–{period.end}
                         </span>
                       </th>
@@ -167,7 +171,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
                   <li className={cn('flex gap-3 border-b border-line px-4 py-2.5 last:border-b-0', period.kind === 'intervalo' && 'bg-subtle')}>
                     <div className="w-20 shrink-0 pt-1">
                       <span className="block text-xs font-bold text-ink">{period.label}</span>
-                      <span className="tabular block text-[11px] text-muted">
+                      <span hidden={!showTimes} className="tabular block text-[11px] text-muted">
                         {period.start}–{period.end}
                       </span>
                     </div>

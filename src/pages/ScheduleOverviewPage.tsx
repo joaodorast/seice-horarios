@@ -1,3 +1,4 @@
+import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
 import { Fragment, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { CalendarClock, CalendarRange, Coffee, FilterX, Plus, Printer, X } from 'lucide-react';
@@ -72,6 +73,7 @@ function todayOr(days: Weekday[]): Weekday {
 }
 
 function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex }) {
+  const { showTimes, showBreaks } = useScheduleDisplay();
   const actions = useScheduleActions();
   const [params, setParams] = useSearchParams();
   const isAdmin = useIsAdmin();
@@ -132,10 +134,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
   const narrowing = Boolean(teacherId || subjectId);
   const hasFilters = Boolean(teacherId || classId || subjectId || selectedUnit);
 
-  let timeNumber = 0;
-  const periods = periodsForShifts(data.periods, [shift]).map((period) =>
-    period.kind === 'aula' ? { ...period, label: `${++timeNumber}º tempo` } : period,
-  );
+  const periods = displayPeriods(periodsForShifts(data.periods, [shift]), showBreaks);
   const lessonPeriods = periods.filter((p) => p.kind === 'aula');
 
   const dayLessons = useMemo(
@@ -218,6 +217,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </Alert>
       )}
 
+      <ScheduleDisplay allowConfigure={isAdmin} />
       {/* Barra de navegação e filtros */}
       <Card className="flex flex-col gap-4 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -321,11 +321,11 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </Card>
       ) : (
         week ? (
-          <WeekMatrix rows={rows} periods={periods} days={days} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
+          <WeekMatrix rows={rows} periods={periods} days={days} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} showTimes={showTimes} />
         ) : (
         <>
-          <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
-          <MatrixMobile rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} />
+          <MatrixDesktop rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} showTimes={showTimes} />
+          <MatrixMobile rows={rows} periods={periods} day={day} lessons={dayLessons} index={index} narrowing={narrowing} classLabel={classLabel} showTimes={showTimes} />
         </>
         )
       )}
@@ -342,10 +342,11 @@ interface MatrixProps {
   lessons: Lesson[];
   index: ScheduleIndex;
   narrowing: boolean;
+  showTimes: boolean;
   classLabel: (schoolClass: SchoolClass) => string;
 }
 
-function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLabel }: MatrixProps) {
+function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLabel, showTimes }: MatrixProps) {
   const actions = useScheduleActions();
   return (
     <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
@@ -362,11 +363,11 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLab
               p.kind === 'intervalo' ? (
                 <th key={p.id} scope="col" className="w-9 border-l border-nav-line bg-nav-2 px-1 py-3" title={`${p.label} ${p.start}–${p.end}`}>
                   <Coffee className="mx-auto size-3.5 text-nav-text" aria-hidden="true" />
-                  <span className="sr-only">{p.label}</span>
+                  <span className="sr-only">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                 </th>
               ) : (
                 <th key={p.id} scope="col" title={`${p.start}–${p.end}`} className="min-w-[86px] border-l border-nav-line bg-nav px-2 py-2.5 text-left text-white">
-                  <span className="block text-[14px] font-bold">{p.label}</span>
+                  <span className="block text-[14px] font-bold">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                 </th>
               ),
             )}
@@ -409,7 +410,7 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLab
 }
 
 /** Semana inteira em uma tela: horários nas linhas, dias nas colunas e, em cada quadro, uma linha por turma. */
-function WeekMatrix({ rows, periods, days, lessons, index, narrowing, classLabel }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
+function WeekMatrix({ rows, periods, days, lessons, index, narrowing, classLabel, showTimes }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
   const actions = useScheduleActions();
   const today = new Date().getDay();
   return (
@@ -442,14 +443,14 @@ function WeekMatrix({ rows, periods, days, lessons, index, narrowing, classLabel
               <tr key={p.id}>
                 <th scope="row" title={`${p.label} ${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-3 py-1 text-left text-ink-2">
                   <Coffee className="size-3.5" aria-hidden="true" />
-                  <span className="sr-only">{p.label}</span>
+                  <span className="sr-only">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                 </th>
                 <td colSpan={days.length} className="border-b border-l border-line-strong bg-canvas" />
               </tr>
             ) : (
               <tr key={p.id}>
                 <th scope="row" title={`${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
-                  <span className="block text-[14px] font-bold text-ink">{p.label}</span>
+                  <span className="block text-[14px] font-bold text-ink">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                 </th>
                 {days.map((d) => (
                   <td key={d} className={cn('border-b border-l border-line-strong p-1.5 align-top', d === today ? 'bg-brand-soft/40' : 'bg-subtle/70')}>
@@ -519,7 +520,7 @@ function ClassTag({ name, muted }: { name: string; muted?: boolean }) {
   );
 }
 
-function MatrixMobile({ rows, periods, day, lessons, index, narrowing, classLabel }: MatrixProps) {
+function MatrixMobile({ rows, periods, day, lessons, index, narrowing, classLabel, showTimes }: MatrixProps) {
   const actions = useScheduleActions();
   return (
     <div className="flex flex-col gap-3 md:hidden">
@@ -539,7 +540,7 @@ function MatrixMobile({ rows, periods, day, lessons, index, narrowing, classLabe
                   return narrowing ? null : (
                     <li key={p.id} title={`${p.label} ${p.start}–${p.end}`} className="border-b border-line bg-canvas px-4 py-2 text-muted">
                       <Coffee className="size-3.5" aria-hidden="true" />
-                      <span className="sr-only">{p.label}</span>
+                      <span className="sr-only">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                     </li>
                   );
                 }
@@ -548,7 +549,7 @@ function MatrixMobile({ rows, periods, day, lessons, index, narrowing, classLabe
                 return (
                   <li key={p.id} className="flex gap-3 border-b border-line px-4 py-2 last:border-b-0">
                     <span title={`${p.start}–${p.end}`} className="w-16 shrink-0 pt-1.5">
-                      <span className="block text-xs font-bold">{p.label}</span>
+                      <span className="block text-xs font-bold">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
                     </span>
                     <div className="min-w-0 flex-1">
                       <Cell

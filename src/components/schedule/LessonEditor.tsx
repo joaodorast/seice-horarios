@@ -1,3 +1,4 @@
+import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from './ScheduleDisplay';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeftRight, Clock, Copy, LayoutGrid, Settings2, Sparkles } from 'lucide-react';
@@ -115,6 +116,7 @@ export function LessonEditor({
 }
 
 function LessonForm({ request, data, onClose }: { request: EditorRequest; data: ScheduleData; onClose: () => void }) {
+  const { showTimes } = useScheduleDisplay();
   const [form, setForm] = useState<FormState>(() => initialState(request, data));
   const [touched, setTouched] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -149,13 +151,13 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
     const base = schoolClass
       ? periodsForClassShift(data.periods, schoolClass.shift)
       : periodsForShifts(data.periods, data.settings.enabledShifts);
-    return base.filter((p) => p.kind === 'aula');
+    return displayPeriods(base, false);
   }, [data.periods, data.settings.enabledShifts, schoolClass]);
 
   // Ao trocar de turma, se o horário escolhido não pertencer ao novo turno, limpa a seleção do período.
   useEffect(() => {
     if (form.timeMode !== 'period' || !form.start) return;
-    if (!availablePeriods.some((p) => p.start === form.start && p.end === form.end)) {
+    if (!periodRange(availablePeriods, form.start, form.end)) {
       setForm((f) => ({ ...f, start: '', end: '' }));
     }
   }, [availablePeriods, form.timeMode, form.start, form.end]);
@@ -269,7 +271,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
         const key = String(issue.path[0] ?? '_');
         if (!errs[key]) errs[key] = issue.message;
       }
-      if ((errs.start || errs.end) && form.timeMode === 'period') errs.period = 'Selecione um período da grade.';
+      if ((errs.start || errs.end) && form.timeMode === 'period') errs.period = 'Clique em um dos tempos abaixo para selecionar a aula.';
       setFieldErrors(errs);
       return;
     }
@@ -405,12 +407,13 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
                   setServerIssues(null);
                 }}
                 options={[
-                  { value: 'period', label: <><LayoutGrid className="size-3.5" />Período</> },
+                  { value: 'period', label: <><LayoutGrid className="size-3.5" />Tempos</> },
                   { value: 'custom', label: <><Clock className="size-3.5" />Personalizado</> },
                 ]}
               />
             </div>
 
+            <ScheduleDisplay />
             {form.timeMode === 'period' ? (
               availablePeriods.length === 0 ? (
                 <Alert tone="warning" title="Nenhum período de aula configurado">
@@ -424,10 +427,11 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
               ) : (
                 <div
                   role="radiogroup"
-                  aria-label="Período da grade"
+                  aria-label="Tempo da grade"
                   aria-invalid={Boolean(fieldErrors.period) || undefined}
                   className="scrollbar-thin flex max-h-[300px] flex-col gap-1.5 overflow-y-auto pr-1"
                 >
+                  <p className="text-xs text-muted">Clique no tempo desejado. Para aula dupla, clique também no tempo seguinte.</p>
                   {availablePeriods.map((p, i) => {
                     const status = periodStatus(p);
                     const selected = selectedIds.has(p.id);
@@ -456,7 +460,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
                         >
                           <span className="flex min-w-0 items-baseline gap-3">
                             <span className="text-[13px] font-bold whitespace-nowrap text-ink">{p.label}</span>
-                            <span className="tabular text-xs whitespace-nowrap text-muted">
+                            <span hidden={!showTimes} className="tabular text-xs whitespace-nowrap text-muted">
                               {p.start}–{p.end}
                             </span>
                           </span>
@@ -481,7 +485,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
               <p className="text-[13px] text-muted" role="status">
                 {selectedRange.length > 1 ? (
                   <>
-                    <strong className="text-ink">Aula de {selectedRange.length} períodos</strong> · {form.start}–{form.end}.{' '}
+                    <strong className="text-ink">Aula de {selectedRange.length} tempos</strong>{showTimes && <> · {form.start}–{form.end}</>}.{' '}
                     <button
                       type="button"
                       className="font-semibold text-ink underline underline-offset-2"

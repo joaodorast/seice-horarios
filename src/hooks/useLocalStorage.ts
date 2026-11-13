@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /** Estado que sobrevive à recarga da página (preferências de visualização, não dados escolares). */
 export function useLocalStorage<T>(key: string, initial: T) {
@@ -10,6 +10,16 @@ export function useLocalStorage<T>(key: string, initial: T) {
       return initial;
     }
   });
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const raw = window.localStorage.getItem(key);
+        if (raw !== null) setValue(JSON.parse(raw) as T);
+      } catch { /* Mantém a preferência atual se o armazenamento falhar. */ }
+    };
+    window.addEventListener('seice:schedule-display', sync);
+    return () => window.removeEventListener('seice:schedule-display', sync);
+  }, [key]);
   const update = useCallback(
     (next: T | ((prev: T) => T)) => {
       setValue((prev) => {

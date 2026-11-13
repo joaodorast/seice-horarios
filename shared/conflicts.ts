@@ -1,3 +1,4 @@
+import { periodsForClassShift } from './grid.js';
 import { WEEKDAY_LABEL, shiftsOfClass } from './labels.js';
 import { overlaps, toMinutes, TIME_PATTERN, formatRange } from './time.js';
 import { isAvailable, rangesText, slotsOfDay } from './availability.js';
@@ -35,11 +36,17 @@ function describeLesson(lesson: Lesson, ctx: ValidationContext, omit: 'teacher' 
   const teacher = ctx.teachers.find((t) => t.id === lesson.teacherId);
   const schoolClass = ctx.classes.find((c) => c.id === lesson.classId);
   const subject = lesson.subjectId ? ctx.subjects.find((s) => s.id === lesson.subjectId) : undefined;
+  const periods = schoolClass
+    ? periodsForClassShift(ctx.periods, schoolClass.shift).filter((period) => period.kind === 'aula')
+    : [];
+  const times = periods
+    .filter((period) => overlaps(lesson.start, lesson.end, period.start, period.end))
+    .map((period) => `${periods.filter((item) => item.shift === period.shift).findIndex((item) => item.id === period.id) + 1}º tempo`);
   const parts = [
     subject ? subject.name : 'aula',
     omit !== 'teacher' ? `com ${teacher?.name ?? 'professor removido'}` : null,
     omit !== 'class' ? `na turma ${schoolClass?.name ?? 'removida'}` : null,
-    `(${WEEKDAY_LABEL[lesson.weekday].toLowerCase()}, ${formatRange(lesson.start, lesson.end)})`,
+    `(${[WEEKDAY_LABEL[lesson.weekday].toLowerCase(), ...times, formatRange(lesson.start, lesson.end)].join(', ')})`,
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -145,7 +152,7 @@ export function validateLesson(candidate: LessonCandidate, ctx: ValidationContex
       issues.push({
         code: 'teacher-overlap',
         severity: 'error',
-        message: `${teacher?.name ?? 'Este professor'} já tem aula neste horário: ${describeLesson(other, ctx, 'teacher')}.`,
+        message: `${teacher?.name ?? 'Este professor'} já tem aula neste horário: ${describeLesson(other, ctx, 'teacher')}. Essa aula já está cadastrada no quadro.`,
         hint: 'Escolha outro horário ou outro professor, ou edite a aula existente.',
         relatedLessonId: other.id,
       });

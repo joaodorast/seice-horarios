@@ -1,3 +1,4 @@
+import { useUnits } from '@/api/units';
 import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from './ScheduleDisplay';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -117,6 +118,7 @@ export function LessonEditor({
 
 function LessonForm({ request, data, onClose }: { request: EditorRequest; data: ScheduleData; onClose: () => void }) {
   const { showTimes } = useScheduleDisplay();
+  const { data: units = [] } = useUnits();
   const [form, setForm] = useState<FormState>(() => initialState(request, data));
   const [touched, setTouched] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -413,6 +415,20 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
               />
             </div>
 
+            {errorsList.some((issue) => issue.code === 'teacher-overlap') && (
+              <Alert tone="warning" title={`${teacher?.name ?? 'Este professor'} já está neste horário`}>
+                {errorsList.filter((issue) => issue.code === 'teacher-overlap').map((issue) => {
+                  const lesson = data.lessons.find((item) => item.id === issue.relatedLessonId);
+                  const unit = lesson ? units.find((item) => item.id === lesson.unitId) : undefined;
+                  return (
+                    <p key={issue.relatedLessonId ?? issue.message}>
+                      {issue.message} {unit && <>Unidade {unit.name} ({unit.code}).</>}
+                    </p>
+                  );
+                })}
+                <p className="mt-1 font-semibold">Confira a aula existente no quadro ou selecione outro tempo.</p>
+              </Alert>
+            )}
             <ScheduleDisplay />
             {form.timeMode === 'period' ? (
               availablePeriods.length === 0 ? (
@@ -516,7 +532,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
         {errorsList.length > 0 && (
           <Alert
             tone="danger"
-            title={onlyOccupied ? 'Este horário já está ocupado' : errorsList.length === 1 ? 'Há um conflito a resolver antes de salvar' : `Há ${errorsList.length} problemas a resolver antes de salvar`}
+            title={onlyOccupied ? 'Já existe uma aula cadastrada neste horário' : errorsList.length === 1 ? 'Há um conflito a resolver antes de salvar' : `Há ${errorsList.length} problemas a resolver antes de salvar`}
             action={
               onlyOccupied && (
                 <Button size="sm" variant="dark" icon={<ArrowLeftRight className="size-4" />} onClick={() => void submit(false)}>
@@ -575,7 +591,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
           </Button>
         )}
         <Button type="submit" variant="primary" loading={save.isPending} disabled={blocking && !onlyOccupied}>
-          {blocking && onlyOccupied ? 'Substituir ou trocar…' : request.mode === 'edit' ? 'Salvar alterações' : 'Salvar aula'}
+          {blocking && onlyOccupied ? 'Revisar aula existente…' : request.mode === 'edit' ? 'Salvar alterações' : 'Salvar aula'}
         </Button>
       </div>
 

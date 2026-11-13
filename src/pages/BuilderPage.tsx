@@ -1,3 +1,4 @@
+import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -101,6 +102,7 @@ function Builder({
   list: { id: number; name: string }[];
   onPick: (id: number) => void;
 }) {
+  const { showTimes, showBreaks } = useScheduleDisplay();
   const [edits, setEdits] = useState<Map<string, CellValue>>(new Map());
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -257,6 +259,7 @@ function Builder({
 
       {teacher && <TeacherSubjectsBar teacherId={teacher.id} data={data} />}
 
+      <ScheduleDisplay />
       <Legend kind={kind} ownerName={firstName(ownerName)} />
 
       {lessonPeriods.length === 0 ? (
@@ -274,7 +277,7 @@ function Builder({
             <thead>
               <tr>
                 <th scope="col" className="sticky left-0 z-10 bg-nav px-3 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
-                  Horário
+                  Tempo
                 </th>
                 {days.map((d) => (
                   <th key={d} scope="col" className="border-l border-nav-line bg-nav px-3 py-3 text-left text-[14px] font-bold text-white">
@@ -285,8 +288,8 @@ function Builder({
               </tr>
             </thead>
             <tbody>
-              {allPeriods.map((p, i) => {
-                const shiftChange = kind === 'teacher' && (i === 0 || allPeriods[i - 1].shift !== p.shift) && new Set(allPeriods.map((x) => x.shift)).size > 1;
+              {displayPeriods(allPeriods, showBreaks).map((p, i, visiblePeriods) => {
+                const shiftChange = kind === 'teacher' && (i === 0 || visiblePeriods[i - 1].shift !== p.shift) && new Set(allPeriods.map((x) => x.shift)).size > 1;
                 return (
                   <Fragment key={p.id}>
                     {shiftChange && (
@@ -311,7 +314,7 @@ function Builder({
                       <tr>
                         <th scope="row" className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
                           <span className="block text-[14px] font-bold text-ink">{p.label}</span>
-                          <span className="tabular block text-xs font-semibold text-ink-2">
+                          <span hidden={!showTimes} className="tabular block text-xs font-semibold text-ink-2">
                             {p.start}–{p.end}
                           </span>
                         </th>
@@ -501,7 +504,9 @@ function BuilderCell({
       />
     );
   } else {
+    const hasAssignments = data.assignments.some((assignment) => assignment.teacherId === ownerId);
     const fits = data.classes
+      .filter((schoolClass) => !hasAssignments || schoolClass.id === value.otherId || data.assignments.some((assignment) => assignment.teacherId === ownerId && assignment.classId === schoolClass.id))
       .filter((c) => (c.active || c.id === value.otherId) && shiftsOfClass(c.shift).includes(period.shift))
       .sort(byName);
     shiftClasses = fits;

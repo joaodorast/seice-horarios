@@ -1,3 +1,4 @@
+import { useScheduleDisplay } from './ScheduleDisplay';
 import { AlertTriangle, UserX } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { NO_SUBJECT_STYLE, SUBJECT_STYLE } from '@/lib/subjectColors';
@@ -27,6 +28,7 @@ export function LessonChip({ lesson, index, perspective, period, onClick, dimmed
   const customTime = period && (period.start !== lesson.start || period.end !== lesson.end);
 
   const title = subject?.name ?? 'Sem disciplina';
+  const { showTimes } = useScheduleDisplay();
   const secondary =
     perspective === 'teacher'
       ? `Turma ${schoolClass?.name ?? '—'}`
@@ -67,7 +69,7 @@ export function LessonChip({ lesson, index, perspective, period, onClick, dimmed
           {inactive && !conflict && <UserX className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />}
         </span>
         <span className={cn('block truncate font-medium opacity-90', compact ? 'text-[11px]' : 'text-[12.5px]')}>{secondary}</span>
-        {customTime && <span className="tabular mt-0.5 block text-[11px] font-semibold opacity-75">{lesson.start}–{lesson.end}</span>}
+        {showTimes && customTime && <span className="tabular mt-0.5 block text-[11px] font-semibold opacity-75">{lesson.start}–{lesson.end}</span>}
       </span>
     </button>
   );

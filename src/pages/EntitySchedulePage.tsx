@@ -1,3 +1,4 @@
+import { lessonTimeCount } from '@shared/workload';
 import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ChevronLeft, ChevronRight, ExternalLink, GraduationCap, PencilRuler, Plus, Printer, Users } from 'lucide-react';
@@ -143,7 +144,7 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
                   <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-2 text-sm lg:justify-end">
                     <StatusBadge active={selected.active} />
                     <span className="text-muted">
-                      <strong className="tabular font-bold text-ink">{lessons.length}</strong> aulas
+                      <strong className="tabular font-bold text-ink">{lessons.reduce((total, lesson) => total + lessonTimeCount(lesson, data.periods, data.classes), 0)}</strong> tempos
                     </span>
                     <span className="text-muted">
                       <strong className="tabular font-bold text-ink">{formatHours(minutes)}</strong> semanais

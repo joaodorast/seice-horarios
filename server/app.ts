@@ -1,3 +1,4 @@
+import { WEEKDAY_LABEL } from '../shared/labels.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -598,7 +599,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
         const other = lessons.find((lesson) => lesson.id === issue.relatedLessonId);
         if (other?.unitId !== undefined && !allowed.includes(other.unitId)) {
           const unit = await tx.getUnit(other.unitId);
-          issue.message = `Este professor já tem aula neste horário em ${unit?.name ?? 'outra unidade'}.`;
+          issue.message = `${teachers.find((item) => item.id === input.teacherId)?.name ?? 'Este professor'} já tem aula neste horário em ${unit?.name ?? 'outra unidade'}: ${WEEKDAY_LABEL[other.weekday].toLowerCase()}, ${other.start}–${other.end}. Escolha outro tempo.`;
           issue.hint = 'Escolha outro horário ou outro professor.';
           delete issue.relatedLessonId;
         }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeWorkload } from '../shared/workload.js';
-import type { Lesson, SchoolClass, Teacher } from '../shared/types.js';
+import { computeWorkload, lessonTimeCount } from '../shared/workload.js';
+import type { Lesson, Period, SchoolClass, Teacher } from '../shared/types.js';
 
 const ts = '2026-01-01T00:00:00.000Z';
 const teacher = (id: number, name: string, active = true): Teacher => ({
@@ -53,5 +53,24 @@ describe('carga horária', () => {
     expect(w.classes.map((c) => c.name)).toEqual(['9º A']);
     expect(w.grand).toEqual({ lessons: 1, minutes: 100 });
     expect(w.rows.find((r) => r.teacher.id === 1)!.total.lessons).toBe(0);
+  });
+});
+
+describe('tempos semanais usados no pagamento', () => {
+  const periods: Period[] = [
+    { id: 1, shift: 'manha', label: '1º', start: '07:30', end: '08:20', kind: 'aula', sortOrder: 0 },
+    { id: 2, shift: 'manha', label: '2º', start: '08:20', end: '09:10', kind: 'aula', sortOrder: 1 },
+    { id: 3, shift: 'manha', label: 'Intervalo', start: '09:10', end: '09:30', kind: 'intervalo', sortOrder: 2 },
+    { id: 4, shift: 'tarde', label: 'Outro turno', start: '07:30', end: '09:10', kind: 'aula', sortOrder: 0 },
+  ];
+
+  it('conta uma aula dupla como dois tempos e ignora outro turno e intervalo', () => {
+    const count = lessonTimeCount(lesson(1, 10, 100, '07:30', '09:30'), periods, [klass(10, 'Turma manhã')]);
+    expect(count).toBe(2);
+    expect(count * 50).toBe(100);
+  });
+
+  it('mantém um tempo para uma aula personalizada fora da grade', () => {
+    expect(lessonTimeCount(lesson(1, 10, 100, '12:00', '12:45'), periods, [klass(10, 'Turma manhã')])).toBe(1);
   });
 });

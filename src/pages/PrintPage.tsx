@@ -1,3 +1,6 @@
+import { lessonTimeCount } from '@shared/workload';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import { ArrowLeft, Printer } from 'lucide-react';
@@ -54,6 +57,7 @@ export function PrintPage() {
           <p className="text-[13px] text-muted sm:ml-4">
             Para gerar um PDF, escolha <strong className="text-ink-2">Salvar como PDF</strong> na janela de impressão.
           </p>
+          <ScheduleDisplay />
           <Button variant="primary" className="ml-auto" icon={<Printer className="size-4" />} onClick={() => window.print()} disabled={!targets.length}>
             Imprimir ou salvar PDF
           </Button>
@@ -83,10 +87,13 @@ export function PrintPage() {
 }
 
 function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; data: ScheduleData; index: ScheduleIndex }) {
+  const { showTimes, showBreaks } = useScheduleDisplay();
+  const [paidMinutes] = useLocalStorage('seice:paid-minutes', data.settings.lessonDuration);
   const teacher = kind === 'professor' ? index.teacherById.get(entityId) : undefined;
   const schoolClass = kind === 'turma' ? index.classById.get(entityId) : undefined;
   const lessons = data.lessons.filter((l) => (kind === 'professor' ? l.teacherId === entityId : l.classId === entityId));
   const days = data.settings.enabledDays;
+  const timeCount = lessons.reduce((sum, lesson) => sum + lessonTimeCount(lesson, data.periods, data.classes), 0);
   const minutes = lessons.reduce((s, l) => s + durationMinutes(l.start, l.end), 0);
 
   // Para professores, imprime cada turno em que há aulas (ou os turnos habilitados, se a grade estiver vazia).
@@ -100,6 +107,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
     const shifts = used.length ? used : data.settings.enabledShifts;
     sections = shifts.map((s) => ({ title: shifts.length > 1 ? `Turno ${SHIFT_LABEL[s].toLowerCase()}` : undefined, periods: periodsForShifts(data.periods, [s]) }));
   }
+  sections = sections.map((section) => ({ ...section, periods: displayPeriods(section.periods, showBreaks) }));
   const outside = lessonsOutsideGrid(lessons, data.periods, days);
   const related = new Set(lessons.map((l) => (kind === 'professor' ? l.classId : l.teacherId))).size;
 
@@ -124,10 +132,10 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
 
       <div className="mt-3 mb-4 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-ink-2">
         <span>
-          <strong>{lessons.length}</strong> aulas semanais
+          <strong>{timeCount}</strong> tempos semanais
         </span>
         <span>
-          <strong>{formatHours(minutes)}</strong> de carga horária
+          <strong>{timeCount * paidMinutes} minutos pagos</strong> por semana ({paidMinutes} min por tempo)
         </span>
         <span>
           <strong>{related}</strong> {kind === 'professor' ? 'turma(s)' : 'professor(es)'}
@@ -135,6 +143,20 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
         <span className="ml-auto text-muted">Emitido em {new Date().toLocaleDateString('pt-BR')}</span>
       </div>
 
+      {teacher && (
+        <section className="mb-4 break-inside-avoid">
+          <h2 className="mb-2 text-sm font-bold">Resumo semanal por turma</h2>
+          <table className="w-full border-collapse text-xs">
+            <thead><tr><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-right">Minutos pagos por semana</th></tr></thead>
+            <tbody>{[...new Set(lessons.map((lesson) => lesson.classId))].map((classId) => (
+              <tr key={classId}><td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
+                <td className="border border-line p-2 text-right">{lessons.filter((lesson) => lesson.classId === classId).reduce((sum, lesson) => sum + lessonTimeCount(lesson, data.periods, data.classes) * paidMinutes, 0)}</td></tr>
+            ))}</tbody>
+            <tfoot><tr><th className="border border-line p-2 text-left">Total de minutos pagos na semana</th><th className="border border-line p-2 text-right">{timeCount * paidMinutes}</th></tr></tfoot>
+          </table>
+          <p className="mt-1 text-[10px] text-muted">Base para conferência do pagamento. Cada tempo cadastrado corresponde a {paidMinutes} minutos pagos. Duração efetiva das aulas na grade: {minutes} minutos ({formatHours(minutes)}).</p>
+        </section>
+      )}
       {sections.map((section, si) => (
         <section key={si} className={cn('break-inside-avoid', sections.length > 1 ? 'mb-2.5' : 'mb-4')}>
           {section.title && <h2 className="mb-1.5 text-[13px] font-bold">{section.title}</h2>}
@@ -144,7 +166,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
             <table className="w-full table-fixed border-collapse text-[11px]">
               <thead>
                 <tr>
-                  <th className="w-[92px] border border-ink/30 bg-ink/[0.06] px-2 py-1.5 text-left font-bold">Horário</th>
+                  <th className="w-[92px] border border-ink/30 bg-ink/[0.06] px-2 py-1.5 text-left font-bold">Tempo</th>
                   {days.map((d) => (
                     <th key={d} className="border border-ink/30 bg-ink/[0.06] px-2 py-1.5 text-left font-bold">
                       {WEEKDAY_LABEL[d]}
@@ -167,14 +189,14 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
                     <tr key={p.id}>
                       <td className={cn('border border-ink/30 px-2 align-top', sections.length > 1 ? 'py-0' : 'py-1.5')}>
                         <span className="block font-bold">{p.label}</span>
-                        <span className="tabular text-muted">
+                        <span hidden={!showTimes} className="tabular text-muted">
                           {p.start}–{p.end}
                         </span>
                       </td>
                       {days.map((d) => (
                         <td key={d} className={cn('border border-ink/30 px-1.5 py-1 align-top', sections.length > 1 ? 'h-[26px]' : 'h-[42px]')}>
                           {lessonsInPeriod(lessons, d, p).map((l) => (
-                            <PrintLesson key={l.id} lesson={l} index={index} kind={kind} period={p} />
+                            <PrintLesson key={l.id} lesson={l} index={index} kind={kind} period={p} showTimes={showTimes} />
                           ))}
                         </td>
                       ))}
@@ -215,7 +237,7 @@ function describe(l: Lesson, index: ScheduleIndex, kind: Kind) {
   return [s, other].filter(Boolean).join(' — ');
 }
 
-function PrintLesson({ lesson, index, kind, period }: { lesson: Lesson; index: ScheduleIndex; kind: Kind; period: Period }) {
+function PrintLesson({ lesson, index, kind, period, showTimes }: { lesson: Lesson; index: ScheduleIndex; kind: Kind; period: Period; showTimes: boolean }) {
   const subject = lesson.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
   const other = kind === 'professor' ? `Turma ${index.classById.get(lesson.classId)?.name ?? ''}` : index.teacherById.get(lesson.teacherId)?.name;
   const custom = lesson.start !== period.start || lesson.end !== period.end;
@@ -225,7 +247,7 @@ function PrintLesson({ lesson, index, kind, period }: { lesson: Lesson; index: S
       <div className="min-w-0">
         <span className="block font-bold">{subject?.name ?? 'Aula'}</span>
         <span className="block truncate">{other}</span>
-        {custom && <span className="tabular block text-[10px] text-muted">{lesson.start}–{lesson.end}</span>}
+        {showTimes && custom && <span className="tabular block text-[10px] text-muted">{lesson.start}–{lesson.end}</span>}
         {lesson.notes && <span className="block truncate text-[10px] text-muted">{lesson.notes}</span>}
       </div>
     </div>

@@ -1,5 +1,7 @@
+import { shiftsOfClass } from './labels.js';
+import { overlaps } from './time.js';
 import { durationMinutes } from './time.js';
-import type { Lesson, SchoolClass, Teacher } from './types.js';
+import type { Lesson, Period, SchoolClass, Teacher } from './types.js';
 
 /** Quantidade de aulas e minutos semanais. */
 export interface Load {
@@ -78,4 +80,14 @@ export function computeWorkload(
     rows.push(row);
   }
   return { rows, classes: visibleClasses, classTotals, grand };
+}
+
+/** Uma aula que abrange tempos consecutivos conta cada tempo uma vez. */
+export function lessonTimeCount(lesson: Lesson, periods: Period[], classes: SchoolClass[]): number {
+  const schoolClass = classes.find((item) => item.id === lesson.classId);
+  return Math.max(1, periods.filter((period) =>
+    period.kind === 'aula'
+    && (!schoolClass || shiftsOfClass(schoolClass.shift).includes(period.shift))
+    && overlaps(period.start, period.end, lesson.start, lesson.end),
+  ).length);
 }

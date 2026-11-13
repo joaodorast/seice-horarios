@@ -157,11 +157,23 @@ function WorkloadView({ data }: { data: ScheduleData }) {
           </p>
 
           <div className="overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin">
-            <table className="w-full border-separate border-spacing-0 text-[14px]">
+            <table className="table-fixed border-separate border-spacing-0 text-[14px]" style={{ width: 280 + w.classes.length * 250 + 400, minWidth: '100%' }}>
+              <colgroup>
+                <col style={{ width: 280 }} />
+                {w.classes.map((schoolClass) => (
+                  <Fragment key={schoolClass.id}>
+                    <col style={{ width: 150 }} />
+                    <col style={{ width: 100 }} />
+                  </Fragment>
+                ))}
+                <col style={{ width: 140 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 140 }} />
+              </colgroup>
               <caption className="sr-only">Carga horária por professor e turma, com totais por semana e por mês</caption>
               <thead>
                 <tr>
-                  <th rowSpan={2} scope="col" className="sticky left-0 z-10 min-w-[230px] bg-nav px-4 py-3 text-left align-bottom text-[13px] font-bold text-white">
+                  <th rowSpan={2} scope="col" className="sticky left-0 z-10 w-[280px] bg-nav px-4 py-3 text-left align-bottom text-[13px] font-bold text-white">
                     Professor
                   </th>
                   <th colSpan={w.classes.length * 2} scope="colgroup" className="border-l border-nav-line bg-nav px-3 pt-3 pb-1.5 text-center text-xs font-bold tracking-wide text-nav-text uppercase">
@@ -174,7 +186,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                 <tr>
                   {w.classes.map((c) => (
                     <Fragment key={c.id}><th scope="col" className="min-w-[84px] border-l border-nav-line bg-nav px-2 pt-1 pb-3 text-center">
-                      <Link to={`/horarios/montar/turma/${c.id}`} className="block text-[15px] font-bold text-white hover:text-brand hover:underline" title={`Montar o quadro da ${c.name}`}>
+                      <Link to={`/horarios/montar/turma/${c.id}`} className="line-clamp-3 text-[13px] leading-snug font-bold text-white hover:text-brand hover:underline" title={`Montar o quadro da ${c.name}`}>
                         {c.name}
                       </Link>
                       <span className="block text-[11px] font-semibold text-nav-text">{SHIFT_LABEL[c.shift]} · Tempos</span>

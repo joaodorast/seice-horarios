@@ -133,3 +133,16 @@ describe('estatísticas da grade', () => {
     expect(out.map((l) => l.id)).toEqual([2, 3]);
   });
 });
+
+it('explica o conflito do professor com turma, dia, tempo e horário da aula existente', () => {
+  const existing = lesson(90, 1, 10, 3, '09:00', '10:00');
+  const candidate = { teacherId: 1, classId: 11, subjectId: null, weekday: 3 as const, start: '09:00', end: '10:00' };
+  const issue = validateLesson(candidate, ctx([existing])).find((item) => item.code === 'teacher-overlap');
+  expect(issue?.message).toContain('Prof 1');
+  expect(issue?.message).toContain('T10');
+  expect(issue?.message).toContain('quarta-feira');
+  expect(issue?.message).toContain('2º tempo');
+  expect(issue?.message).toContain('09:00');
+  expect(issue?.message).toContain('já está cadastrada');
+  expect(issue?.relatedLessonId).toBe(90);
+});

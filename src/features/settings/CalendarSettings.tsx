@@ -11,6 +11,7 @@ import { plural } from '@/lib/text';
 
 export function CalendarSettings({ data }: { data: ScheduleData }) {
   const [draft, setDraft] = useState<Settings>(data.settings);
+  const [excludedDate, setExcludedDate] = useState('');
   const [duration, setDuration] = useState(String(data.settings.lessonDuration));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<string[] | null>(null);
@@ -20,7 +21,8 @@ export function CalendarSettings({ data }: { data: ScheduleData }) {
   const dirty =
     draft.enabledDays.join() !== data.settings.enabledDays.join() ||
     draft.enabledShifts.join() !== data.settings.enabledShifts.join() ||
-    duration !== String(data.settings.lessonDuration);
+    duration !== String(data.settings.lessonDuration) ||
+    JSON.stringify(draft.excludedDates ?? []) !== JSON.stringify(data.settings.excludedDates ?? []);
 
   const toggleDay = (d: Weekday) =>
     setDraft((s) => ({ ...s, enabledDays: s.enabledDays.includes(d) ? s.enabledDays.filter((x) => x !== d) : [...s.enabledDays, d].sort() }));
@@ -103,6 +105,33 @@ export function CalendarSettings({ data }: { data: ScheduleData }) {
           <Field label="Minutos" error={errors.lessonDuration}>
             <Input type="number" inputMode="numeric" min={20} max={180} step={5} value={duration} onChange={(e) => setDuration(e.target.value)} className="tabular" />
           </Field>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Datas sem aula" description="Feriados, recessos e outras datas excluídas da carga mensal nas duas unidades. A grade semanal continua cadastrada." />
+        <div className="flex flex-col gap-3 px-5 pb-5">
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Data sem aula">
+              <Input type="date" value={excludedDate} onChange={(event) => setExcludedDate(event.target.value)} />
+            </Field>
+            <Button disabled={!excludedDate} onClick={() => {
+              setDraft((settings) => ({ ...settings, excludedDates: [...new Set([...(settings.excludedDates ?? []), excludedDate])].sort() }));
+              setExcludedDate('');
+            }}>Adicionar data</Button>
+          </div>
+          <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
+            {(draft.excludedDates ?? []).map((date) => (
+              <Button key={date} size="sm" onClick={() => setDraft((settings) => ({
+                ...settings, excludedDates: settings.excludedDates?.filter((value) => value !== date),
+              }))} title="Remover esta data do calendário">
+                {date.split('-').reverse().join('/')} ×
+              </Button>
+            ))}
+          </div>
+          {(draft.excludedDates ?? []).length === 0 && <p className="text-sm text-muted">Nenhuma data excluída. O cálculo considera todos os dias da semana habilitados.</p>}
+          {errors.excludedDates && <p className="text-sm text-danger">{errors.excludedDates}</p>}
+          <p className="text-xs text-muted">Use Salvar configurações para confirmar. Feriados locais precisam ser informados pela escola.</p>
         </div>
       </Card>
 

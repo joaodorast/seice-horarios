@@ -18,6 +18,7 @@ interface WeekGridProps {
   onCreate?: (day: Weekday, period: Period) => void;
   onOpen?: (lesson: Lesson) => void;
   caption: string;
+  showDisplayControls?: boolean;
 }
 
 const todayWeekday = (): Weekday | null => {
@@ -29,7 +30,7 @@ const todayWeekday = (): Weekday | null => {
  * Grade semanal: dias nas colunas e períodos nas linhas.
  * Em telas estreitas, troca para uma visão por dia, mantendo todas as informações legíveis.
  */
-export function WeekGrid({ periods, days, lessons, index, perspective, onCreate, onOpen, caption }: WeekGridProps) {
+export function WeekGrid({ periods, days, lessons, index, perspective, onCreate, onOpen, caption, showDisplayControls = true }: WeekGridProps) {
   const { showTimes, showBreaks } = useScheduleDisplay();
   periods = displayPeriods(periods, showBreaks);
   const today = todayWeekday();
@@ -45,7 +46,7 @@ export function WeekGrid({ periods, days, lessons, index, perspective, onCreate,
 
   return (
     <>
-      <ScheduleDisplay />
+      {showDisplayControls && <ScheduleDisplay />}
       {/* Desktop e tablet largo */}
       <div className="hidden overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin md:block">
         <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0">

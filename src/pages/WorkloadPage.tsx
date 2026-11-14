@@ -13,7 +13,7 @@ import { formatHours } from '@/lib/format';
 import { downloadTable } from '@/lib/spreadsheet';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { errorMessage } from '@/api/client';
-import { downloadWorkloadReport } from '@/lib/workloadReport';
+import { downloadWorkloadReport, workloadReportFileName } from '@/lib/workloadReport';
 import { ReportSelection } from '@/features/reports/ReportSelection';
 import { GUIDES } from '@/lib/guides';
 
@@ -148,7 +148,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
           paidHours(load.lessons * paidMinutes),
         ]),
       ));
-      await downloadTable('carga-horaria', 'Carga horária',
+      await downloadTable(workloadReportFileName(workload, periodLabel), 'Carga horária',
         ['Professor', 'Turma', 'Disciplina', 'Período', 'Tempos', 'Minutos pagos', 'Horas pagas'],
         details, ['Total do recorte', '', '', periodLabel, workload.grand.lessons,
           workload.grand.lessons * paidMinutes, paidHours(workload.grand.lessons * paidMinutes)]);

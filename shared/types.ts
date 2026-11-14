@@ -104,6 +104,8 @@ export interface Period {
 }
 
 export interface Settings {
+  /** Datas sem aula no cálculo mensal, no formato AAAA-MM-DD. */
+  excludedDates?: string[];
   enabledDays: Weekday[];
   enabledShifts: ShiftKey[];
   lessonDuration: number;

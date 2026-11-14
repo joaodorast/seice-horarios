@@ -74,3 +74,36 @@ describe('tempos semanais usados no pagamento', () => {
     expect(lessonTimeCount(lesson(1, 10, 100, '12:00', '12:45'), periods, [klass(10, 'Turma manhã')])).toBe(1);
   });
 });
+
+describe('totais do professor e da turma no mesmo recorte', () => {
+  const teachers = [teacher(1, 'Luana'), teacher(2, 'Milena'), teacher(3, 'Matheus')];
+  const classes = [klass(10, '1001 CE')];
+  const lessons = [
+    ...Array.from({ length: 20 }, (_, index) => ({
+      ...lesson(1, 10, index < 5 ? 100 : 101, '07:30', '08:20'), weekday: (index % 5 + 1) as Lesson['weekday'],
+    })),
+    lesson(2, 10, 102, '07:30', '08:20'),
+    lesson(2, 10, 102, '08:20', '09:10'),
+    lesson(3, 10, 103, '09:10', '10:00'),
+  ];
+
+  it('mostra 20 tempos de Luana e 23 da turma com a contribuição dos demais professores', () => {
+    const workload = computeWorkload(lessons, teachers, classes);
+    expect(workload.rows.find((row) => row.teacher.id === 1)?.total.lessons).toBe(20);
+    expect(workload.classTotals.get(10)?.lessons).toBe(23);
+    expect(workload.rows.reduce((sum, row) => sum + row.total.lessons, 0)).toBe(workload.grand.lessons);
+  });
+
+  it('a busca por Luana faz o total do recorte bater com o professor e suas disciplinas', () => {
+    const workload = computeWorkload(lessons, [teachers[0]], classes);
+    expect(workload.grand.lessons).toBe(20);
+    expect(workload.grand.lessons * 50).toBe(1000);
+    expect(workload.classTotals.get(10)?.lessons).toBe(20);
+    expect(workload.rows[0].bySubject.reduce((sum, subject) => sum + subject.total.lessons, 0)).toBe(20);
+    const daily = computeWorkload(lessons.filter((item) => item.weekday === 1), [teachers[0]], classes);
+    expect(daily.grand.lessons).toBe(4);
+    expect(daily.grand.lessons * 50).toBe(200);
+    expect(workload.grand.lessons * 4).toBe(80);
+    expect(workload.grand.lessons * 4 * 50).toBe(4000);
+  });
+});

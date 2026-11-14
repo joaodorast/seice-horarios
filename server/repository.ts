@@ -384,6 +384,7 @@ export function createRepository(db: Database) {
         enabledDays: map.enabledDays ?? [1, 2, 3, 4, 5],
         enabledShifts: map.enabledShifts ?? ['manha', 'tarde'],
         lessonDuration: map.lessonDuration ?? 50,
+        excludedDates: map.excludedDates ?? [],
       };
     },
     /** Grava as configurações. Deve rodar dentro de uma transação. */
@@ -392,6 +393,9 @@ export function createRepository(db: Database) {
       await db.query(sql, ['enabledDays', JSON.stringify(input.enabledDays)]);
       await db.query(sql, ['enabledShifts', JSON.stringify(input.enabledShifts)]);
       await db.query(sql, ['lessonDuration', JSON.stringify(input.lessonDuration)]);
+      if (input.excludedDates !== undefined) {
+        await db.query(sql, ['excludedDates', JSON.stringify(input.excludedDates)]);
+      }
     },
 
     // ---------- Atribuições ----------

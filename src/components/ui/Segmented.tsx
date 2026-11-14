@@ -22,7 +22,7 @@ export function Segmented<T extends string | number>({
   onChange: (value: T) => void;
   label: string;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   /** Distribui as opções pela largura total (útil em telas estreitas). */
   fill?: boolean;
 }) {
@@ -55,7 +55,7 @@ export function Segmented<T extends string | number>({
             className={cn(
               fill && 'flex-1 justify-center',
               'inline-flex items-center gap-1.5 rounded-md font-semibold whitespace-nowrap transition-[background-color,color,box-shadow] duration-150',
-              size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-[13px]',
+              size === 'sm' ? 'h-7 px-2.5 text-xs' : size === 'lg' ? 'h-12 px-5 text-base' : 'h-8 px-3 text-[13px]',
               selected ? 'bg-surface text-ink shadow-raise' : 'text-muted hover:text-ink',
             )}
           >

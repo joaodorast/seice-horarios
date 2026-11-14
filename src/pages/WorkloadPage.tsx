@@ -1,42 +1,34 @@
-import { matches } from '@/lib/text';
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronDown, ChevronRight, Download, Printer, Info, PencilRuler } from 'lucide-react';
+import { ChevronDown, Download, Printer, Users, GraduationCap } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, Segmented, SearchInput, Input, useToast } from '@/components/ui';
+import { Button, Card, Combobox, Input, SearchInput, Segmented, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
-import { computeWorkload, lessonTimeCount, type Load } from '@shared/workload';
-import { SHIFT_LABEL } from '@shared/labels';
-import { CLASS_SHIFTS, type ClassShift } from '@shared/types';
-import { SUBJECT_STYLE } from '@/lib/subjectColors';
+import { useUnits } from '@/api/units';
+import { computeWorkload, lessonTimeCount } from '@shared/workload';
+import { CLASS_SHIFTS, type ClassShift, type Weekday } from '@shared/types';
+import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
 import { downloadTable } from '@/lib/spreadsheet';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { matches } from '@/lib/text';
 import { errorMessage } from '@/api/client';
-import { cn } from '@/lib/cn';
 import { GUIDES } from '@/lib/guides';
 
-type ShiftFilter = ClassShift | 'todos';
+type Scope = 'dia' | 'semana' | 'mes';
+type View = 'professor' | 'turma';
+const num = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const paidHours = (minutes: number) => Number.isInteger(minutes)
+  ? formatHours(minutes)
+  : `${formatHours(Math.floor(minutes))} ${Math.round((minutes % 1) * 60)}s`;
 
-/** Multiplicador mensal escolhido pela escola para conferir a carga semanal. */
-const WEEKS_OPTIONS = [4, 4.5, 5] as const;
-type Weeks = (typeof WEEKS_OPTIONS)[number];
-
-const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-const aulas = (n: number) => `${num(n)} ${n === 1 ? 'tempo' : 'tempos'}`;
-
-/** Carga horária: aulas de cada professor em cada turma, com os totais por semana e por mês. */
 export function WorkloadPage() {
   const schedule = useScheduleData();
   return (
-    <Page
-      title="Carga horária"
-      width="wide"
-      guide={GUIDES.workload}
+    <Page title="Carga horária" width="wide" guide={GUIDES.workload}
       breadcrumbs={[{ label: 'Quadro de horários', to: '/horarios' }, { label: 'Carga horária' }]}
-      description="Quantas aulas cada professor dá em cada turma, com o total de cada professor por semana e por mês."
-    >
+      description="Confira os tempos e minutos pagos por professor, turma e disciplina. Escolha o dia, a semana ou a estimativa mensal.">
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch}>
         {(data) => <WorkloadView data={data} />}
       </DataGate>
@@ -46,54 +38,62 @@ export function WorkloadPage() {
 
 function WorkloadView({ data }: { data: ScheduleData }) {
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<View>('professor');
+  const [scope, setScope] = useState<Scope>('semana');
+  const [day, setDay] = useState<Weekday>(data.settings.enabledDays[0] ?? 1);
+  const [classId, setClassId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [unitId, setUnitId] = useState<number | null>(null);
+  const [shift, setShift] = useState<ClassShift | 'todos'>('todos');
+  const [includeEmpty, setIncludeEmpty] = useState(false);
   const [paidMinutes, setPaidMinutes] = useLocalStorage('seice:paid-minutes', data.settings.lessonDuration);
-  const [shift, setShift] = useState<ShiftFilter>('todos');
-  const [weeks, setWeeks] = useLocalStorage<Weeks>('seice:carga-semanas', 4);
-  const [open, setOpen] = useState<Set<number>>(new Set());
+  const [weeks, setWeeks] = useLocalStorage<number>('seice:carga-semanas', 4);
   const [exporting, setExporting] = useState(false);
+  const { data: units = [] } = useUnits();
   const toast = useToast();
 
-  const shifts = CLASS_SHIFTS.filter((s) => data.classes.some((c) => c.active && c.shift === s));
-  const w = useMemo(
-    () =>
-      computeWorkload(data.lessons, data.teachers, data.classes, shift === 'todos' ? undefined : (c) => c.shift === shift, (l) =>
-        // Aula dupla vale duas: conta os períodos de aula que ela ocupa.
-        lessonTimeCount(l, data.periods, data.classes),
-      ),
-    [data, shift],
-  );
-  const rows = w.rows.filter((row) => matches([row.teacher.name, row.teacher.code ?? ''], query));
-  const paid = (load: Load | undefined) => (load?.lessons ?? 0) * paidMinutes;
-  const maxTotal = Math.max(1, ...w.rows.map((r) => r.total.lessons));
-  // Atribuição de aulas: o combinado, para comparar com o que já está no quadro (só nas turmas visíveis).
-  const visible = new Set(w.classes.map((c) => c.id));
-  const assignedOf = (teacherId: number, classId?: number) =>
-    data.assignments
-      .filter((a) => a.teacherId === teacherId && visible.has(a.classId) && (classId === undefined || a.classId === classId))
-      .reduce((n, a) => n + a.weeklyLessons, 0);
-  const assignedGrand = data.assignments.filter((a) => visible.has(a.classId)).reduce((n, a) => n + a.weeklyLessons, 0);
-  const withLessons = w.rows.filter((r) => r.total.lessons > 0);
-  const subjectName = (id: number | null) => (id === null ? 'Sem disciplina' : (data.subjects.find((s) => s.id === id)?.name ?? '—'));
-  const monthHours = (l: Load) => formatHours(Math.round(paid(l) * weeks));
+  const workload = useMemo(() => {
+    const teachers = data.teachers.filter((teacher) => matches([teacher.name, teacher.code ?? ''], query));
+    const classes = data.classes.filter((schoolClass) =>
+      (!classId || schoolClass.id === classId)
+      && (!unitId || schoolClass.unitId === unitId)
+      && (shift === 'todos' || schoolClass.shift === shift),
+    );
+    const lessons = data.lessons.filter((lesson) =>
+      (scope !== 'dia' || lesson.weekday === day)
+      && (!subjectId || lesson.subjectId === subjectId),
+    );
+    return computeWorkload(lessons, teachers, classes, undefined,
+      (lesson) => lessonTimeCount(lesson, data.periods, data.classes));
+  }, [data, query, classId, unitId, shift, scope, day, subjectId]);
 
-  const toggle = (id: number) =>
-    setOpen((all) => {
-      const next = new Set(all);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const factor = scope === 'mes' ? weeks : 1;
+  const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Mês estimado com ${num(weeks)} semanas` : 'Semana completa';
+  const rows = workload.rows.filter((row) => includeEmpty || row.total.lessons > 0);
+  const visibleClasses = workload.classes.filter((schoolClass) =>
+    includeEmpty || (workload.classTotals.get(schoolClass.id)?.lessons ?? 0) > 0);
+  const subjectName = (id: number | null) => data.subjects.find((subject) => subject.id === id)?.name ?? 'Sem disciplina';
+  const unitName = (id: number | undefined) => units.find((unit) => unit.id === id)?.code ?? '';
+  const className = (id: number) => {
+    const schoolClass = data.classes.find((item) => item.id === id);
+    return schoolClass ? [unitName(schoolClass.unitId), schoolClass.name].filter(Boolean).join(' · ') : 'Turma';
+  };
 
   async function exportExcel() {
     setExporting(true);
     try {
-      const header = ['Professor', 'Disciplina', ...w.classes.flatMap((c) => [`${c.name} · Tempos por semana`, `${c.name} · Minutos pagos por semana`]), 'Tempos por semana', 'Minutos pagos por semana', 'Horas pagas por semana', 'Tempos atribuídos por semana', 'Tempos por mês', 'Minutos pagos por mês'];
-      const totals = (load: Load, assigned: number) => [load.lessons, paid(load), formatHours(paid(load)), assigned, load.lessons * weeks, paid(load) * weeks];
-      const exportRows = rows.flatMap((row) => [
-        [row.teacher.name, 'Total do professor', ...w.classes.flatMap((c) => [row.byClass.get(c.id)?.lessons ?? 0, paid(row.byClass.get(c.id))]), ...totals(row.total, assignedOf(row.teacher.id))],
-        ...row.bySubject.map((subject) => [row.teacher.name, subjectName(subject.subjectId), ...w.classes.flatMap((c) => [subject.byClass.get(c.id)?.lessons ?? 0, paid(subject.byClass.get(c.id))]), ...totals(subject.total, data.assignments.filter((a) => a.teacherId === row.teacher.id && a.subjectId === subject.subjectId && visible.has(a.classId)).reduce((sum, a) => sum + a.weeklyLessons, 0))]),
-      ]);
-      await downloadTable(`carga-horaria${shift === 'todos' ? '' : `-${shift}`}`, 'Carga horária', header, exportRows);
+      // Somente linhas de detalhe. Cada tempo aparece uma vez na soma da planilha.
+      const details = workload.rows.flatMap((row) => row.bySubject.flatMap((subject) =>
+        [...subject.byClass].map(([id, load]) => [
+          row.teacher.name, className(id), subjectName(subject.subjectId), periodLabel,
+          load.lessons * factor, load.lessons * factor * paidMinutes,
+          paidHours(load.lessons * factor * paidMinutes),
+        ]),
+      ));
+      await downloadTable('carga-horaria', 'Carga horária',
+        ['Professor', 'Turma', 'Disciplina', 'Período', 'Tempos', 'Minutos pagos', 'Horas pagas'],
+        details, ['Total do recorte', '', '', periodLabel, workload.grand.lessons * factor,
+          workload.grand.lessons * factor * paidMinutes, paidHours(workload.grand.lessons * factor * paidMinutes)]);
     } catch (error) {
       toast.error('Não foi possível exportar', errorMessage(error));
     } finally {
@@ -102,279 +102,173 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Resumo da escola */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Tempos por semana" value={num(w.grand.lessons)} hint={`${paid(w.grand)} minutos pagos`} />
-        <Stat label="Tempos por mês" value={num(w.grand.lessons * weeks)} hint={`${monthHours(w.grand)} de aula`} accent />
-        <Stat label="Professores com aulas" value={`${withLessons.length} de ${w.rows.length}`} />
-        <Stat label="Média por professor" value={withLessons.length ? aulas(Math.round((w.grand.lessons / withLessons.length) * 10) / 10) : '—'} hint="por semana" />
-      </div>
-
-      {/* Controles */}
-      <Card className="flex flex-wrap items-center gap-x-5 gap-y-3 p-3">
-        <SearchInput value={query} onChange={setQuery} placeholder="Pesquisar professor ou matrícula" className="w-full sm:w-72" />
-        <label className="flex items-center gap-2 text-sm">Minutos pagos por tempo
-          <Input type="number" min={1} max={180} value={paidMinutes} className="w-20" onChange={(event) => {
-            const value = Number(event.target.value);
-            if (Number.isInteger(value) && value >= 1 && value <= 180) setPaidMinutes(value);
-          }} />
-        </label>
-        {shifts.length > 1 && (
-          <Segmented
-            label="Turno das turmas"
-            value={shift}
-            onChange={(v) => setShift(v)}
-            options={[{ value: 'todos' as ShiftFilter, label: 'Todas as turmas' }, ...shifts.map((s) => ({ value: s as ShiftFilter, label: SHIFT_LABEL[s] }))]}
-          />
-        )}
-        <div className="flex items-center gap-2">
-          <span className="text-[13.5px] font-semibold text-ink-2">Mês com</span>
-          <Segmented
-            label="Semanas por mês"
-            value={weeks}
-            onChange={setWeeks}
-            options={WEEKS_OPTIONS.map((n) => ({ value: n, label: `${num(n)} semanas` }))}
-          />
+    <div className="flex flex-col gap-5">
+      <Card className="flex flex-col gap-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Segmented label="Período do cálculo" value={scope} onChange={setScope}
+            options={[{ value: 'dia', label: 'Diário' }, { value: 'semana', label: 'Semanal' }, { value: 'mes', label: 'Mensal' }]} />
+          {scope === 'dia' && (
+            <Segmented label="Dia do cálculo" value={day} onChange={setDay}
+              options={data.settings.enabledDays.map((value) => ({ value, label: WEEKDAY_SHORT[value] }))} />
+          )}
+          {scope === 'mes' && (
+            <Segmented label="Semanas da estimativa mensal" value={weeks} onChange={setWeeks}
+              options={[4, 4.5, 5].map((value) => ({ value, label: `${num(value)} semanas` }))} />
+          )}
         </div>
-        <Button className="ml-auto" icon={<Download className="size-4" />} loading={exporting} onClick={() => void exportExcel()} disabled={w.rows.length === 0}>
-          Exportar Excel
-        </Button>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="min-w-0 text-xs font-semibold text-muted">Professor
+            <SearchInput value={query} onChange={setQuery} placeholder="Nome ou matrícula" className="mt-1 w-full" />
+          </label>
+          <label className="min-w-0 text-xs font-semibold text-muted">Turma
+            <Combobox value={classId} onChange={setClassId} clearable placeholder="Todas as turmas"
+              options={data.classes.filter((item) => !unitId || item.unitId === unitId).map((item) => ({ value: item.id, label: className(item.id) }))} />
+          </label>
+          <label className="min-w-0 text-xs font-semibold text-muted">Disciplina
+            <Combobox value={subjectId} onChange={setSubjectId} clearable placeholder="Todas as disciplinas"
+              options={data.subjects.map((item) => ({ value: item.id, label: item.name }))} />
+          </label>
+          <label className="min-w-0 text-xs font-semibold text-muted">Unidade
+            <Combobox value={unitId} onChange={(value) => { setUnitId(value); setClassId(null); }} clearable placeholder="Todas as unidades"
+              options={units.map((unit) => ({ value: unit.id, label: `${unit.code} · ${unit.name}` }))} />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 border-t border-line pt-3">
+          <Segmented label="Turno do cálculo" value={shift} onChange={setShift}
+            options={[{ value: 'todos' as const, label: 'Todos os turnos' }, ...CLASS_SHIFTS.map((value) => ({ value, label: SHIFT_LABEL[value] }))]} />
+          <label className="flex items-center gap-2 text-sm text-ink-2">Minutos pagos por tempo
+            <Input type="number" min={1} max={180} value={paidMinutes} className="w-20" onChange={(event) => {
+              const value = Number(event.target.value);
+              if (Number.isInteger(value) && value >= 1 && value <= 180) setPaidMinutes(value);
+            }} />
+          </label>
+          <Button className="ml-auto" icon={<Download className="size-4" />} loading={exporting}
+            onClick={() => void exportExcel()} disabled={workload.grand.lessons === 0}>Exportar este recorte</Button>
+        </div>
       </Card>
 
-      {w.classes.length === 0 || w.rows.length === 0 ? (
-        <Card className="p-8 text-center text-muted">Cadastre professores e turmas e monte o quadro para ver a carga horária.</Card>
-      ) : (
-        <>
-          <p className="flex items-start gap-2 text-[14px] text-ink-2">
-            <Info className="mt-0.5 size-4 shrink-0" />
-            <span>
-              <strong className="text-ink">Como ler:</strong> cada número é quantas aulas o professor dá naquela turma <strong className="text-ink">por semana</strong>. As
-              colunas amarelas somam tudo: o total da semana, quantas aulas foram <strong className="text-ink">atribuídas</strong> ao professor e o total do mês{' '}
-              ({num(weeks)} semanas). Quando o quadro ainda não bate com a atribuição, aparece em laranja, como <strong className="text-warning">2 de 3</strong>. Aula
-              dupla conta como duas.
-            </span>
-          </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Total de tempos neste recorte" value={num(workload.grand.lessons * factor)} hint={periodLabel} />
+        <Metric label="Total de minutos pagos neste recorte" value={num(workload.grand.lessons * factor * paidMinutes)} hint={`${paidMinutes} minutos por tempo`} accent />
+        <Metric label="Total de horas pagas neste recorte" value={paidHours(workload.grand.lessons * factor * paidMinutes)}
+          hint={`${workload.rows.filter((row) => row.total.lessons > 0).length} professores com aulas`} />
+      </div>
+      <p className="text-sm leading-relaxed text-ink-2">
+        Todos os totais abaixo consideram os mesmos filtros. A busca por professor também filtra o total.
+        {scope === 'mes' && <> O mensal é uma estimativa da semana multiplicada por {num(weeks)}, sem ajuste por feriados.</>}
+      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented label="Agrupar carga horária" value={view} onChange={setView}
+          options={[{ value: 'professor', label: <><Users className="size-4" />Por professor</> }, { value: 'turma', label: <><GraduationCap className="size-4" />Por turma</> }]} />
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={includeEmpty} onChange={(event) => setIncludeEmpty(event.target.checked)} />Incluir cadastros sem aulas
+        </label>
+      </div>
 
-          <div className="overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin">
-            <table className="table-fixed border-separate border-spacing-0 text-[14px]" style={{ width: 280 + w.classes.length * 250 + 400, minWidth: '100%' }}>
-              <colgroup>
-                <col style={{ width: 280 }} />
-                {w.classes.map((schoolClass) => (
-                  <Fragment key={schoolClass.id}>
-                    <col style={{ width: 150 }} />
-                    <col style={{ width: 100 }} />
-                  </Fragment>
+      {view === 'professor' ? (
+        <div className="flex flex-col gap-3">
+          {rows.map((row) => (
+            <details key={row.teacher.id} className="group overflow-hidden rounded-xl border border-line-strong bg-surface shadow-raise">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-4 p-4 hover:bg-subtle">
+                <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                <div className="min-w-0 flex-1 basis-40">
+                  <h2 className="font-bold text-ink">{row.teacher.name}</h2>
+                  <p className="mt-1 text-xs text-muted">{row.byClass.size} turmas · {row.bySubject.length} disciplinas · toque para detalhar</p>
+                </div>
+                <LoadNumbers count={row.total.lessons * factor} minutesPerTime={paidMinutes} />
+              </summary>
+              <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-semibold">Disciplinas de {row.teacher.name}</h3>
+                  <Link to={`/imprimir/professor/${row.teacher.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm font-semibold">
+                    <Printer className="size-4" />Imprimir semana do professor
+                  </Link>
+                </div>
+                {row.bySubject.map((subject) => (
+                  <div key={subject.subjectId ?? 'none'} className="rounded-lg border border-line bg-surface p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h4 className="font-semibold">{subjectName(subject.subjectId)}</h4>
+                      <LoadNumbers count={subject.total.lessons * factor} minutesPerTime={paidMinutes} compact />
+                    </div>
+                    <ul className="mt-3 divide-y divide-line border-t border-line">
+                      {[...subject.byClass].map(([id, load]) => (
+                        <li key={id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                          <span className="min-w-0 flex-1 basis-48 break-words text-ink-2">{className(id)}</span>
+                          <LoadNumbers count={load.lessons * factor} minutesPerTime={paidMinutes} compact />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-                <col style={{ width: 140 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 140 }} />
-              </colgroup>
-              <caption className="sr-only">Carga horária por professor e turma, com totais por semana e por mês</caption>
-              <thead>
-                <tr>
-                  <th rowSpan={2} scope="col" className="sticky left-0 z-10 w-[280px] bg-nav px-4 py-3 text-left align-bottom text-[13px] font-bold text-white">
-                    Professor
-                  </th>
-                  <th colSpan={w.classes.length * 2} scope="colgroup" className="border-l border-nav-line bg-nav px-3 pt-3 pb-1.5 text-center text-xs font-bold tracking-wide text-nav-text uppercase">
-                    Tempos e minutos pagos por semana em cada turma
-                  </th>
-                  <th colSpan={3} scope="colgroup" className="border-l-4 border-canvas bg-brand px-3 pt-3 pb-1.5 text-center text-xs font-extrabold tracking-wide text-ink uppercase">
-                    Total do professor
-                  </th>
-                </tr>
-                <tr>
-                  {w.classes.map((c) => (
-                    <Fragment key={c.id}><th scope="col" className="min-w-[84px] border-l border-nav-line bg-nav px-2 pt-1 pb-3 text-center">
-                      <Link to={`/horarios/montar/turma/${c.id}`} className="line-clamp-3 text-[13px] leading-snug font-bold text-white hover:text-brand hover:underline" title={`Montar o quadro da ${c.name}`}>
-                        {c.name}
-                      </Link>
-                      <span className="block text-[11px] font-semibold text-nav-text">{SHIFT_LABEL[c.shift]} · Tempos</span>
-                    </th><th scope="col" className="min-w-[95px] border-l border-nav-line bg-nav px-2 text-center text-xs text-white">Minutos pagos</th></Fragment>
-                  ))}
-                  <th scope="col" className="min-w-[132px] border-l-4 border-canvas bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
-                    Por semana
-                  </th>
-                  <th scope="col" className="min-w-[120px] border-l border-ink/15 bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
-                    Atribuídas
-                  </th>
-                  <th scope="col" className="min-w-[132px] border-l border-ink/15 bg-brand px-3 pt-1 pb-3 text-center text-[14px] font-bold text-ink">
-                    Por mês
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const expanded = open.has(r.teacher.id);
-                  const zebra = i % 2 === 1 ? 'bg-subtle/60' : 'bg-surface';
-                  return (
-                    <Fragment key={r.teacher.id}>
-                      <tr className="group">
-                        <th scope="row" className={cn('sticky left-0 z-10 border-b border-line px-2 py-0 text-left group-hover:bg-brand-soft', zebra === 'bg-surface' ? 'bg-surface' : 'bg-subtle')}>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => toggle(r.teacher.id)}
-                              aria-expanded={expanded}
-                              disabled={r.bySubject.length === 0}
-                              className="flex min-h-[58px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 text-left disabled:cursor-default"
-                              title={r.bySubject.length ? 'Ver por disciplina' : undefined}
-                            >
-                              {r.bySubject.length ? (
-                                expanded ? <ChevronDown className="size-4 shrink-0 text-ink-2" /> : <ChevronRight className="size-4 shrink-0 text-ink-2" />
-                              ) : (
-                                <span className="size-4 shrink-0" />
-                              )}
-                              <span className="min-w-0">
-                                <span className="block truncate text-[15px] font-bold text-ink">{r.teacher.name}</span>
-                                <span className="block truncate text-xs font-medium text-ink-2">
-                                  {r.teacher.active ? (r.bySubject.length ? r.bySubject.map((s) => subjectName(s.subjectId)).join(', ') : 'Sem aulas') : 'Inativo'}
-                                </span>
-                              </span>
-                            </button>
-                            <Link to={`/imprimir/professor/${r.teacher.id}`} target="_blank" className="grid size-8 shrink-0 place-items-center rounded-md text-ink-2 hover:bg-surface" aria-label={`Imprimir semana de ${r.teacher.name}`} title="Imprimir professor e minutos semanais"><Printer className="size-4" /></Link>
-                            <Link
-                              to={`/horarios/montar/professor/${r.teacher.id}`}
-                              className="grid size-8 shrink-0 place-items-center rounded-md text-ink-2 opacity-0 group-hover:opacity-100 hover:bg-surface hover:text-ink focus-visible:opacity-100"
-                              aria-label={`Montar o quadro de ${r.teacher.name}`}
-                              title="Montar o quadro deste professor"
-                            >
-                              <PencilRuler className="size-4" />
-                            </Link>
-                          </div>
-                        </th>
-                        {w.classes.map((c) => (
-                          <Fragment key={c.id}><td className={cn('border-b border-l border-line text-center group-hover:bg-brand-soft/50', zebra)}>
-                            <CountCell load={r.byClass.get(c.id)} assigned={assignedOf(r.teacher.id, c.id)} />
-                          </td><td className={cn('tabular border-b border-l border-line px-2 text-center', zebra)}>{paid(r.byClass.get(c.id)) || '—'}</td></Fragment>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
+                  <strong>Total de {row.teacher.name} · {periodLabel}</strong>
+                  <LoadNumbers count={row.total.lessons * factor} minutesPerTime={paidMinutes} />
+                </div>
+              </div>
+            </details>
+          ))}
+          {rows.length === 0 && <Card className="p-8 text-center text-muted">Nenhum professor corresponde a este recorte.</Card>}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {visibleClasses.map((schoolClass) => {
+            const total = workload.classTotals.get(schoolClass.id)?.lessons ?? 0;
+            const teachers = workload.rows.filter((row) => row.byClass.has(schoolClass.id));
+            return (
+              <details key={schoolClass.id} className="group overflow-hidden rounded-xl border border-line-strong bg-surface shadow-raise">
+                <summary className="flex cursor-pointer list-none flex-wrap items-center gap-4 p-4 hover:bg-subtle">
+                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                  <div className="min-w-0 flex-1 basis-48"><h2 className="break-words font-bold">{className(schoolClass.id)}</h2>
+                    <p className="mt-1 text-xs text-muted">{teachers.length} professores neste recorte · {SHIFT_LABEL[schoolClass.shift]}</p></div>
+                  <LoadNumbers count={total * factor} minutesPerTime={paidMinutes} />
+                </summary>
+                <div className="flex flex-col gap-3 border-t border-line bg-subtle/50 p-4">
+                  {teachers.map((row) => (
+                    <div key={row.teacher.id} className="rounded-lg border border-line bg-surface p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="font-semibold">{row.teacher.name}</h3>
+                        <LoadNumbers count={(row.byClass.get(schoolClass.id)?.lessons ?? 0) * factor} minutesPerTime={paidMinutes} compact />
+                      </div>
+                      <ul className="mt-2 divide-y divide-line">
+                        {row.bySubject.filter((subject) => subject.byClass.has(schoolClass.id)).map((subject) => (
+                          <li key={subject.subjectId ?? 'none'} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm text-ink-2">
+                            <span>{subjectName(subject.subjectId)}</span>
+                            <LoadNumbers count={(subject.byClass.get(schoolClass.id)?.lessons ?? 0) * factor} minutesPerTime={paidMinutes} compact />
+                          </li>
                         ))}
-                        <td className="border-b border-l-4 border-b-line border-l-canvas bg-brand-soft px-3 py-2">
-                          <span className="tabular block text-center text-[16px] font-extrabold text-ink">{aulas(r.total.lessons)}</span>
-                          <span className="tabular block text-center text-xs font-semibold text-ink-2">{paid(r.total)} min pagos · {formatHours(paid(r.total))}</span>
-                          <span className="mx-auto mt-1 block h-1.5 w-full max-w-[96px] overflow-hidden rounded-full bg-ink/10">
-                            <span className="block h-full rounded-full bg-ink/70" style={{ width: `${(r.total.lessons / maxTotal) * 100}%` }} />
-                          </span>
-                        </td>
-                        <td className="border-b border-l border-line bg-brand-soft px-3 py-2 text-center">
-                          <AssignedTotal placed={r.total.lessons} assigned={assignedOf(r.teacher.id)} />
-                        </td>
-                        <td className="border-b border-l border-line bg-brand-soft px-3 py-2 text-center">
-                          <span className="tabular block text-[16px] font-extrabold text-ink">{aulas(r.total.lessons * weeks)}</span>
-                          <span className="tabular block text-xs font-semibold text-ink-2">{monthHours(r.total)}</span>
-                        </td>
-                      </tr>
-                      {expanded &&
-                        r.bySubject.map((s) => {
-                          const subject = s.subjectId === null ? undefined : data.subjects.find((x) => x.id === s.subjectId);
-                          return (
-                            <tr key={`${r.teacher.id}-${s.subjectId}`} className="text-[13px]">
-                              <th scope="row" className="sticky left-0 z-10 border-b border-line bg-canvas/60 py-2 pr-2 pl-9 text-left font-semibold text-ink-2">
-                                <span className="flex items-center gap-2">
-                                  <span className={cn('size-2.5 shrink-0 rounded-full', subject ? SUBJECT_STYLE[subject.color].dot : 'bg-line-strong')} />
-                                  <span className="truncate">{subjectName(s.subjectId)}</span>
-                                </span>
-                              </th>
-                              {w.classes.map((c) => (
-                                <Fragment key={c.id}><td className="tabular border-b border-l border-line bg-canvas/60 px-2 text-center font-semibold text-ink-2">
-                                  {s.byClass.get(c.id)?.lessons ?? ''}
-                                </td><td className="tabular border-b border-l border-line bg-canvas/60 px-2 text-center">{paid(s.byClass.get(c.id)) || ''}</td></Fragment>
-                              ))}
-                              <td className="tabular border-b border-l-4 border-b-line border-l-canvas bg-canvas/60 px-3 text-center font-bold text-ink">{aulas(s.total.lessons)}<span className="block text-xs">{paid(s.total)} min pagos</span></td>
-                              <td className="border-b border-l border-line bg-canvas/60" />
-                              <td className="tabular border-b border-l border-line bg-canvas/60 px-3 text-center font-bold text-ink">{aulas(s.total.lessons * weeks)}</td>
-                            </tr>
-                          );
-                        })}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row" className="sticky left-0 z-10 bg-ink-2 px-4 py-3 text-left text-white">
-                    <span className="block text-[14px] font-bold">Total da turma</span>
-                    <span className="block text-xs font-medium text-white/70">aulas por semana</span>
-                  </th>
-                  {w.classes.map((c) => {
-                    const t = w.classTotals.get(c.id);
-                    return (
-                      <Fragment key={c.id}><td className="border-l border-white/15 bg-ink-2 px-2 py-3 text-center text-white">
-                        <span className="tabular block text-[16px] font-extrabold">{t?.lessons ?? 0}</span>
-                        <span className="tabular block text-xs font-medium text-white/70">{formatHours(t?.minutes ?? 0)}</span>
-                      </td><td className="border-l border-white/15 bg-ink-2 px-2 text-center font-bold text-white">{paid(t)}</td></Fragment>
-                    );
-                  })}
-                  <td className="border-l-4 border-canvas bg-brand px-3 py-3 text-center text-ink">
-                    <span className="block text-[11px] font-bold tracking-wide uppercase">Escola · semana</span>
-                    <span className="tabular block text-[17px] font-extrabold">{aulas(w.grand.lessons)}</span>
-                    <span className="tabular block text-xs font-semibold">{paid(w.grand)} min pagos</span>
-                  </td>
-                  <td className="border-l border-ink/15 bg-brand px-3 py-3 text-center text-ink">
-                    <span className="block text-[11px] font-bold tracking-wide uppercase">Atribuídas</span>
-                    <span className="tabular block text-[17px] font-extrabold">{assignedGrand ? aulas(assignedGrand) : '—'}</span>
-                    {assignedGrand > 0 && <span className="tabular block text-xs font-semibold">{w.grand.lessons} no quadro</span>}
-                  </td>
-                  <td className="border-l border-ink/15 bg-brand px-3 py-3 text-center text-ink">
-                    <span className="block text-[11px] font-bold tracking-wide uppercase">Escola · mês</span>
-                    <span className="tabular block text-[17px] font-extrabold">{aulas(w.grand.lessons * weeks)}</span>
-                    <span className="tabular block text-xs font-semibold">{monthHours(w.grand)}</span>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </>
+                      </ul>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
+                    <strong>Total desta turma no recorte</strong><LoadNumbers count={total * factor} minutesPerTime={paidMinutes} />
+                  </div>
+                </div>
+              </details>
+            );
+          })}
+          {visibleClasses.length === 0 && <Card className="p-8 text-center text-muted">Nenhuma turma corresponde a este recorte.</Card>}
+        </div>
       )}
     </div>
   );
 }
 
-/**
- * Aulas do professor numa turma: número grande e horas embaixo; vazio quando não dá aula ali.
- * Se o quadro não bate com a atribuição, mostra "2 de 3" em laranja (faltam) ou vermelho (passou).
- */
-function CountCell({ load, assigned }: { load: Load | undefined; assigned: number }) {
-  const n = load?.lessons ?? 0;
-  if (n === 0 && assigned === 0) return <span className="text-[15px] text-line-strong">—</span>;
-  const off = assigned > 0 && n !== assigned;
+function LoadNumbers({ count, minutesPerTime, compact = false }: { count: number; minutesPerTime: number; compact?: boolean }) {
   return (
-    <span
-      className={cn(
-        'inline-flex min-w-[52px] flex-col items-center rounded-lg px-2 py-1 ring-1 ring-inset',
-        !off ? 'bg-brand-soft ring-brand/40' : n < assigned ? 'bg-warning-soft ring-warning/40' : 'bg-danger-soft ring-danger/40',
-      )}
-      title={assigned ? `${n} no quadro de ${assigned} atribuídas por semana` : undefined}
-    >
-      <span className="tabular text-[16px] leading-tight font-extrabold text-ink">{n}</span>
-      {off ? (
-        <span className={cn('tabular text-[11px] font-bold', n < assigned ? 'text-warning' : 'text-danger')}>de {assigned}</span>
-      ) : (
-        <span className="tabular text-[11px] font-semibold text-ink-2">{formatHours(load?.minutes ?? 0)}</span>
-      )}
-    </span>
+    <div className={`flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 tabular ${compact ? 'text-xs' : 'text-sm'}`}>
+      <span><strong className="text-ink">{num(count)}</strong> tempos</span>
+      <span><strong className="text-ink">{num(count * minutesPerTime)}</strong> min pagos</span>
+      <span className="text-muted">{paidHours(count * minutesPerTime)}</span>
+    </div>
   );
 }
 
-/** Total atribuído ao professor comparado com o que já está no quadro. */
-function AssignedTotal({ placed, assigned }: { placed: number; assigned: number }) {
-  if (assigned === 0) return <span className="text-[12.5px] font-semibold text-ink-2">sem atribuição</span>;
-  const missing = assigned - placed;
+function Metric({ label, value, hint, accent = false }: { label: string; value: string; hint: string; accent?: boolean }) {
   return (
-    <>
-      <span className="tabular block text-[16px] font-extrabold text-ink">{aulas(assigned)}</span>
-      <span className={cn('tabular block text-xs font-bold', missing === 0 ? 'text-success' : missing > 0 ? 'text-warning' : 'text-danger')}>
-        {missing === 0 ? '✓ tudo no quadro' : missing > 0 ? `faltam ${missing}` : `${-missing} a mais`}
-      </span>
-    </>
-  );
-}
-
-function Stat({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: boolean }) {
-  return (
-    <Card className={cn('px-4 py-3', accent && 'bg-brand-soft ring-1 ring-brand/50')}>
-      <p className="text-[13px] font-semibold text-ink-2">{label}</p>
-      <p className="tabular mt-0.5 text-2xl font-extrabold text-ink">{value}</p>
-      {hint && <p className="tabular text-xs font-medium text-ink-2">{hint}</p>}
+    <Card className={`p-4 ${accent ? 'bg-brand-soft' : ''}`}>
+      <p className="text-sm font-semibold text-ink-2">{label}</p>
+      <p className="mt-2 text-3xl font-extrabold tabular">{value}</p>
+      <p className="mt-1 text-xs text-muted">{hint}</p>
     </Card>
   );
 }

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronDown, Download, Printer, Users, GraduationCap } from 'lucide-react';
+import { ChevronDown, Download, Printer, Users, GraduationCap, FileText, FileSpreadsheet, Check } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, Combobox, Input, SearchInput, Segmented, useToast } from '@/components/ui';
+import { Button, Card, Combobox, Input, SearchInput, Segmented, Modal, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
 import { computeWorkload, lessonTimeCount, monthWeekdayCounts } from '@shared/workload';
@@ -14,6 +14,7 @@ import { downloadTable } from '@/lib/spreadsheet';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { matches } from '@/lib/text';
 import { errorMessage } from '@/api/client';
+import { downloadWorkloadReport } from '@/lib/workloadReport';
 import { GUIDES } from '@/lib/guides';
 
 type Scope = 'dia' | 'semana' | 'mes';
@@ -54,6 +55,8 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   const weekdayCounts = useMemo(() => monthWeekdayCounts(month, data.settings.enabledDays, data.settings.excludedDates),
     [month, data.settings.enabledDays, data.settings.excludedDates]);
   const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const { data: units = [] } = useUnits();
   const toast = useToast();
 
@@ -84,6 +87,28 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     return schoolClass ? [unitName(schoolClass.unitId), schoolClass.name].filter(Boolean).join(' · ') : 'Turma';
   };
 
+  const exportFilters: [string, string][] = [
+    ['Período', periodLabel],
+    ['Professor', query.trim() || 'Todos os professores'],
+    ['Turma', classId ? className(classId) : 'Todas as turmas'],
+    ['Disciplina', subjectId ? subjectName(subjectId) : 'Todas as disciplinas'],
+    ['Unidade', unitId ? units.find((unit) => unit.id === unitId)?.name ?? unitName(unitId) : 'Todas as unidades disponíveis neste login'],
+    ['Turno', shift === 'todos' ? 'Todos os turnos' : SHIFT_LABEL[shift]],
+  ];
+  async function exportSelected() {
+    if (exportFormat === 'excel') { await exportExcel(); return; }
+    setExporting(true);
+    try {
+      await downloadWorkloadReport({ workload, period: periodLabel, filters: exportFilters, paidMinutes, className, subjectName,
+        calendarNote: scope === 'mes'
+          ? `A grade semanal atual foi aplicada às datas de ${month.split('-').reverse().join('/')}. Dias considerados: ${data.settings.enabledDays.map((day) => `${WEEKDAY_SHORT[day]}: ${weekdayCounts[day]}`).join(', ')}. Datas sem aula cadastradas são descontadas. Não representa um histórico de alterações da grade.`
+          : undefined,
+      });
+      setExportOpen(false);
+    } catch (error) { toast.error('Não foi possível gerar o PDF', errorMessage(error)); }
+    finally { setExporting(false); }
+  }
+
   async function exportExcel() {
     setExporting(true);
     try {
@@ -99,6 +124,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
         ['Professor', 'Turma', 'Disciplina', 'Período', 'Tempos', 'Minutos pagos', 'Horas pagas'],
         details, ['Total do recorte', '', '', periodLabel, workload.grand.lessons,
           workload.grand.lessons * paidMinutes, paidHours(workload.grand.lessons * paidMinutes)]);
+      setExportOpen(false);
     } catch (error) {
       toast.error('Não foi possível exportar', errorMessage(error));
     } finally {
@@ -152,7 +178,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
             }} />
           </label>
           <Button className="ml-auto" icon={<Download className="size-4" />} loading={exporting}
-            onClick={() => void exportExcel()} disabled={workload.grand.lessons === 0}>Exportar este recorte</Button>
+            onClick={() => setExportOpen(true)} disabled={workload.grand.lessons === 0}>Exportar este recorte</Button>
         </div>
       </Card>
 
@@ -271,6 +297,39 @@ function WorkloadView({ data }: { data: ScheduleData }) {
           {visibleClasses.length === 0 && <Card className="p-8 text-center text-muted">Nenhuma turma corresponde a este recorte.</Card>}
         </div>
       )}
+      <Modal open={exportOpen} onClose={() => { if (!exporting) setExportOpen(false); }} size="lg"
+        title="Exportar carga horária" description="Escolha o formato. O arquivo segue exatamente os filtros e o período selecionados na tela."
+        dismissible={!exporting}
+        footer={<><Button disabled={exporting} onClick={() => setExportOpen(false)}>Cancelar</Button>
+          <Button variant="primary" loading={exporting} disabled={workload.grand.lessons === 0} onClick={() => void exportSelected()}>
+            <Download className="size-4" />{exportFormat === 'pdf' ? 'Baixar relatório PDF' : 'Baixar planilha Excel'}
+          </Button></>}>
+        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Formato de exportação">
+          {([
+            { value: 'pdf' as const, label: 'Relatório PDF', Icon: FileText, description: 'Pronto para apresentar, imprimir ou enviar. Inclui resumo, detalhamento e páginas numeradas.', tag: 'Documento estático' },
+            { value: 'excel' as const, label: 'Planilha Excel', Icon: FileSpreadsheet, description: 'Dados organizados em colunas para editar, conferir e trabalhar no Excel.', tag: 'Arquivo .xlsx editável' },
+          ]).map(({ value, label, Icon, description, tag }) => (
+            <button key={value} type="button" role="radio" aria-checked={exportFormat === value} disabled={exporting}
+              onClick={() => setExportFormat(value)} className={`rounded-xl border-2 p-5 text-left transition-colors ${exportFormat === value ? 'border-ink bg-brand-soft' : 'border-line bg-surface hover:bg-subtle'}`}>
+              <div className="mb-4 flex items-center justify-between"><span className="rounded-lg bg-surface p-3"><Icon className="size-7" /></span>
+                <span className={`grid size-6 place-items-center rounded-full border ${exportFormat === value ? 'border-ink bg-ink text-white' : 'border-line-strong'}`}>{exportFormat === value && <Check className="size-4" />}</span></div>
+              <h3 className="text-lg font-bold">{label}</h3><p className="mt-2 text-sm leading-relaxed text-ink-2">{description}</p>
+              <p className="mt-4 text-xs font-semibold text-muted">{tag}</p>
+            </button>
+          ))}
+        </div>
+        <div className="mt-5 rounded-xl border border-line bg-subtle p-4">
+          <h3 className="font-bold">O que será exportado</h3>
+          <dl className="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            {exportFilters.map(([label, value]) => <div key={label}><dt className="text-muted">{label}</dt><dd className="mt-0.5 break-words font-semibold">{value}</dd></div>)}
+          </dl>
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-sm font-semibold">
+            <span>{num(workload.grand.lessons)} tempos</span><span>{num(workload.grand.lessons * paidMinutes)} minutos pagos</span><span>{paidHours(workload.grand.lessons * paidMinutes)}</span>
+          </div>
+          <p className="mt-3 text-xs text-muted">Para mudar o recorte, feche esta janela e ajuste os filtros da tela. Os detalhes recolhidos também entram no arquivo.</p>
+          {workload.grand.lessons === 0 && <p className="mt-2 text-sm text-danger">Não há aulas para exportar com estes filtros.</p>}
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -194,8 +194,8 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               <summary className="flex cursor-pointer list-none flex-wrap items-center gap-4 p-4 hover:bg-subtle">
                 <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
                 <div className="min-w-0 flex-1 basis-40">
-                  <h2 className="font-bold text-ink">{row.teacher.name}</h2>
-                  <p className="mt-1 text-xs text-muted">{row.byClass.size} turmas · {row.bySubject.length} disciplinas · toque para detalhar</p>
+                  <h2 className="text-lg font-bold text-ink">{row.teacher.name}</h2>
+                  <p className="mt-1 text-sm text-muted">{row.byClass.size} turmas · {row.bySubject.length} disciplinas · toque para detalhar</p>
                 </div>
                 <LoadNumbers count={row.total.lessons} minutesPerTime={paidMinutes} />
               </summary>
@@ -209,7 +209,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                 {row.bySubject.map((subject) => (
                   <div key={subject.subjectId ?? 'none'} className="rounded-lg border border-line bg-surface p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h4 className="font-semibold">{subjectName(subject.subjectId)}</h4>
+                      <h4 className="text-base font-semibold">{subjectName(subject.subjectId)}</h4>
                       <LoadNumbers count={subject.total.lessons} minutesPerTime={paidMinutes} compact />
                     </div>
                     <ul className="mt-3 divide-y divide-line border-t border-line">
@@ -240,20 +240,20 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               <details key={schoolClass.id} className="group overflow-hidden rounded-xl border border-line-strong bg-surface shadow-raise">
                 <summary className="flex cursor-pointer list-none flex-wrap items-center gap-4 p-4 hover:bg-subtle">
                   <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
-                  <div className="min-w-0 flex-1 basis-48"><h2 className="break-words font-bold">{className(schoolClass.id)}</h2>
-                    <p className="mt-1 text-xs text-muted">{teachers.length} professores neste recorte · {SHIFT_LABEL[schoolClass.shift]}</p></div>
+                  <div className="min-w-0 flex-1 basis-48"><h2 className="break-words text-lg font-bold">{className(schoolClass.id)}</h2>
+                    <p className="mt-1 text-sm text-muted">{teachers.length} professores neste recorte · {SHIFT_LABEL[schoolClass.shift]}</p></div>
                   <LoadNumbers count={total} minutesPerTime={paidMinutes} />
                 </summary>
                 <div className="flex flex-col gap-3 border-t border-line bg-subtle/50 p-4">
                   {teachers.map((row) => (
                     <div key={row.teacher.id} className="rounded-lg border border-line bg-surface p-3">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="font-semibold">{row.teacher.name}</h3>
+                        <h3 className="text-base font-semibold">{row.teacher.name}</h3>
                         <LoadNumbers count={(row.byClass.get(schoolClass.id)?.lessons ?? 0)} minutesPerTime={paidMinutes} compact />
                       </div>
                       <ul className="mt-2 divide-y divide-line">
                         {row.bySubject.filter((subject) => subject.byClass.has(schoolClass.id)).map((subject) => (
-                          <li key={subject.subjectId ?? 'none'} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm text-ink-2">
+                          <li key={subject.subjectId ?? 'none'} className="flex flex-wrap items-center justify-between gap-2 py-2 text-base text-ink-2">
                             <span>{subjectName(subject.subjectId)}</span>
                             <LoadNumbers count={(subject.byClass.get(schoolClass.id)?.lessons ?? 0)} minutesPerTime={paidMinutes} compact />
                           </li>
@@ -277,7 +277,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
 
 function LoadNumbers({ count, minutesPerTime, compact = false }: { count: number; minutesPerTime: number; compact?: boolean }) {
   return (
-    <div className={`flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 tabular ${compact ? 'text-xs' : 'text-sm'}`}>
+    <div className={`flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 tabular ${compact ? 'text-sm' : 'text-base'}`}>
       <span><strong className="text-ink">{num(count)}</strong> tempos</span>
       <span><strong className="text-ink">{num(count * minutesPerTime)}</strong> min pagos</span>
       <span className="text-muted">{paidHours(count * minutesPerTime)}</span>

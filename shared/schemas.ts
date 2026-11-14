@@ -215,6 +215,8 @@ export type PeriodsReplaceInput = z.output<typeof periodsReplaceSchema>;
 export const shiftParamSchema = z.enum(SHIFT_KEYS);
 
 export const settingsSchema = z.object({
+  excludedDates: z.array(z.iso.date()).max(3660)
+    .transform((dates) => [...new Set(dates)].sort()).optional(),
   enabledDays: z
     .array(weekday)
     .min(1, { error: 'Habilite pelo menos um dia da semana.' })

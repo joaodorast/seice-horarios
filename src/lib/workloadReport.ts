@@ -113,7 +113,16 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
   return doc;
 }
 
+/** Nome comum para PDF e Excel; sem caracteres inválidos em nomes de arquivos. */
+export function workloadReportFileName(workload: Workload, period: string, date = new Date()) {
+  const teachers = workload.rows.filter((row) => row.total.lessons > 0);
+  const owner = teachers.length === 1 ? teachers[0].teacher.name : `${teachers.length}-professores`;
+  const clean = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/[. -]+$/, '').slice(0, 90);
+  const issued = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+  return `SEICE-Carga-horaria-${clean(owner)}-${clean(period)}-${issued}`;
+}
+
 export async function downloadWorkloadReport(input: WorkloadReportInput) {
   const doc = await createWorkloadReport(input);
-  doc.save(`SEICE-carga-horaria-${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`${workloadReportFileName(input.workload, input.period)}.pdf`);
 }

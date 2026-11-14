@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ChevronDown, Download, Printer, Users, GraduationCap, FileText, FileSpreadsheet, Check } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, Combobox, Input, Segmented, Modal, useToast } from '@/components/ui';
+import { Button, Card, Input, Segmented, Modal, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
 import { computeWorkload, lessonTimeCount, monthWeekdayCounts } from '@shared/workload';
@@ -14,6 +14,7 @@ import { downloadTable } from '@/lib/spreadsheet';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { errorMessage } from '@/api/client';
 import { downloadWorkloadReport } from '@/lib/workloadReport';
+import { ReportSelection } from '@/features/reports/ReportSelection';
 import { GUIDES } from '@/lib/guides';
 
 type Scope = 'dia' | 'semana' | 'mes';
@@ -37,13 +38,13 @@ export function WorkloadPage() {
 }
 
 function WorkloadView({ data }: { data: ScheduleData }) {
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [teacherIds, setTeacherIds] = useState<number[] | null>(null);
   const [view, setView] = useState<View>('professor');
   const [scope, setScope] = useState<Scope>('semana');
   const [day, setDay] = useState<Weekday>(data.settings.enabledDays[0] ?? 1);
-  const [classId, setClassId] = useState<number | null>(null);
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const [unitId, setUnitId] = useState<number | null>(null);
+  const [classIds, setClassIds] = useState<number[] | null>(null);
+  const [subjectIds, setSubjectIds] = useState<number[] | null>(null);
+  const [unitIds, setUnitIds] = useState<number[] | null>(null);
   const [shift, setShift] = useState<ClassShift | 'todos'>('todos');
   const [includeEmpty, setIncludeEmpty] = useState(false);
   const [paidMinutes, setPaidMinutes] = useLocalStorage('seice:paid-minutes', data.settings.lessonDuration);
@@ -60,20 +61,20 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   const toast = useToast();
 
   const workload = useMemo(() => {
-    const teachers = data.teachers.filter((teacher) => !teacherId || teacher.id === teacherId);
+    const teachers = data.teachers.filter((teacher) => teacherIds === null || teacherIds.includes(teacher.id));
     const classes = data.classes.filter((schoolClass) =>
-      (!classId || schoolClass.id === classId)
-      && (!unitId || schoolClass.unitId === unitId)
+      (classIds === null || classIds.includes(schoolClass.id))
+      && (unitIds === null || (schoolClass.unitId !== undefined && unitIds.includes(schoolClass.unitId)))
       && (shift === 'todos' || schoolClass.shift === shift),
     );
     const lessons = data.lessons.filter((lesson) =>
       (scope !== 'dia' || lesson.weekday === day)
-      && (!subjectId || lesson.subjectId === subjectId),
+      && (subjectIds === null || (lesson.subjectId !== null && subjectIds.includes(lesson.subjectId))),
     );
     return computeWorkload(lessons, teachers, classes, undefined,
       (lesson) => lessonTimeCount(lesson, data.periods, data.classes),
       (lesson) => scope === 'mes' ? weekdayCounts[lesson.weekday] : 1);
-  }, [data, teacherId, classId, unitId, shift, scope, day, subjectId, weekdayCounts]);
+  }, [data, teacherIds, classIds, unitIds, shift, scope, day, subjectIds, weekdayCounts]);
 
   const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Calendário de ${month.split('-').reverse().join('/')}` : 'Semana completa';
   const rows = workload.rows.filter((row) => includeEmpty || row.total.lessons > 0);
@@ -86,33 +87,26 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     return schoolClass ? [unitName(schoolClass.unitId), schoolClass.name].filter(Boolean).join(' · ') : 'Turma';
   };
 
+  const selectionText = (ids: number[] | null, all: string, nameOf: (id: number) => string) => ids === null ? all : ids.length ? ids.map(nameOf).join('; ') : 'Nenhum selecionado';
   const exportFilters: [string, string][] = [
     ['Período', periodLabel],
-    ['Professor', teacherId ? data.teachers.find((teacher) => teacher.id === teacherId)?.name ?? 'Professor selecionado' : 'Todos os professores'],
-    ['Turma', classId ? className(classId) : 'Todas as turmas'],
-    ['Disciplina', subjectId ? subjectName(subjectId) : 'Todas as disciplinas'],
-    ['Unidade', unitId ? units.find((unit) => unit.id === unitId)?.name ?? unitName(unitId) : 'Todas as unidades disponíveis neste login'],
+    ['Professores', selectionText(teacherIds,'Todos os professores', (id) => data.teachers.find((teacher) => teacher.id === id)?.name ?? 'Professor')],
+    ['Turmas', selectionText(classIds,'Todas as turmas',className)],
+    ['Disciplinas', selectionText(subjectIds,'Todas as disciplinas',subjectName)],
+    ['Unidades', selectionText(unitIds,'Todas as unidades disponíveis neste login',(id) => units.find((unit) => unit.id === id)?.name ?? unitName(id))],
     ['Turno', shift === 'todos' ? 'Todos os turnos' : SHIFT_LABEL[shift]],
   ];
-  function clearFilters() { setTeacherId(null); setClassId(null); setSubjectId(null); setUnitId(null); setShift('todos'); }
+  function clearFilters() { setTeacherIds(null);setClassIds(null);setSubjectIds(null);setUnitIds(null);setShift('todos'); }
   function filterFields(location: 'page' | 'export') {
     return <div className={`grid min-w-0 gap-4 sm:grid-cols-2 ${location === 'page' ? 'xl:grid-cols-4' : ''}`}>
-      <div className="min-w-0"><label htmlFor={`${location}-teacher`} className="mb-1 block text-sm font-semibold">Professor</label>
-        <Combobox id={`${location}-teacher`} value={teacherId} onChange={setTeacherId} clearable placeholder="Todos os professores" disabled={exporting}
-          options={data.teachers.map((teacher) => ({value:teacher.id,label:teacher.name,description:teacher.code ? `Matrícula ${teacher.code}` : undefined}))} />
-      </div>
-      <div className="min-w-0"><label htmlFor={`${location}-class`} className="mb-1 block text-sm font-semibold">Turma</label>
-        <Combobox id={`${location}-class`} value={classId} onChange={setClassId} clearable placeholder="Todas as turmas" disabled={exporting}
-          options={data.classes.filter((item) => !unitId || item.unitId === unitId).map((item) => ({value:item.id,label:className(item.id)}))} />
-      </div>
-      <div className="min-w-0"><label htmlFor={`${location}-subject`} className="mb-1 block text-sm font-semibold">Disciplina</label>
-        <Combobox id={`${location}-subject`} value={subjectId} onChange={setSubjectId} clearable placeholder="Todas as disciplinas" disabled={exporting}
-          options={data.subjects.map((item) => ({value:item.id,label:item.name}))} />
-      </div>
-      <div className="min-w-0"><label htmlFor={`${location}-unit`} className="mb-1 block text-sm font-semibold">Unidade</label>
-        <Combobox id={`${location}-unit`} value={unitId} onChange={(value) => {setUnitId(value);setClassId(null);}} clearable placeholder="Todas as unidades" disabled={exporting}
-          options={units.map((unit) => ({value:unit.id,label:`${unit.code} · ${unit.name}`}))} />
-      </div>
+      <ReportSelection label="Professores" allLabel="Todos os professores" value={teacherIds} onChange={setTeacherIds} disabled={exporting}
+        options={data.teachers.map((teacher) => ({value:teacher.id,label:teacher.name,description:teacher.code ? `Matrícula ${teacher.code}` : undefined}))} />
+      <ReportSelection label="Turmas" allLabel="Todas as turmas" value={classIds} onChange={setClassIds} disabled={exporting}
+        options={data.classes.filter((item) => unitIds === null || (item.unitId !== undefined && unitIds.includes(item.unitId))).map((item) => ({value:item.id,label:className(item.id)}))} />
+      <ReportSelection label="Disciplinas" allLabel="Todas as disciplinas" value={subjectIds} onChange={setSubjectIds} disabled={exporting}
+        options={data.subjects.map((item) => ({value:item.id,label:item.name}))} />
+      <ReportSelection label="Unidades" allLabel="Todas as unidades" value={unitIds} onChange={(value) => {setUnitIds(value);setClassIds(null);}} disabled={exporting}
+        options={units.map((unit) => ({value:unit.id,label:`${unit.code} · ${unit.name}`}))} />
     </div>;
   }
   function periodControls(location: 'page' | 'export') {
@@ -234,7 +228,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold">Disciplinas de {row.teacher.name}</h3>
-                  <Button icon={<Download className="size-4" />} onClick={() => {setTeacherId(row.teacher.id);setExportOpen(true);}}>Exportar este professor</Button>
+                  <Button icon={<Download className="size-4" />} onClick={() => {setTeacherIds([row.teacher.id]);setExportOpen(true);}}>Exportar este professor</Button>
                   <Link to={`/imprimir/professor/${row.teacher.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm font-semibold">
                     <Printer className="size-4" />Imprimir semana do professor
                   </Link>
@@ -318,7 +312,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
             <div><h4 className="mb-2 text-sm font-semibold">Período</h4>{periodControls('export')}</div>
             <div><h4 className="mb-2 text-sm font-semibold">Turno</h4><Segmented label="Turno da exportação" value={shift} onChange={setShift}
               options={[{value:'todos' as const,label:'Todos'}, ...CLASS_SHIFTS.map((value) => ({value,label:SHIFT_LABEL[value]}))]} /></div>
-            <p className="rounded-lg bg-subtle p-3 text-sm leading-relaxed text-muted">Para baixar somente um professor, selecione o nome acima e deixe os demais campos em “Todos”. Estes filtros também atualizam a tela.</p>
+            <p className="rounded-lg bg-subtle p-3 text-sm leading-relaxed text-muted">Use “Todos” para incluir a lista inteira ou “Escolher” para marcar quem entra no arquivo. Você pode selecionar vários nomes e desmarcar os que não deseja. Os outros filtros são combinados.</p>
           </div>
           <div className="min-w-0"><h3 className="mb-3 text-base font-bold">2. Escolha o formato</h3>
         <div className="grid gap-3" role="radiogroup" aria-label="Formato de exportação">

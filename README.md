@@ -94,17 +94,9 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 - **Proteção contra outros sites**: alterações vindas de outra origem são recusadas.
 - Cabeçalhos de segurança (`HSTS`, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) e respostas da API sem cache.
 
-### Usuários
+### Acesso e administração
 
-O usuário administrador da coordenação é **seiceadmin@seice.com**. Para criar outro usuário ou redefinir uma senha (o que também encerra as sessões abertas):
-
-```cmd
-set SEICE_PASSWORD=NovaSenhaForte123
-npm run user:create -- seiceadmin@seice.com "Administração SEICE"
-set SEICE_PASSWORD=
-```
-
-Sem `SEICE_PASSWORD`, uma senha forte é gerada e exibida uma única vez.
+As contas são individuais e concedidas pela administração responsável. Dados de acesso, credenciais e procedimentos de criação ou recuperação de contas são tratados por canal privado, fora desta documentação pública.
 
 ---
 
@@ -163,29 +155,15 @@ As gravações seguem um caminho rápido (uma ida ao banco por linha); se o banc
 
 ## Banco de dados
 
-- **Supabase**, projeto *Provas Seice App* (conta joaodorast), região São Paulo.
+- **Supabase**, com acesso administrativo restrito aos responsáveis técnicos.
 - O SEICE usa **exclusivamente o schema `seice`**: tabelas `teachers`, `teacher_photos`, `teacher_subjects`, `teacher_availability`, `classes`, `subjects`, `periods`, `settings`, `lessons`, `assignments`, `users`, `app_config` e `schema_migrations`. Consulte-as no painel do Supabase em *Table Editor*, escolhendo o schema `seice`.
 - **Convivência com outro sistema no mesmo projeto**: o SEICE não cria nem altera nada fora do schema `seice`, não tem chaves estrangeiras para outros schemas e acessa o banco com um usuário próprio (`seice_app`) que **não tem permissão sobre as tabelas de outros sistemas**, limitado a **5 conexões** e a consultas de no máximo 30 segundos. O schema `seice` não é exposto pela API pública do Supabase.
-- **Migrações** versionadas em `server/migrations.ts`, registradas em `seice.schema_migrations`. Nunca altere uma migração publicada; crie uma nova versão e rode `npm run db:migrate`.
+- **Migrações** versionadas em `server/migrations.ts`, registradas em `seice.schema_migrations`. Nunca altere uma migração publicada; crie uma nova versão.
 - **Backups**: feitos diariamente pelo Supabase, conforme o plano do projeto.
 
-### Configurar o banco do zero
+### Configuração administrativa
 
-```cmd
-copy .env.example .env
-```
-
-1. Gere um token em <https://supabase.com/dashboard/account/tokens> e preencha `SUPABASE_ACCESS_TOKEN` no `.env`.
-2. Em `SUPABASE_PROJECT_REF`, informe o projeto (Project Settings → General → Reference ID) ou deixe em branco para criar um projeto novo chamado `seice-horarios`.
-3. Rode:
-
-```cmd
-npm install
-npm run db:setup
-npm run user:create -- seu-email@seice.com "Seu Nome"
-```
-
-O `db:setup` cria o schema e o usuário `seice_app` com senha aleatória, grava a `DATABASE_URL` no `.env`, aplica as migrações e confere o isolamento. Pode ser executado de novo com segurança (gera uma senha nova para o `seice_app`; atualize a `DATABASE_URL` na Vercel em seguida).
+A configuração do banco e o provisionamento de contas devem ser realizados pelo responsável técnico em ambiente autorizado. Credenciais e instruções operacionais ficam em documentação privada.
 
 ### Variáveis de ambiente
 
@@ -218,7 +196,7 @@ Acesse **http://localhost:5173** e entre com seu e-mail e senha. O computador us
 npm run demo
 ```
 
-Acesse **http://localhost:5180** com `teste@seice.com` / `teste1234`. Os dados são fictícios, ficam em memória e voltam ao original a cada início.
+Acesse **http://localhost:5180** com as credenciais de demonstração exibidas no terminal ao iniciar o ambiente de teste. Os dados são fictícios, ficam em memória e voltam ao original a cada início.
 
 Versão otimizada em um único processo (interface + API) em **http://localhost:3333**:
 
@@ -231,7 +209,7 @@ npm start
 
 ## Publicação na Vercel
 
-O projeto `seice-horarios` (conta joaodorast) está ligado ao repositório do GitHub: **cada `git push` na branch `main` publica automaticamente** em <https://seice-horarios.vercel.app>.
+O projeto `seice-horarios` está ligado ao repositório do GitHub: **cada `git push` na branch `main` publica automaticamente** em <https://seice-horarios.vercel.app>.
 
 Configuração (já feita, em `vercel.json`):
 - build `npm run build`, saída `dist/`;
@@ -247,7 +225,7 @@ Publicar manualmente pelo terminal:
 npx vercel deploy --prod
 ```
 
-**Ao publicar uma versão com migração nova**, rode `npm run db:migrate` antes (a função serverless não aplica migrações, para iniciar mais rápido).
+**Versões com migrações** devem ser publicadas pelo responsável técnico, seguindo o procedimento administrativo privado.
 
 ---
 
@@ -259,9 +237,6 @@ npx vercel deploy --prod
 | `npm run demo` | Ambiente de teste com dados fictícios em http://localhost:5180 |
 | `npm run build` | Verifica os tipos e gera a versão otimizada em `dist\` |
 | `npm start` | Executa a versão otimizada em http://localhost:3333 |
-| `npm run db:setup` | Prepara o banco no Supabase e grava a conexão no `.env` |
-| `npm run db:migrate` | Aplica as migrações pendentes e lista as aplicadas |
-| `npm run user:create -- <email> "<Nome>"` | Cria usuário ou redefine a senha |
 | `npm test` | Roda os testes automatizados |
 | `npm run typecheck` | Verifica os tipos TypeScript |
 
@@ -318,12 +293,12 @@ vercel.json    configuração de build, função, rotas e cabeçalhos da Vercel
 | Sintoma | Causa provável e solução |
 | --- | --- |
 | "Não foi possível acessar o banco de dados na nuvem" | Sem internet ou projeto do Supabase pausado. Verifique a conexão e o status do projeto no painel do Supabase. |
-| Servidor local não inicia: "DATABASE_URL não configurada" | Falta o `.env`. Copie de `.env.example` e rode `npm run db:setup`. |
-| "Acesso bloqueado por excesso de tentativas" | Aguarde 15 minutos ou redefina a senha com `npm run user:create`. |
+| Servidor local não inicia: "DATABASE_URL não configurada" | Falta o `.env`. Solicite a configuração de ambiente ao responsável técnico. |
+| "Acesso bloqueado por excesso de tentativas" | Aguarde 15 minutos ou solicite a recuperação de acesso à administração. |
 | "Sua sessão expirou" | A sessão dura 12 horas; entre novamente. |
 | Planilha `.xls` recusada | Formato antigo do Excel. Use *Salvar como* → `.xlsx` ou CSV. |
 | Colunas não reconhecidas na importação | Associe manualmente na etapa *Colunas* ou baixe o modelo da tela. |
-| Erro 500 na Vercel após publicar | Veja os logs com `npx vercel logs --deployment <url>`; confirme a `DATABASE_URL` em *Settings → Environment Variables* e rode `npm run db:migrate` se houver migração nova. |
+| Erro 500 na Vercel após publicar | Veja os logs com `npx vercel logs --deployment <url>`; confirme a `DATABASE_URL` em *Settings → Environment Variables* e solicite a conferência das migrações ao responsável técnico. |
 
 ---
 

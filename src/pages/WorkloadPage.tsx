@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ChevronDown, Download, Printer, Users, GraduationCap, FileText, FileSpreadsheet, Check } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, Combobox, Input, SearchInput, Segmented, Modal, useToast } from '@/components/ui';
+import { Button, Card, Combobox, Input, Segmented, Modal, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
 import { computeWorkload, lessonTimeCount, monthWeekdayCounts } from '@shared/workload';
@@ -12,7 +12,6 @@ import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
 import { downloadTable } from '@/lib/spreadsheet';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { matches } from '@/lib/text';
 import { errorMessage } from '@/api/client';
 import { downloadWorkloadReport } from '@/lib/workloadReport';
 import { GUIDES } from '@/lib/guides';
@@ -38,7 +37,7 @@ export function WorkloadPage() {
 }
 
 function WorkloadView({ data }: { data: ScheduleData }) {
-  const [query, setQuery] = useState('');
+  const [teacherId, setTeacherId] = useState<number | null>(null);
   const [view, setView] = useState<View>('professor');
   const [scope, setScope] = useState<Scope>('semana');
   const [day, setDay] = useState<Weekday>(data.settings.enabledDays[0] ?? 1);
@@ -61,7 +60,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   const toast = useToast();
 
   const workload = useMemo(() => {
-    const teachers = data.teachers.filter((teacher) => matches([teacher.name, teacher.code ?? ''], query));
+    const teachers = data.teachers.filter((teacher) => !teacherId || teacher.id === teacherId);
     const classes = data.classes.filter((schoolClass) =>
       (!classId || schoolClass.id === classId)
       && (!unitId || schoolClass.unitId === unitId)
@@ -74,7 +73,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     return computeWorkload(lessons, teachers, classes, undefined,
       (lesson) => lessonTimeCount(lesson, data.periods, data.classes),
       (lesson) => scope === 'mes' ? weekdayCounts[lesson.weekday] : 1);
-  }, [data, query, classId, unitId, shift, scope, day, subjectId, weekdayCounts]);
+  }, [data, teacherId, classId, unitId, shift, scope, day, subjectId, weekdayCounts]);
 
   const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Calendário de ${month.split('-').reverse().join('/')}` : 'Semana completa';
   const rows = workload.rows.filter((row) => includeEmpty || row.total.lessons > 0);
@@ -89,12 +88,47 @@ function WorkloadView({ data }: { data: ScheduleData }) {
 
   const exportFilters: [string, string][] = [
     ['Período', periodLabel],
-    ['Professor', query.trim() || 'Todos os professores'],
+    ['Professor', teacherId ? data.teachers.find((teacher) => teacher.id === teacherId)?.name ?? 'Professor selecionado' : 'Todos os professores'],
     ['Turma', classId ? className(classId) : 'Todas as turmas'],
     ['Disciplina', subjectId ? subjectName(subjectId) : 'Todas as disciplinas'],
     ['Unidade', unitId ? units.find((unit) => unit.id === unitId)?.name ?? unitName(unitId) : 'Todas as unidades disponíveis neste login'],
     ['Turno', shift === 'todos' ? 'Todos os turnos' : SHIFT_LABEL[shift]],
   ];
+  function clearFilters() { setTeacherId(null); setClassId(null); setSubjectId(null); setUnitId(null); setShift('todos'); }
+  function filterFields(location: 'page' | 'export') {
+    return <div className={`grid min-w-0 gap-4 sm:grid-cols-2 ${location === 'page' ? 'xl:grid-cols-4' : ''}`}>
+      <div className="min-w-0"><label htmlFor={`${location}-teacher`} className="mb-1 block text-sm font-semibold">Professor</label>
+        <Combobox id={`${location}-teacher`} value={teacherId} onChange={setTeacherId} clearable placeholder="Todos os professores" disabled={exporting}
+          options={data.teachers.map((teacher) => ({value:teacher.id,label:teacher.name,description:teacher.code ? `Matrícula ${teacher.code}` : undefined}))} />
+      </div>
+      <div className="min-w-0"><label htmlFor={`${location}-class`} className="mb-1 block text-sm font-semibold">Turma</label>
+        <Combobox id={`${location}-class`} value={classId} onChange={setClassId} clearable placeholder="Todas as turmas" disabled={exporting}
+          options={data.classes.filter((item) => !unitId || item.unitId === unitId).map((item) => ({value:item.id,label:className(item.id)}))} />
+      </div>
+      <div className="min-w-0"><label htmlFor={`${location}-subject`} className="mb-1 block text-sm font-semibold">Disciplina</label>
+        <Combobox id={`${location}-subject`} value={subjectId} onChange={setSubjectId} clearable placeholder="Todas as disciplinas" disabled={exporting}
+          options={data.subjects.map((item) => ({value:item.id,label:item.name}))} />
+      </div>
+      <div className="min-w-0"><label htmlFor={`${location}-unit`} className="mb-1 block text-sm font-semibold">Unidade</label>
+        <Combobox id={`${location}-unit`} value={unitId} onChange={(value) => {setUnitId(value);setClassId(null);}} clearable placeholder="Todas as unidades" disabled={exporting}
+          options={units.map((unit) => ({value:unit.id,label:`${unit.code} · ${unit.name}`}))} />
+      </div>
+    </div>;
+  }
+  function periodControls(location: 'page' | 'export') {
+    return <div className="flex flex-wrap items-center gap-3">
+      <Segmented size="lg" label={location === 'page' ? 'Período do cálculo' : 'Período da exportação'} value={scope} onChange={setScope}
+        className="border border-line-strong [&_[aria-checked=true]]:bg-ink [&_[aria-checked=true]]:text-white"
+        options={[{value:'dia',label:'Diário'},{value:'semana',label:'Semanal'},{value:'mes',label:'Mensal'}]} />
+      {scope === 'dia' && <Segmented label="Dia do cálculo" value={day} onChange={setDay}
+        options={data.settings.enabledDays.map((value) => ({value,label:WEEKDAY_SHORT[value]}))} />}
+      {scope === 'mes' && <label className="text-sm font-semibold" htmlFor={`${location}-month`}>Mês do calendário
+        <Input id={`${location}-month`} type="month" min="1000-01" max="9999-12" value={month} onChange={(event) => {
+          if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value);
+        }} /></label>}
+    </div>;
+  }
+
   async function exportSelected() {
     if (exportFormat === 'excel') { await exportExcel(); return; }
     setExporting(true);
@@ -136,40 +170,12 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     <div className="flex flex-col gap-5">
       <Card className="flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Segmented label="Período do cálculo" value={scope} onChange={setScope}
-            options={[{ value: 'dia', label: 'Diário' }, { value: 'semana', label: 'Semanal' }, { value: 'mes', label: 'Mensal' }]} />
-          {scope === 'dia' && (
-            <Segmented label="Dia do cálculo" value={day} onChange={setDay}
-              options={data.settings.enabledDays.map((value) => ({ value, label: WEEKDAY_SHORT[value] }))} />
-          )}
-          {scope === 'mes' && (
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              Mês do calendário
-              <Input aria-label="Mês do calendário" type="month" min="1000-01" max="9999-12" value={month} onChange={(event) => {
-                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value);
-              }} />
-            </label>
-          )}
+          <div><h2 className="mb-2 text-sm font-bold">Período do cálculo</h2>{periodControls('page')}</div>
+          <Button variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
         </div>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <label className="min-w-0 text-xs font-semibold text-muted">Professor
-            <SearchInput value={query} onChange={setQuery} placeholder="Nome ou matrícula" className="mt-1 w-full" />
-          </label>
-          <label className="min-w-0 text-xs font-semibold text-muted">Turma
-            <Combobox value={classId} onChange={setClassId} clearable placeholder="Todas as turmas"
-              options={data.classes.filter((item) => !unitId || item.unitId === unitId).map((item) => ({ value: item.id, label: className(item.id) }))} />
-          </label>
-          <label className="min-w-0 text-xs font-semibold text-muted">Disciplina
-            <Combobox value={subjectId} onChange={setSubjectId} clearable placeholder="Todas as disciplinas"
-              options={data.subjects.map((item) => ({ value: item.id, label: item.name }))} />
-          </label>
-          <label className="min-w-0 text-xs font-semibold text-muted">Unidade
-            <Combobox value={unitId} onChange={(value) => { setUnitId(value); setClassId(null); }} clearable placeholder="Todas as unidades"
-              options={units.map((unit) => ({ value: unit.id, label: `${unit.code} · ${unit.name}` }))} />
-          </label>
-        </div>
+        {filterFields('page')}
         <div className="flex flex-wrap items-center gap-4 border-t border-line pt-3">
-          <Segmented label="Turno do cálculo" value={shift} onChange={setShift}
+          <Segmented size="lg" className="border border-line-strong [&_[aria-checked=true]]:bg-ink [&_[aria-checked=true]]:text-white" label="Turno do cálculo" value={shift} onChange={setShift}
             options={[{ value: 'todos' as const, label: 'Todos os turnos' }, ...CLASS_SHIFTS.map((value) => ({ value, label: SHIFT_LABEL[value] }))]} />
           <label className="flex items-center gap-2 text-sm text-ink-2">Minutos pagos por tempo
             <Input type="number" min={1} max={180} value={paidMinutes} className="w-20" onChange={(event) => {
@@ -177,8 +183,8 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               if (Number.isInteger(value) && value >= 1 && value <= 180) setPaidMinutes(value);
             }} />
           </label>
-          <Button className="ml-auto" icon={<Download className="size-4" />} loading={exporting}
-            onClick={() => setExportOpen(true)} disabled={workload.grand.lessons === 0}>Exportar este recorte</Button>
+          <Button variant="primary" size="lg" className="ml-auto w-full sm:w-auto" icon={<Download className="size-5" />} loading={exporting}
+            onClick={() => setExportOpen(true)}>Baixar PDF ou Excel</Button>
         </div>
       </Card>
 
@@ -189,7 +195,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
           hint={`${workload.rows.filter((row) => row.total.lessons > 0).length} professores com aulas`} />
       </div>
       <p className="text-sm leading-relaxed text-ink-2">
-        Todos os totais abaixo consideram os mesmos filtros. A busca por professor também filtra o total.
+        Todos os totais abaixo consideram os mesmos filtros. A seleção de professor também filtra o total.
         {scope === 'mes' && <> O mensal aplica a grade semanal atual às datas reais do mês e desconta as datas sem aula registradas pela administração.</>}
       </p>
       {scope === 'mes' && (
@@ -228,6 +234,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold">Disciplinas de {row.teacher.name}</h3>
+                  <Button icon={<Download className="size-4" />} onClick={() => {setTeacherId(row.teacher.id);setExportOpen(true);}}>Exportar este professor</Button>
                   <Link to={`/imprimir/professor/${row.teacher.id}`} target="_blank" className="inline-flex items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm font-semibold">
                     <Printer className="size-4" />Imprimir semana do professor
                   </Link>
@@ -297,38 +304,48 @@ function WorkloadView({ data }: { data: ScheduleData }) {
           {visibleClasses.length === 0 && <Card className="p-8 text-center text-muted">Nenhuma turma corresponde a este recorte.</Card>}
         </div>
       )}
-      <Modal open={exportOpen} onClose={() => { if (!exporting) setExportOpen(false); }} size="lg"
-        title="Exportar carga horária" description="Escolha o formato. O arquivo segue exatamente os filtros e o período selecionados na tela."
+      <Modal open={exportOpen} onClose={() => { if (!exporting) setExportOpen(false); }} size="xl"
+        title="Baixar PDF ou Excel" description="Escolha um professor, uma turma ou combine filtros. Os totais são atualizados na hora."
         dismissible={!exporting}
         footer={<><Button disabled={exporting} onClick={() => setExportOpen(false)}>Cancelar</Button>
           <Button variant="primary" loading={exporting} disabled={workload.grand.lessons === 0} onClick={() => void exportSelected()}>
             <Download className="size-4" />{exportFormat === 'pdf' ? 'Baixar relatório PDF' : 'Baixar planilha Excel'}
           </Button></>}>
-        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Formato de exportação">
+        <fieldset disabled={exporting} className="grid min-w-0 gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <div className="min-w-0 space-y-5">
+            <div className="flex items-center justify-between gap-2"><h3 className="text-base font-bold">1. Escolha o que exportar</h3><Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button></div>
+            {filterFields('export')}
+            <div><h4 className="mb-2 text-sm font-semibold">Período</h4>{periodControls('export')}</div>
+            <div><h4 className="mb-2 text-sm font-semibold">Turno</h4><Segmented label="Turno da exportação" value={shift} onChange={setShift}
+              options={[{value:'todos' as const,label:'Todos'}, ...CLASS_SHIFTS.map((value) => ({value,label:SHIFT_LABEL[value]}))]} /></div>
+            <p className="rounded-lg bg-subtle p-3 text-sm leading-relaxed text-muted">Para baixar somente um professor, selecione o nome acima e deixe os demais campos em “Todos”. Estes filtros também atualizam a tela.</p>
+          </div>
+          <div className="min-w-0"><h3 className="mb-3 text-base font-bold">2. Escolha o formato</h3>
+        <div className="grid gap-3" role="radiogroup" aria-label="Formato de exportação">
           {([
-            { value: 'pdf' as const, label: 'Relatório PDF', Icon: FileText, description: 'Pronto para apresentar, imprimir ou enviar. Inclui resumo, detalhamento e páginas numeradas.', tag: 'Documento estático' },
+            { value: 'pdf' as const, label: 'Relatório PDF', Icon: FileText, description: 'Padrão SEICE, com logotipo, resumos, detalhamento e páginas numeradas.', tag: 'Documento estático' },
             { value: 'excel' as const, label: 'Planilha Excel', Icon: FileSpreadsheet, description: 'Dados organizados em colunas para editar, conferir e trabalhar no Excel.', tag: 'Arquivo .xlsx editável' },
           ]).map(({ value, label, Icon, description, tag }) => (
             <button key={value} type="button" role="radio" aria-checked={exportFormat === value} disabled={exporting}
-              onClick={() => setExportFormat(value)} className={`rounded-xl border-2 p-5 text-left transition-colors ${exportFormat === value ? 'border-ink bg-brand-soft' : 'border-line bg-surface hover:bg-subtle'}`}>
-              <div className="mb-4 flex items-center justify-between"><span className="rounded-lg bg-surface p-3"><Icon className="size-7" /></span>
+              onClick={() => setExportFormat(value)} className={`rounded-xl border-2 p-4 text-left transition-colors ${exportFormat === value ? 'border-ink bg-brand-soft' : 'border-line bg-surface hover:bg-subtle'}`}>
+              <div className="mb-2 flex items-center justify-between"><span className="rounded-lg bg-surface p-2"><Icon className="size-5" /></span>
                 <span className={`grid size-6 place-items-center rounded-full border ${exportFormat === value ? 'border-ink bg-ink text-white' : 'border-line-strong'}`}>{exportFormat === value && <Check className="size-4" />}</span></div>
-              <h3 className="text-lg font-bold">{label}</h3><p className="mt-2 text-sm leading-relaxed text-ink-2">{description}</p>
-              <p className="mt-4 text-xs font-semibold text-muted">{tag}</p>
+              <h3 className="text-base font-bold">{label}</h3><p className="mt-2 text-sm leading-relaxed text-ink-2">{description}</p>
+              <p className="mt-2 text-xs font-semibold text-muted">{tag}</p>
             </button>
           ))}
         </div>
         <div className="mt-5 rounded-xl border border-line bg-subtle p-4">
           <h3 className="font-bold">O que será exportado</h3>
-          <dl className="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            {exportFilters.map(([label, value]) => <div key={label}><dt className="text-muted">{label}</dt><dd className="mt-0.5 break-words font-semibold">{value}</dd></div>)}
-          </dl>
+          <p className="mt-2 text-sm text-muted">{periodLabel}</p>
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3 text-sm font-semibold">
             <span>{num(workload.grand.lessons)} tempos</span><span>{num(workload.grand.lessons * paidMinutes)} minutos pagos</span><span>{paidHours(workload.grand.lessons * paidMinutes)}</span>
           </div>
-          <p className="mt-3 text-xs text-muted">Para mudar o recorte, feche esta janela e ajuste os filtros da tela. Os detalhes recolhidos também entram no arquivo.</p>
+          <p className="mt-3 text-xs text-muted">O arquivo inclui todos os detalhes deste recorte, mesmo os recolhidos na tela.</p>
           {workload.grand.lessons === 0 && <p className="mt-2 text-sm text-danger">Não há aulas para exportar com estes filtros.</p>}
         </div>
+          </div>
+        </fieldset>
       </Modal>
     </div>
   );

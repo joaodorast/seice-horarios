@@ -154,7 +154,16 @@ describe('API SEICE', () => {
   it('valida configurações', async () => {
     expect((await call('PUT', '/settings', { enabledDays: [], enabledShifts: ['manha'], lessonDuration: 50 })).status).toBe(422);
     const ok = await call('PUT', '/settings', { enabledDays: [6, 1, 2], enabledShifts: ['tarde', 'manha'], lessonDuration: 45 });
-    expect(ok.body).toEqual({ enabledDays: [1, 2, 6], enabledShifts: ['manha', 'tarde'], lessonDuration: 45 });
+    expect(ok.body).toEqual({ enabledDays: [1, 2, 6], enabledShifts: ['manha', 'tarde'], lessonDuration: 45, excludedDates: [] });
+  });
+
+  it('salva datas sem aula e preserva em clientes antigos', async () => {
+    const base = {enabledDays:[1,2,3,4,5], enabledShifts:['manha'], lessonDuration:50};
+    expect((await call('PUT','/settings',{...base,excludedDates:['2027-02-30']})).status).toBe(422);
+    const saved = await call('PUT','/settings',{...base,excludedDates:['2027-03-01','2027-03-01']});
+    expect(saved.body.excludedDates).toEqual(['2027-03-01']);
+    expect((await call('PUT','/settings',base)).body.excludedDates).toEqual(['2027-03-01']);
+    await call('PUT','/settings',{...base,excludedDates:[]});
   });
 
   it('lê vários conjuntos de dados numa única requisição', async () => {

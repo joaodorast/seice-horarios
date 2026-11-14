@@ -69,9 +69,9 @@ export const GUIDES = {
     { title: 'Salve de uma vez', text: 'Os horários alterados ficam destacados. Clique em "Salvar quadro" no rodapé para gravar tudo, ou em "Descartar" para voltar como estava.' },
   ],
   workload: [
-    { title: 'Escolha o recorte', text: 'Consulte um dia, uma semana ou uma estimativa mensal. Filtre por professor, turma, unidade e disciplina. Todos os totais acompanham os filtros.' },
+    { title: 'Escolha o recorte', text: 'Consulte um dia, uma semana ou um mês do calendário. Filtre por professor, turma, unidade e disciplina. Todos os totais acompanham os filtros.' },
     { title: 'Separe os totais', text: 'Na visão por professor, abra o nome para conferir cada disciplina. Na visão por turma, abra a turma para conferir a contribuição de cada professor.' },
-    { title: 'Confira e exporte', text: 'Minutos pagos são os tempos multiplicados pela duração informada. O mês usa o número de semanas escolhido. A exportação contém as linhas de detalhe e o total do recorte.' },
+    { title: 'Confira e exporte', text: 'Minutos pagos são os tempos multiplicados pela duração informada. O mês conta os dias letivos reais e desconta as datas sem aula cadastradas. A exportação contém as linhas de detalhe e o total do recorte.' },
   ],
   settings: [
     { title: 'Calendário e turnos', text: 'Marque os dias letivos e os turnos em que a escola funciona.' },

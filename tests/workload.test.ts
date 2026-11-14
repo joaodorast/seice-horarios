@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeWorkload, lessonTimeCount } from '../shared/workload.js';
+import { computeWorkload, lessonTimeCount, monthWeekdayCounts } from '../shared/workload.js';
 import type { Lesson, Period, SchoolClass, Teacher } from '../shared/types.js';
 
 const ts = '2026-01-01T00:00:00.000Z';
@@ -105,5 +105,25 @@ describe('totais do professor e da turma no mesmo recorte', () => {
     expect(daily.grand.lessons * 50).toBe(200);
     expect(workload.grand.lessons * 4).toBe(80);
     expect(workload.grand.lessons * 4 * 50).toBe(4000);
+  });
+});
+
+
+describe('cálculo pelo calendário mensal', () => {
+  it('conta as ocorrências reais e desconta datas sem aula sem duplicar exclusões', () => {
+    expect(monthWeekdayCounts('2027-03', [1,2,3,4,5])).toEqual({1:5,2:5,3:5,4:4,5:4,6:0});
+    expect(monthWeekdayCounts('2027-03', [1,2,3,4,5], ['2027-03-01','2027-03-01','2027-04-01'])[1]).toBe(4);
+    expect(monthWeekdayCounts('2027-13', [1])).toEqual({1:0,2:0,3:0,4:0,5:0,6:0});
+    expect(monthWeekdayCounts('2028-02', [1,2,3,4,5])[2]).toBe(5);
+  });
+  it('soma professor, disciplina e turma usando as datas do mês', () => {
+    const lessons = Array.from({length:20}, (_, i) => ({...lesson(1,10,100,'07:30','08:20'), weekday:(i%5+1) as Lesson['weekday']}));
+    const counts = monthWeekdayCounts('2027-03', [1,2,3,4,5]);
+    const workload = computeWorkload(lessons,[teacher(1,'Luana')],[klass(10,'1001')],undefined,()=>1,(l)=>counts[l.weekday]);
+    expect(workload.grand).toEqual({lessons:92,minutes:4600});
+    expect(workload.rows[0].bySubject[0].total).toEqual(workload.grand);
+    expect(workload.classTotals.get(10)).toEqual(workload.grand);
+    const excluded = monthWeekdayCounts('2027-03',[1,2,3,4,5],['2027-03-01']);
+    expect(computeWorkload(lessons,[teacher(1,'Luana')],[klass(10,'1001')],undefined,()=>1,(l)=>excluded[l.weekday]).grand).toEqual({lessons:88,minutes:4400});
   });
 });

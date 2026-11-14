@@ -1,5 +1,6 @@
+import { WeekGrid } from '@/components/schedule/WeekGrid';
 import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { CalendarClock, CalendarRange, Coffee, FilterX, Plus, Printer, X } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
@@ -297,7 +298,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
         </h2>
         <p className="text-[13px] text-muted">
           <strong className="tabular font-semibold text-ink">{visibleCount}</strong> {visibleCount === 1 ? 'aula' : 'aulas'}
-          {!narrowing && (
+          {!narrowing && !week && (
             <>
               {' · '}
               <strong className="tabular font-semibold text-ink">{emptyCount}</strong> {emptyCount === 1 ? 'horário vago' : 'horários vagos'}
@@ -314,7 +315,7 @@ function Overview({ data, index }: { data: ScheduleData; index: ScheduleIndex })
           {' '}<Link to={`/horarios/professor/${teacherId}`} className="font-bold underline underline-offset-2">Ver a semana completa deste professor</Link>
         </p>
       )}
-      {lessonPeriods.length > 0 && rows.length > 0 && <GridLegend variant={week ? 'week' : 'day'} className="-mt-2" />}
+      {!week && lessonPeriods.length > 0 && rows.length > 0 && <GridLegend variant={week ? 'week' : 'day'} className="-mt-2" />}
 
       {lessonPeriods.length === 0 ? (
         <Card>
@@ -433,113 +434,107 @@ function MatrixDesktop({ rows, periods, day, lessons, index, narrowing, classLab
 }
 
 /** Semana inteira em uma tela: horários nas linhas, dias nas colunas e, em cada quadro, uma linha por turma. */
-function WeekMatrix({ rows, periods, days, lessons, index, narrowing, classLabel, showTimes }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
+function WeekMatrix({ rows, periods, days, lessons, index, classLabel, showTimes }: Omit<MatrixProps, 'day'> & { days: Weekday[] }) {
   const actions = useScheduleActions();
+  const [, setParams] = useSearchParams();
+  const [chosenClass, setChosenClass] = useState<number | null>(null);
+  const activeClass = rows.length === 1 ? rows[0] : rows.find((schoolClass) => schoolClass.id === chosenClass);
   const today = new Date().getDay();
-  return (
-    <div className="overflow-x-auto rounded-xl bg-surface shadow-raise ring-1 ring-line-strong scrollbar-thin">
-      <table className="w-full min-w-[900px] table-fixed border-separate border-spacing-0">
-        <caption className="sr-only">Quadro de horários da semana inteira: horários nas linhas e dias nas colunas</caption>
-        <colgroup>
-          <col className="w-[104px]" />
-          {days.map((d) => (
-            <col key={d} />
-          ))}
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col" className="sticky left-0 z-10 bg-nav px-3 py-3 text-left text-xs font-bold tracking-wide text-nav-text uppercase">
-              Tempo
-            </th>
-            {days.map((d) => (
-              <th key={d} scope="col" className={cn('border-l border-nav-line px-3 py-3 text-left text-[14px] font-bold', d === today ? 'bg-brand text-ink' : 'bg-nav text-white')}>
-                <span className="xl:hidden">{WEEKDAY_SHORT[d]}</span>
-                <span className="hidden xl:inline">{WEEKDAY_LABEL[d]}</span>
-                {d === today && <span className="ml-2 text-[11px] font-extrabold uppercase">hoje</span>}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {periods.map((p) =>
-            p.kind === 'intervalo' ? (
-              <tr key={p.id}>
-                <th scope="row" title={`${p.label} ${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-canvas px-3 py-1 text-left text-ink-2">
-                  <Coffee className="size-3.5" aria-hidden="true" />
-                  <span className="sr-only">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
-                </th>
-                <td colSpan={days.length} className="border-b border-l border-line-strong bg-canvas" />
-              </tr>
-            ) : (
-              <tr key={p.id}>
-                <th scope="row" title={`${p.start}–${p.end}`} className="sticky left-0 z-10 border-b border-line-strong bg-subtle px-3 py-2 text-left align-top">
-                  <span className="block text-[14px] font-bold text-ink">{p.label}</span>{showTimes && <span className="block text-xs tabular">{p.start}–{p.end}</span>}
-                </th>
-                {days.map((d) => (
-                  <td key={d} className={cn('border-b border-l border-line-strong p-1.5 align-top', d === today ? 'bg-brand-soft/40' : 'bg-subtle/70')}>
-                    <div className="flex flex-col gap-1">
-                      {rows.map((c) => {
-                        const ls = lessonsInPeriod(lessons.filter((l) => l.classId === c.id), d, p);
-                        if (ls.length === 0) {
-                          if (narrowing) return null;
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              disabled={!c.active}
-                              onClick={() => actions.createLesson({ classId: c.id, weekday: d, start: p.start, end: p.end })}
-                              className="group flex h-[38px] items-center gap-2 rounded-md border border-dashed border-line-strong px-1.5 text-left text-xs text-muted hover:border-ink/40 hover:bg-surface hover:text-ink disabled:pointer-events-none"
-                              aria-label={`Adicionar aula: turma ${classLabel(c)}, ${WEEKDAY_LABEL[d]}, ${p.label}`}
-                            >
-                              <ClassTag name={classLabel(c)} muted />
-                              <span className="font-semibold">vago</span>
-                              <Plus className="ml-auto size-3.5 opacity-0 group-hover:opacity-100" />
-                            </button>
-                          );
-                        }
-                        return ls.map((l) => {
-                          const subject = l.subjectId ? index.subjectById.get(l.subjectId) : undefined;
-                          const style = subject ? SUBJECT_STYLE[subject.color] : undefined;
-                          const teacher = index.teacherById.get(l.teacherId);
-                          const conflict = index.conflictLessonIds.has(l.id);
-                          return (
-                            <button
-                              key={l.id}
-                              type="button"
-                              onClick={() => actions.openLesson(l)}
-                              title={`${classLabel(c)} · ${subject?.name ?? 'Sem disciplina'} · ${teacher?.name ?? ''} · ${l.start}–${l.end}`}
-                              className={cn(
-                                'flex min-h-[38px] items-center gap-2 rounded-md px-1.5 py-1 text-left ring-1 ring-inset transition-shadow hover:shadow-raise',
-                                style ? `${style.chip} ${style.ring}` : 'bg-surface ring-line-strong',
-                                conflict && 'ring-2 ring-danger',
-                              )}
-                            >
-                              <ClassTag name={classLabel(c)} />
-                              <span className="min-w-0 flex-1 leading-tight">
-                                <span className="block truncate text-[12.5px] font-bold">{subject?.name ?? 'Sem disciplina'}</span>
-                                <span className="block truncate text-[11.5px] font-medium opacity-90">{teacher?.name ?? '—'}</span>
-                              </span>
-                            </button>
-                          );
-                        });
-                      })}
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ),
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+  const rowIds = new Set(rows.map((schoolClass) => schoolClass.id));
+  const scheduled = lessons.filter((lesson) => rowIds.has(lesson.classId)
+    && periods.some((period) => period.kind === 'aula' && period.start < lesson.end && lesson.start < period.end));
+  const withLessons = new Set(scheduled.map((lesson) => lesson.classId)).size;
+  const shortClassName = (schoolClass: SchoolClass) =>
+    classLabel(schoolClass).replace(/-?s*(d{4})s*-s*/g, '').replace(/Ensino Fundamental/gi, 'Fund.').replace(/Ensino Médio/gi, 'Médio');
 
-function ClassTag({ name, muted }: { name: string; muted?: boolean }) {
   return (
-    <span className={cn('grid h-6 min-w-[38px] shrink-0 place-items-center rounded px-1 text-[11.5px] font-extrabold', muted ? 'bg-line text-ink-2' : 'bg-ink-2 text-white')}>
-      {name}
-    </span>
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-4">
+        <div className="min-w-0 flex-1 basis-56">
+          <h3 className="font-bold">{activeClass ? classLabel(activeClass) : 'Agenda da semana'}</h3>
+          <p className="mt-1 text-sm text-muted">
+            {activeClass ? 'Clique em um tempo livre para cadastrar ou em uma aula para editar.' : `${scheduled.length} aulas em ${withLessons} turmas. Escolha uma turma para consultar os tempos livres e montar sua semana.`}
+          </p>
+        </div>
+        <div className="w-full min-w-0 sm:w-80">
+          <Combobox value={activeClass?.id ?? null} onChange={setChosenClass}
+            clearable={rows.length > 1} placeholder="Visão geral de todas as turmas"
+            options={rows.map((schoolClass) => ({ value: schoolClass.id, label: classLabel(schoolClass) }))} />
+        </div>
+      </Card>
+
+      {activeClass ? (
+        <WeekGrid periods={periods} days={days}
+          lessons={scheduled.filter((lesson) => lesson.classId === activeClass.id)}
+          index={index} perspective="class" showDisplayControls={false}
+          caption={`Semana da turma ${classLabel(activeClass)}`}
+          onOpen={actions.openLesson}
+          onCreate={activeClass.active ? (weekday, period) => actions.createLesson({
+            classId: activeClass.id, weekday, start: period.start, end: period.end,
+          }) : undefined} />
+      ) : (
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {days.map((day) => {
+            const dayLessons = scheduled.filter((lesson) => lesson.weekday === day)
+              .sort((a, b) => a.start.localeCompare(b.start) || classLabel(index.classById.get(a.classId)!).localeCompare(classLabel(index.classById.get(b.classId)!)));
+            return (
+              <section key={day} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-line-strong bg-surface shadow-raise">
+                <header className={cn('flex items-center justify-between gap-2 px-3 py-3', day === today ? 'bg-brand text-ink' : 'bg-nav text-white')}>
+                  <h3 className="font-bold text-sm">{WEEKDAY_LABEL[day].replace('-feira', '')}</h3>
+                  <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-semibold">{dayLessons.length} aulas</span>
+                </header>
+                <div className="scrollbar-thin flex max-h-[680px] min-h-40 flex-1 flex-col gap-3 overflow-y-auto p-3">
+                  {periods.map((period) => {
+                    if (period.kind === 'intervalo') {
+                      return <div key={period.id} className="flex items-center gap-2 rounded-lg bg-subtle px-2 py-2 text-xs text-muted">
+                        <Coffee className="size-3.5" />{period.label}
+                        {showTimes && <span>{period.start}–{period.end}</span>}
+                      </div>;
+                    }
+                    // Uma aula dupla é exibida uma vez, com os horários da própria aula.
+                    const slots = dayLessons.filter((lesson) => lesson.start < period.end && period.start < lesson.end
+                      && !periods.some((previous) => previous.kind === 'aula' && previous.start < period.start
+                        && previous.start < lesson.end && lesson.start < previous.end));
+                    if (slots.length === 0) return null;
+                    return (
+                      <div key={period.id} className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                          <span className="font-bold text-ink-2">{period.label}</span>
+                          {showTimes && <span className="tabular text-muted">{period.start}–{period.end}</span>}
+                        </div>
+                        {slots.map((lesson) => {
+                          const schoolClass = index.classById.get(lesson.classId)!;
+                          const subject = lesson.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
+                          const style = subject ? SUBJECT_STYLE[subject.color] : undefined;
+                          const teacher = index.teacherById.get(lesson.teacherId);
+                          return (
+                            <button key={lesson.id} type="button" onClick={() => actions.openLesson(lesson)}
+                              title={`${classLabel(schoolClass)} · ${lesson.start}–${lesson.end}`}
+                              className={cn('min-w-0 rounded-lg border-l-4 p-2.5 text-left ring-1 ring-inset transition-shadow hover:shadow-raise focus-visible:outline-2 focus-visible:outline-ink',
+                                style ? `${style.chip} ${style.ring}` : 'border-line-strong bg-subtle ring-line',
+                                index.conflictLessonIds.has(lesson.id) && 'ring-2 ring-danger')}>
+                              <span className="block break-words text-xs font-bold leading-snug">{shortClassName(schoolClass)}</span>
+                              <span className="mt-1 block break-words text-sm font-semibold leading-snug">{subject?.name ?? 'Sem disciplina'}</span>
+                              <span className="mt-1 block break-words text-xs leading-snug opacity-80">{teacher?.name ?? 'Professor'}</span>
+                              {showTimes && <span className="mt-1 block text-[11px] tabular opacity-75">{lesson.start}–{lesson.end}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  {dayLessons.length === 0 && <p className="py-6 text-center text-sm text-muted">Sem aulas neste turno.</p>}
+                </div>
+                <button type="button" className="border-t border-line bg-subtle px-3 py-3 text-sm font-semibold text-ink-2 hover:bg-brand-soft"
+                  onClick={() => setParams((params) => { params.set('dia', String(day)); return params; }, { replace: true })}>
+                  Abrir este dia
+                </button>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

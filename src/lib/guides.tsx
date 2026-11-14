@@ -71,7 +71,7 @@ export const GUIDES = {
   workload: [
     { title: 'Escolha o recorte', text: 'Consulte um dia, uma semana ou um mês do calendário. Filtre por professor, turma, unidade e disciplina. Todos os totais acompanham os filtros.' },
     { title: 'Separe os totais', text: 'Na visão por professor, abra o nome para conferir cada disciplina. Na visão por turma, abra a turma para conferir a contribuição de cada professor.' },
-    { title: 'Confira e exporte', text: 'Minutos pagos são os tempos multiplicados pela duração informada. O mês conta os dias letivos reais e desconta as datas sem aula cadastradas. Em Baixar PDF ou Excel, escolha um professor ou combine filtros no próprio modal. O PDF segue o padrão visual SEICE. Ambos seguem o período e os filtros da tela.' },
+    { title: 'Confira e exporte', text: 'Minutos pagos são os tempos multiplicados pela duração informada. O mês conta os dias letivos reais e desconta as datas sem aula cadastradas. Em Baixar PDF ou Excel, use Todos para incluir a lista inteira ou Escolher para marcar vários professores, turmas, disciplinas e unidades. O PDF segue o padrão visual SEICE. Ambos seguem o período e os filtros da tela.' },
   ],
   settings: [
     { title: 'Calendário e turnos', text: 'Marque os dias letivos e os turnos em que a escola funciona.' },

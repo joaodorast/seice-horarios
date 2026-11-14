@@ -47,7 +47,7 @@ export function PrintPage() {
   return (
     <div className="min-h-app bg-canvas print:bg-white">
       <div className="no-print sticky top-0 z-10 border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-3 px-4 py-3">
           <Link
             to={kind === 'professor' ? (all ? '/professores' : `/horarios/professor/${id}`) : all ? '/turmas' : `/horarios/turma/${id}`}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-2 hover:text-ink"
@@ -64,7 +64,7 @@ export function PrintPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1120px] px-4 py-8 print:max-w-none print:p-0">
+      <div className="mx-auto max-w-[1280px] px-4 py-8 print:max-w-none print:p-0">
         {schedule.error && !schedule.data ? (
           <ErrorState message={errorMessage(schedule.error)} onRetry={schedule.refetch} />
         ) : !schedule.data ? (
@@ -118,11 +118,11 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
           <img src="/logo-seice.webp" alt="Colégio SEICE" className="h-14 w-auto print:h-12" />
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold text-muted">Colégio SEICE · Sistema de Ensino Integrado de Campos Elíseos</p>
+          <p className="text-sm print:text-xs font-semibold text-muted">Colégio SEICE · Sistema de Ensino Integrado de Campos Elíseos</p>
           <h1 className="mt-1 text-xl font-extrabold tracking-tight">
             {teacher ? teacher.name : `Turma ${schoolClass?.name}`}
           </h1>
-          <p className="text-[12px] text-ink-2">
+          <p className="text-sm print:text-xs text-ink-2">
             {teacher
               ? ['Quadro de horários do professor', teacher.area].filter(Boolean).join(' · ')
               : `${schoolClass?.grade} · Turno ${schoolClass ? SHIFT_LABEL[schoolClass.shift].toLowerCase() : ''}`}
@@ -130,7 +130,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
         </div>
       </header>
 
-      <div className="mt-3 mb-4 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-ink-2">
+      <div className="mt-3 mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm print:text-xs text-ink-2">
         <span>
           <strong>{timeCount}</strong> tempos semanais
         </span>
@@ -143,27 +143,35 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
         <span className="ml-auto text-muted">Emitido em {new Date().toLocaleDateString('pt-BR')}</span>
       </div>
 
+      <div className="mb-4 grid gap-2 text-sm print:text-xs sm:grid-cols-3">
+        <p className="rounded-lg border border-[#bdd6f4] bg-[#edf5ff] p-2"><strong>Tempos = aulas</strong><br />{timeCount} aulas na grade desta semana.</p>
+        <p className="rounded-lg border border-[#ecd891] bg-[#fff7db] p-2"><strong>Minutos para pagamento</strong><br />{timeCount} aulas × {paidMinutes} min = {timeCount * paidMinutes} minutos.</p>
+        <p className="rounded-lg border border-[#b9dfc7] bg-[#eaf7ef] p-2"><strong>Total em horas</strong><br />{timeCount * paidMinutes} minutos = {formatHours(timeCount * paidMinutes)}. É o mesmo total em horas e minutos.</p>
+      </div>
       {teacher && (
         <section className="mb-4 break-inside-avoid">
           <h2 className="mb-2 text-sm font-bold">Resumo semanal por turma</h2>
-          <table className="w-full border-collapse text-xs">
-            <thead><tr><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-right">Minutos pagos por semana</th></tr></thead>
-            <tbody>{[...new Set(lessons.map((lesson) => lesson.classId))].map((classId) => (
-              <tr key={classId}><td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
-                <td className="border border-line p-2 text-right">{lessons.filter((lesson) => lesson.classId === classId).reduce((sum, lesson) => sum + lessonTimeCount(lesson, data.periods, data.classes) * paidMinutes, 0)}</td></tr>
-            ))}</tbody>
-            <tfoot><tr><th className="border border-line p-2 text-left">Total de minutos pagos na semana</th><th className="border border-line p-2 text-right">{timeCount * paidMinutes}</th></tr></tfoot>
+          <table className="w-full border-collapse text-sm print:text-xs">
+            <thead><tr><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-right">Aulas / semana</th><th className="border border-line p-2 text-right">Minutos para pagamento</th><th className="border border-line p-2 text-right">Total em horas</th></tr></thead>
+            <tbody>{[...new Set(lessons.map((lesson) => lesson.classId))].map((classId) => {
+              const count = lessons.filter((lesson) => lesson.classId === classId).reduce((sum, lesson) => sum + lessonTimeCount(lesson,data.periods,data.classes),0);
+              return <tr key={classId}><td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
+                <td className="border border-line p-2 text-right">{count}</td><td className="border border-line p-2 text-right">{count * paidMinutes}</td><td className="border border-line p-2 text-right">{formatHours(count * paidMinutes)}</td></tr>;
+            })}</tbody>
+            <tfoot><tr><th className="border border-line p-2 text-left">Total do professor na semana</th><th className="border border-line p-2 text-right">{timeCount}</th><th className="border border-line p-2 text-right">{timeCount * paidMinutes}</th><th className="border border-line p-2 text-right">{formatHours(timeCount * paidMinutes)}</th></tr></tfoot>
           </table>
-          <p className="mt-1 text-[10px] text-muted">Base para conferência do pagamento. Cada tempo cadastrado corresponde a {paidMinutes} minutos pagos. Duração efetiva das aulas na grade: {minutes} minutos ({formatHours(minutes)}).</p>
+          <p className="mt-2 text-sm print:text-xs leading-relaxed text-ink-2">Exemplo: 5 aulas de {paidMinutes} minutos = {5 * paidMinutes} minutos = {formatHours(5 * paidMinutes)}. Some as linhas das turmas para conferir o total do professor.
+            {minutes !== timeCount * paidMinutes && <> A duração real das aulas é {formatHours(minutes)}; o pagamento acima usa {paidMinutes} minutos por aula.</>}
+          </p>
         </section>
       )}
       {sections.map((section, si) => (
-        <section key={si} className={cn('break-inside-avoid', sections.length > 1 ? 'mb-2.5' : 'mb-4')}>
+        <section key={si} className={cn('print:break-inside-auto', sections.length > 1 ? 'mb-2.5' : 'mb-4')}>
           {section.title && <h2 className="mb-1.5 text-[13px] font-bold">{section.title}</h2>}
           {section.periods.length === 0 ? (
             <p className="rounded border border-line p-4 text-sm text-muted">Nenhum período configurado para este turno.</p>
           ) : (
-            <table className="w-full table-fixed border-collapse text-[11px]">
+            <table className="w-full table-fixed border-collapse text-sm print:text-xs">
               <thead>
                 <tr>
                   <th className="w-[92px] border border-ink/30 bg-ink/[0.06] px-2 py-1.5 text-left font-bold">Tempo</th>
@@ -212,7 +220,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
       {outside.length > 0 && (
         <section className="mb-4 break-inside-avoid">
           <h2 className="mb-1.5 text-[13px] font-bold">Aulas em horários especiais</h2>
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[11px]">
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm print:text-xs">
             {outside.map((l) => (
               <li key={l.id}>
                 {WEEKDAY_LABEL[l.weekday]}, {l.start}–{l.end}: {describe(l, index, kind)}
@@ -223,7 +231,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
       )}
 
       {(teacher?.notes || schoolClass?.notes) && (
-        <p className="mt-2 text-[11px] text-ink-2">
+        <p className="mt-2 text-sm print:text-xs text-ink-2">
           <strong>Observações:</strong> {teacher?.notes ?? schoolClass?.notes}
         </p>
       )}
@@ -239,16 +247,19 @@ function describe(l: Lesson, index: ScheduleIndex, kind: Kind) {
 
 function PrintLesson({ lesson, index, kind, period, showTimes }: { lesson: Lesson; index: ScheduleIndex; kind: Kind; period: Period; showTimes: boolean }) {
   const subject = lesson.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
-  const other = kind === 'professor' ? `Turma ${index.classById.get(lesson.classId)?.name ?? ''}` : index.teacherById.get(lesson.teacherId)?.name;
+  const relatedClass = index.classById.get(lesson.classId);
+  const codes = relatedClass?.name.match(/\b\d{4}\b/g);
+  const classReference = codes?.length ? `Turma ${codes[codes.length - 1]}${relatedClass?.name.match(/\b(CE|JP)\b/) ? ` · ${relatedClass.name.match(/\b(CE|JP)\b/)![1]}` : ''}` : relatedClass?.name;
+  const other = kind === 'professor' ? classReference : index.teacherById.get(lesson.teacherId)?.name;
   const custom = lesson.start !== period.start || lesson.end !== period.end;
   return (
-    <div className="flex gap-1.5 leading-tight">
+    <div className="flex gap-1.5 leading-tight" style={{breakInside:'avoid'}} title={other}>
       <span className={cn('mt-0.5 w-[3px] shrink-0 self-stretch rounded-full', subject ? SUBJECT_STYLE[subject.color].bar : 'bg-ink/30')} />
       <div className="min-w-0">
         <span className="block font-bold">{subject?.name ?? 'Aula'}</span>
-        <span className="block truncate">{other}</span>
-        {showTimes && custom && <span className="tabular block text-[10px] text-muted">{lesson.start}–{lesson.end}</span>}
-        {lesson.notes && <span className="block truncate text-[10px] text-muted">{lesson.notes}</span>}
+        <span className="block break-words">{other}</span>
+        {showTimes && custom && <span className="tabular block text-xs print:text-[11px] text-muted">{lesson.start}–{lesson.end}</span>}
+        {lesson.notes && <span className="block break-words text-xs print:text-[11px] text-muted">{lesson.notes}</span>}
       </div>
     </div>
   );

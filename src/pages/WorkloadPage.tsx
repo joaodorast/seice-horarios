@@ -6,7 +6,7 @@ import { DataGate } from '@/components/layout/DataGate';
 import { Button, Card, Combobox, Input, SearchInput, Segmented, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
-import { computeWorkload, lessonTimeCount } from '@shared/workload';
+import { computeWorkload, lessonTimeCount, monthWeekdayCounts } from '@shared/workload';
 import { CLASS_SHIFTS, type ClassShift, type Weekday } from '@shared/types';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
@@ -28,7 +28,7 @@ export function WorkloadPage() {
   return (
     <Page title="Carga horária" width="wide" guide={GUIDES.workload}
       breadcrumbs={[{ label: 'Quadro de horários', to: '/horarios' }, { label: 'Carga horária' }]}
-      description="Confira os tempos e minutos pagos por professor, turma e disciplina. Escolha o dia, a semana ou a estimativa mensal.">
+      description="Confira os tempos e minutos pagos por professor, turma e disciplina. Escolha o dia, a semana ou o mês do calendário.">
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch}>
         {(data) => <WorkloadView data={data} />}
       </DataGate>
@@ -47,7 +47,12 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   const [shift, setShift] = useState<ClassShift | 'todos'>('todos');
   const [includeEmpty, setIncludeEmpty] = useState(false);
   const [paidMinutes, setPaidMinutes] = useLocalStorage('seice:paid-minutes', data.settings.lessonDuration);
-  const [weeks, setWeeks] = useLocalStorage<number>('seice:carga-semanas', 4);
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const weekdayCounts = useMemo(() => monthWeekdayCounts(month, data.settings.enabledDays, data.settings.excludedDates),
+    [month, data.settings.enabledDays, data.settings.excludedDates]);
   const [exporting, setExporting] = useState(false);
   const { data: units = [] } = useUnits();
   const toast = useToast();
@@ -64,11 +69,11 @@ function WorkloadView({ data }: { data: ScheduleData }) {
       && (!subjectId || lesson.subjectId === subjectId),
     );
     return computeWorkload(lessons, teachers, classes, undefined,
-      (lesson) => lessonTimeCount(lesson, data.periods, data.classes));
-  }, [data, query, classId, unitId, shift, scope, day, subjectId]);
+      (lesson) => lessonTimeCount(lesson, data.periods, data.classes),
+      (lesson) => scope === 'mes' ? weekdayCounts[lesson.weekday] : 1);
+  }, [data, query, classId, unitId, shift, scope, day, subjectId, weekdayCounts]);
 
-  const factor = scope === 'mes' ? weeks : 1;
-  const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Mês estimado com ${num(weeks)} semanas` : 'Semana completa';
+  const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Calendário de ${month.split('-').reverse().join('/')}` : 'Semana completa';
   const rows = workload.rows.filter((row) => includeEmpty || row.total.lessons > 0);
   const visibleClasses = workload.classes.filter((schoolClass) =>
     includeEmpty || (workload.classTotals.get(schoolClass.id)?.lessons ?? 0) > 0);
@@ -86,14 +91,14 @@ function WorkloadView({ data }: { data: ScheduleData }) {
       const details = workload.rows.flatMap((row) => row.bySubject.flatMap((subject) =>
         [...subject.byClass].map(([id, load]) => [
           row.teacher.name, className(id), subjectName(subject.subjectId), periodLabel,
-          load.lessons * factor, load.lessons * factor * paidMinutes,
-          paidHours(load.lessons * factor * paidMinutes),
+          load.lessons, load.lessons * paidMinutes,
+          paidHours(load.lessons * paidMinutes),
         ]),
       ));
       await downloadTable('carga-horaria', 'Carga horária',
         ['Professor', 'Turma', 'Disciplina', 'Período', 'Tempos', 'Minutos pagos', 'Horas pagas'],
-        details, ['Total do recorte', '', '', periodLabel, workload.grand.lessons * factor,
-          workload.grand.lessons * factor * paidMinutes, paidHours(workload.grand.lessons * factor * paidMinutes)]);
+        details, ['Total do recorte', '', '', periodLabel, workload.grand.lessons,
+          workload.grand.lessons * paidMinutes, paidHours(workload.grand.lessons * paidMinutes)]);
     } catch (error) {
       toast.error('Não foi possível exportar', errorMessage(error));
     } finally {
@@ -112,8 +117,12 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               options={data.settings.enabledDays.map((value) => ({ value, label: WEEKDAY_SHORT[value] }))} />
           )}
           {scope === 'mes' && (
-            <Segmented label="Semanas da estimativa mensal" value={weeks} onChange={setWeeks}
-              options={[4, 4.5, 5].map((value) => ({ value, label: `${num(value)} semanas` }))} />
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              Mês do calendário
+              <Input aria-label="Mês do calendário" type="month" min="1000-01" max="9999-12" value={month} onChange={(event) => {
+                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) setMonth(event.target.value);
+              }} />
+            </label>
           )}
         </div>
         <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -148,15 +157,28 @@ function WorkloadView({ data }: { data: ScheduleData }) {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Total de tempos neste recorte" value={num(workload.grand.lessons * factor)} hint={periodLabel} />
-        <Metric label="Total de minutos pagos neste recorte" value={num(workload.grand.lessons * factor * paidMinutes)} hint={`${paidMinutes} minutos por tempo`} accent />
-        <Metric label="Total de horas pagas neste recorte" value={paidHours(workload.grand.lessons * factor * paidMinutes)}
+        <Metric label="Total de tempos neste recorte" value={num(workload.grand.lessons)} hint={periodLabel} />
+        <Metric label="Total de minutos pagos neste recorte" value={num(workload.grand.lessons * paidMinutes)} hint={`${paidMinutes} minutos por tempo`} accent />
+        <Metric label="Total de horas pagas neste recorte" value={paidHours(workload.grand.lessons * paidMinutes)}
           hint={`${workload.rows.filter((row) => row.total.lessons > 0).length} professores com aulas`} />
       </div>
       <p className="text-sm leading-relaxed text-ink-2">
         Todos os totais abaixo consideram os mesmos filtros. A busca por professor também filtra o total.
-        {scope === 'mes' && <> O mensal é uma estimativa da semana multiplicada por {num(weeks)}, sem ajuste por feriados.</>}
+        {scope === 'mes' && <> O mensal aplica a grade semanal atual às datas reais do mês e desconta as datas sem aula registradas pela administração.</>}
       </p>
+      {scope === 'mes' && (
+        <Card className="p-4">
+          <h3 className="text-sm font-bold">Dias letivos considerados no mês</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {data.settings.enabledDays.map((weekday) => (
+              <span key={weekday} className="rounded-lg bg-subtle px-3 py-2 text-sm">
+                {WEEKDAY_SHORT[weekday]} <strong className="tabular">{weekdayCounts[weekday]}</strong>
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted">Feriados e recessos devem estar cadastrados em Configurações → Calendário e turnos → Datas sem aula. Essas datas valem para as duas unidades.</p>
+        </Card>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented label="Agrupar carga horária" value={view} onChange={setView}
           options={[{ value: 'professor', label: <><Users className="size-4" />Por professor</> }, { value: 'turma', label: <><GraduationCap className="size-4" />Por turma</> }]} />
@@ -175,7 +197,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   <h2 className="font-bold text-ink">{row.teacher.name}</h2>
                   <p className="mt-1 text-xs text-muted">{row.byClass.size} turmas · {row.bySubject.length} disciplinas · toque para detalhar</p>
                 </div>
-                <LoadNumbers count={row.total.lessons * factor} minutesPerTime={paidMinutes} />
+                <LoadNumbers count={row.total.lessons} minutesPerTime={paidMinutes} />
               </summary>
               <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,13 +210,13 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   <div key={subject.subjectId ?? 'none'} className="rounded-lg border border-line bg-surface p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <h4 className="font-semibold">{subjectName(subject.subjectId)}</h4>
-                      <LoadNumbers count={subject.total.lessons * factor} minutesPerTime={paidMinutes} compact />
+                      <LoadNumbers count={subject.total.lessons} minutesPerTime={paidMinutes} compact />
                     </div>
                     <ul className="mt-3 divide-y divide-line border-t border-line">
                       {[...subject.byClass].map(([id, load]) => (
                         <li key={id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                           <span className="min-w-0 flex-1 basis-48 break-words text-ink-2">{className(id)}</span>
-                          <LoadNumbers count={load.lessons * factor} minutesPerTime={paidMinutes} compact />
+                          <LoadNumbers count={load.lessons} minutesPerTime={paidMinutes} compact />
                         </li>
                       ))}
                     </ul>
@@ -202,7 +224,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                 ))}
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
                   <strong>Total de {row.teacher.name} · {periodLabel}</strong>
-                  <LoadNumbers count={row.total.lessons * factor} minutesPerTime={paidMinutes} />
+                  <LoadNumbers count={row.total.lessons} minutesPerTime={paidMinutes} />
                 </div>
               </div>
             </details>
@@ -220,27 +242,27 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
                   <div className="min-w-0 flex-1 basis-48"><h2 className="break-words font-bold">{className(schoolClass.id)}</h2>
                     <p className="mt-1 text-xs text-muted">{teachers.length} professores neste recorte · {SHIFT_LABEL[schoolClass.shift]}</p></div>
-                  <LoadNumbers count={total * factor} minutesPerTime={paidMinutes} />
+                  <LoadNumbers count={total} minutesPerTime={paidMinutes} />
                 </summary>
                 <div className="flex flex-col gap-3 border-t border-line bg-subtle/50 p-4">
                   {teachers.map((row) => (
                     <div key={row.teacher.id} className="rounded-lg border border-line bg-surface p-3">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-semibold">{row.teacher.name}</h3>
-                        <LoadNumbers count={(row.byClass.get(schoolClass.id)?.lessons ?? 0) * factor} minutesPerTime={paidMinutes} compact />
+                        <LoadNumbers count={(row.byClass.get(schoolClass.id)?.lessons ?? 0)} minutesPerTime={paidMinutes} compact />
                       </div>
                       <ul className="mt-2 divide-y divide-line">
                         {row.bySubject.filter((subject) => subject.byClass.has(schoolClass.id)).map((subject) => (
                           <li key={subject.subjectId ?? 'none'} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm text-ink-2">
                             <span>{subjectName(subject.subjectId)}</span>
-                            <LoadNumbers count={(subject.byClass.get(schoolClass.id)?.lessons ?? 0) * factor} minutesPerTime={paidMinutes} compact />
+                            <LoadNumbers count={(subject.byClass.get(schoolClass.id)?.lessons ?? 0)} minutesPerTime={paidMinutes} compact />
                           </li>
                         ))}
                       </ul>
                     </div>
                   ))}
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
-                    <strong>Total desta turma no recorte</strong><LoadNumbers count={total * factor} minutesPerTime={paidMinutes} />
+                    <strong>Total desta turma no recorte</strong><LoadNumbers count={total} minutesPerTime={paidMinutes} />
                   </div>
                 </div>
               </details>

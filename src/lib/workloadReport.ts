@@ -31,7 +31,7 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
   let y = 38;
   doc.setProperties({ title: 'SEICE - Relatório de carga horária', subject: input.period, author: 'Colégio SEICE' });
   function title(text: string) {
-    doc.setFont('helvetica', 'bold').setFontSize(12).setTextColor(...ink);
+    doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(...ink);
     const lines = doc.splitTextToSize(text, 182) as string[];
     if (y + lines.length * 5 + 25 > 277) { doc.addPage(); y = 42; }
     doc.text(lines, 14, y); y += lines.length * 5 + 2;
@@ -41,7 +41,7 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
       startY: y, margin: { left: 14, right: 14, top: 40, bottom: 20 },
       head: [head], body, foot: footer ? [footer] : undefined, showFoot: 'lastPage',
       theme: 'grid', rowPageBreak: 'avoid',
-      styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, overflow: 'linebreak', textColor: ink, lineColor: [220, 224, 230], lineWidth: 0.1 },
+      styles: { font: 'helvetica', fontSize: 10.5, cellPadding: 3.2, overflow: 'linebreak', textColor: ink, lineColor: [220, 224, 230], lineWidth: 0.1 },
       headStyles: { fillColor: [243,244,246], textColor: ink, fontStyle: 'bold' },
       footStyles: { fillColor: [243,244,246], textColor: ink, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [255,255,255] },
@@ -53,43 +53,55 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
   doc.setFont('helvetica','normal').setFontSize(10).setTextColor(80);
   doc.text(input.period, 14, y); y += 9;
   const totals = numbers(workload.grand.lessons);
-  ['Tempos', 'Minutos pagos', 'Horas pagas'].forEach((label, index) => {
+  const metrics = [
+    {label:'Tempos (aulas)',note:'Quantidade de aulas na grade',color:[235,244,253]},
+    {label:'Minutos pagos',note:`${paidMinutes} min por tempo`,color:[255,247,219]},
+    {label:'Total em horas',note:'Ex.: 250 min = 4h10',color:[234,247,239]},
+  ];
+  metrics.forEach(({label,note,color}, index) => {
     const x = 14 + index * 62;
-    doc.setFillColor(246,247,249);
-    doc.roundedRect(x, y, 58, 23, 2, 2, 'F');
-    doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80).text(label, x + 4, y + 7);
-    doc.setFontSize(17).setFont('helvetica','bold').setTextColor(...ink).text(totals[index], x + 4, y + 17);
+    doc.setFillColor(color[0],color[1],color[2]).roundedRect(x,y,58,32,2,2,'F');
+    doc.setFontSize(10).setFont('helvetica','normal').setTextColor(60).text(label,x+4,y+7);
+    doc.setFontSize(19).setFont('helvetica','bold').setTextColor(...ink).text(totals[index],x+4,y+18);
+    doc.setFontSize(9.5).setFont('helvetica','normal').setTextColor(70).text(note,x+4,y+26);
   });
-  y += 32;
+  y += 39;
+  doc.setFont('helvetica','normal').setFontSize(10.5).setTextColor(60);
+  const explanation = doc.splitTextToSize(`Como ler: 5 aulas de ${paidMinutes} minutos = ${5 * paidMinutes} minutos = ${formatHours(5 * paidMinutes)}. Os três cartões mostram a mesma carga em unidades diferentes.`,182) as string[];
+  doc.text(explanation,14,y);y += explanation.length * 5 + 7;
   title('Critérios utilizados');
   table(['Filtro', 'Seleção'], [...input.filters, ['Pagamento', `${paidMinutes} minutos por tempo`]], {0:{cellWidth:35}});
-  title('Resumo por professor');
+  title('1. Carga de cada professor');
   table(['Professor', 'Tempos', 'Minutos pagos', 'Horas pagas'], teachers.map((row) => [row.teacher.name, ...numbers(row.total.lessons)]),
     {0:{cellWidth:86},1:{cellWidth:25},2:{cellWidth:38},3:{cellWidth:33}}, ['Total do recorte', ...totals]);
-  title('Resumo por turma');
+  title('2. Total de cada turma');
   table(['Unidade / Turma', 'Tempos', 'Minutos pagos', 'Horas pagas'], classes.map((c) => [className(c.id), ...numbers(workload.classTotals.get(c.id)!.lessons)]),
     {0:{cellWidth:86},1:{cellWidth:25},2:{cellWidth:38},3:{cellWidth:33}}, ['Total do recorte', ...totals]);
-  if (teachers.length) { doc.addPage(); y = 42; title('Detalhamento por professor e disciplina'); }
+  if (teachers.length) { if(y > 200) {doc.addPage(); y = 42;} title('3. Disciplinas e turmas de cada professor'); }
   for (const row of teachers) {
     title(row.teacher.name);
-    table(['Unidade / Turma', 'Disciplina', 'Tempos', 'Min. pagos', 'Horas'], row.bySubject.flatMap((subject) =>
+    table(['Unidade / Turma', 'Disciplina', 'Aulas', 'Min. pagos', 'Horas'], row.bySubject.flatMap((subject) =>
       [...subject.byClass].map(([id, load]) => [className(id), subjectName(subject.subjectId), ...numbers(load.lessons)])),
       {0:{cellWidth:65},1:{cellWidth:47},2:{cellWidth:20},3:{cellWidth:27},4:{cellWidth:23}},
       [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons)]);
   }
-  title('Como os totais foram calculados');
-  table(['Critério', 'Descrição'], [
-    ['Tempos e pagamento', 'Minutos pagos = tempos da grade multiplicados pelos minutos por tempo informados. Os totais dos professores e das turmas representam o mesmo recorte; não devem ser somados entre si.'],
-    ['Período', input.calendarNote ?? 'A grade semanal atual foi considerada para o período e os filtros selecionados.'],
-    ['Conferência', `${teachers.length} professores e ${classes.length} turmas com aulas neste recorte. Relatório da grade cadastrada, sem registro de presença ou substituições.`],
-  ], {0:{cellWidth:35}});
+  const notes = [
+    'Os resumos por professor e por turma mostram as mesmas aulas de duas formas. Não some um resumo ao outro.',
+    input.calendarNote ?? 'Base: grade semanal cadastrada, sem registro de presença ou substituições.',
+  ];
+  doc.setFont('helvetica','normal').setFontSize(9.5).setTextColor(70);
+  for (const note of notes) {
+    const lines = doc.splitTextToSize(note,182) as string[];
+    if(y + lines.length * 4 > 277) {doc.addPage();y=42;}
+    doc.text(lines,14,y);y += lines.length * 4 + 3;
+  }
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page);
     doc.addImage(logo, 'PNG', 14, 8, logoWidth, logoHeight, 'seice-logo');
     doc.setFont('helvetica','normal').setFontSize(8).setTextColor(70);
     doc.text('Colégio SEICE - Sistema de Ensino Integrado de Campos Elíseos', 196, 12, {align:'right'});
-    doc.setFont('helvetica','bold').setFontSize(12).setTextColor(...ink);
+    doc.setFont('helvetica','bold').setFontSize(13).setTextColor(...ink);
     doc.text('Relatório de carga horária', 196, 20, {align:'right'});
     doc.setFont('helvetica','normal').setFontSize(9).text(input.period, 196, 26, {align:'right'});
     doc.setDrawColor(...ink).setLineWidth(0.35).line(14, 31, 196, 31);

@@ -265,3 +265,19 @@ export async function downloadTable(fileName: string, sheetName: string, header:
   const data = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
   save(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${fileName}.xlsx`);
 }
+
+
+export async function downloadReportWorkbook(fileName:string,sheets:{name:string;header:string[];rows:(string|number)[][];totals?:(string|number)[]}[]) {
+  const {default:ExcelJS}=await import('exceljs');
+  const workbook=new ExcelJS.Workbook();workbook.creator='SEICE';workbook.created=new Date();
+  for(const sheet of sheets) {
+    const ws=workbook.addWorksheet(sheet.name,{views:[{state:'frozen',xSplit:1,ySplit:1}]});
+    ws.columns=sheet.header.map((header,index)=>({header,width:Math.min(65,Math.max(index===0?26:14,header.length+3,...sheet.rows.map((row)=>String(row[index]??'').length+2)))}));
+    ws.getRow(1).height=32;ws.getRow(1).eachCell((cell)=>{cell.font={bold:true,size:11};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};cell.alignment={wrapText:true,vertical:'middle'};});
+    for(const row of sheet.rows)ws.addRow(row);
+    if(sheet.totals){const last=ws.addRow(sheet.totals);last.font={bold:true};}
+    ws.autoFilter={from:{row:1,column:1},to:{row:Math.max(1,sheet.rows.length+1),column:sheet.header.length}};
+  }
+  const data=await workbook.xlsx.writeBuffer() as ArrayBuffer;
+  save(new Blob([data],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`${fileName}.xlsx`);
+}

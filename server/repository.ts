@@ -20,6 +20,7 @@ function toTeacher(r: Row): Teacher {
   return {
     id: Number(r.id),
     name: String(r.name),
+    payrollProfiles: (r.payroll_profiles ?? []) as Teacher['payrollProfiles'],
     code: text(r.code),
     area: text(r.area),
     phone: text(r.phone),
@@ -78,6 +79,7 @@ function toUnit(r: Row): Unit {
 function toSubject(r: Row): Subject {
   return {
     id: Number(r.id),
+    workloadKind: (r.workload_kind ?? 'auto') as Subject['workloadKind'],
     name: String(r.name),
     color: r.color as SubjectColor,
     segments: Array.isArray(r.segments) ? (r.segments as string[]).filter(Boolean) as SegmentKey[] : [],
@@ -104,7 +106,8 @@ function toPeriod(r: Row): Period {
 function toLesson(r: Row): Lesson {
   return {
     id: Number(r.id),
-    teacherId: Number(r.teacher_id),
+    teacherId: r.teacher_id == null ? null : Number(r.teacher_id),
+    workloadKind: (r.workload_kind ?? 'auto') as Lesson['workloadKind'],
     classId: Number(r.class_id),
     subjectId: r.subject_id === null || r.subject_id === undefined ? null : Number(r.subject_id),
     unitId: Number(r.unit_id),
@@ -190,6 +193,17 @@ export function createRepository(db: Database) {
       if (input.segments?.length) await this.setTeacherSegments(id, input.segments);
       return this.getTeacher(id);
     },
+    async listPayrollReferences():Promise<import('../shared/types.js').PayrollReference[]> {
+      return (await db.query('SELECT * FROM payroll_references ORDER BY supplied_name')).map((r)=>({id:Number(r.id),unitId:Number(r.unit_id),suppliedName:String(r.supplied_name),references:r.reference_items as import('../shared/types.js').TeacherPayrollProfile['references'],teacherId:r.teacher_id==null?null:Number(r.teacher_id)}));
+    },
+    async resolvePayrollReference(id:number,teacherId:number):Promise<void> {
+      await db.query('UPDATE payroll_references SET teacher_id=$1 WHERE id=$2',[teacherId,id]);
+    },
+    async setTeacherPayroll(id: number, profile: import('../shared/schemas.js').TeacherPayrollInput): Promise<void> {
+      const teacher = await this.getTeacher(id);
+      const profiles = [...(teacher?.payrollProfiles ?? []).filter((p) => p.unitId !== profile.unitId), profile];
+      await db.query('UPDATE teachers SET payroll_profiles = $1::jsonb, updated_at = now() WHERE id = $2',[JSON.stringify(profiles),id]);
+    },
     /** Substitui os segmentos em que o professor leciona. */
     async setTeacherSegments(id: number, segments: SegmentKey[]): Promise<void> {
       await db.query('DELETE FROM teacher_segments WHERE teacher_id = $1', [id]);
@@ -214,8 +228,8 @@ export function createRepository(db: Database) {
       );
     },
     /** Registra que o professor leciona a disciplina (usado ao salvar aulas). */
-    async linkTeacherSubject(teacherId: number, subjectId: number | null): Promise<void> {
-      if (!subjectId) return;
+    async linkTeacherSubject(teacherId: number | null, subjectId: number | null): Promise<void> {
+      if (teacherId === null || !subjectId) return;
       await db.query('INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [teacherId, subjectId]);
     },
     // ---------- Unidades ----------
@@ -335,13 +349,13 @@ export function createRepository(db: Database) {
       return r ? toSubject(r) : undefined;
     },
     async createSubject(input: SubjectInput): Promise<Subject> {
-      const r = await one('INSERT INTO subjects (name, color) VALUES ($1, $2) RETURNING id', [input.name, input.color]);
+      const r = await one('INSERT INTO subjects (name, color, workload_kind) VALUES ($1, $2, $3) RETURNING id', [input.name, input.color, input.workloadKind ?? 'auto']);
       const id = Number(r!.id);
       await this.setSubjectSegments(id, input.segments ?? []);
       return (await this.getSubject(id))!;
     },
     async updateSubject(id: number, input: SubjectInput): Promise<Subject | undefined> {
-      await db.query('UPDATE subjects SET name = $1, color = $2 WHERE id = $3', [input.name, input.color, id]);
+      await db.query('UPDATE subjects SET name = $1, color = $2, workload_kind = COALESCE($4,workload_kind) WHERE id = $3', [input.name, input.color, id, input.workloadKind ?? null]);
       await this.setSubjectSegments(id, input.segments ?? []);
       return this.getSubject(id);
     },
@@ -435,16 +449,16 @@ export function createRepository(db: Database) {
     },
     async createLesson(input: LessonInput): Promise<Lesson> {
       const r = await one(
-        'INSERT INTO lessons (teacher_id, class_id, subject_id, weekday, start_time, end_time, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes],
+        'INSERT INTO lessons (teacher_id, class_id, subject_id, weekday, start_time, end_time, notes, workload_kind) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, input.workloadKind ?? 'auto'],
       );
       await this.linkTeacherSubject(input.teacherId, input.subjectId);
       return toLesson(r!);
     },
     async updateLesson(id: number, input: LessonInput): Promise<Lesson | undefined> {
       const r = await one(
-        'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, updated_at = now() WHERE id = $8 RETURNING *',
-        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, id],
+        'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, workload_kind = $8, updated_at = now() WHERE id = $9 RETURNING *',
+        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, input.workloadKind ?? 'auto', id],
       );
       if (r) await this.linkTeacherSubject(input.teacherId, input.subjectId);
       return r ? toLesson(r) : undefined;

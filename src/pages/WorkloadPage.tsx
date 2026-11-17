@@ -234,9 +234,9 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                   </Link>
                 </div>
                 {row.bySubject.map((subject) => (
-                  <div key={`${subject.subjectId ?? 'none'}-${subject.label ?? ''}-${[...subject.byClass.keys()].join('-')}`} className="rounded-lg border border-line bg-surface p-3">
+                  <div key={`${subject.subjectId ?? 'none'}-${subject.label ?? ''}-${[...subject.byClass.keys()].join('-')}`} className={`rounded-lg border p-3 ${subject.workloadKind==='regency'?'border-[#27824c] bg-[#eaf7ef]':'border-line bg-surface'}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h4 className="text-base font-semibold">{(subject.label ?? subjectName(subject.subjectId))}</h4>
+                      <h4 className="text-base font-semibold">{subject.workloadKind==='regency'&&<span className="mr-2 rounded-full bg-[#14532d] px-2 py-1 text-sm font-bold text-white">CARGA FIXA</span>}{(subject.label ?? subjectName(subject.subjectId))}</h4>
                       <LoadNumbers count={subject.total.lessons} minutes={subject.total.minutes} compact />
                     </div>
                     <ul className="mt-3 divide-y divide-line border-t border-line">
@@ -249,7 +249,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                     </ul>
                   </div>
                 ))}
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#245991] bg-[#eaf2ff] p-3 text-[#163d68]">
                   <strong>Total de {row.teacher.name} · {periodLabel}</strong>
                   <LoadNumbers count={row.total.lessons} minutes={row.total.minutes} />
                 </div>
@@ -280,15 +280,15 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                       </div>
                       <ul className="mt-2 divide-y divide-line">
                         {row.bySubject.filter((subject) => subject.byClass.has(schoolClass.id)).map((subject) => (
-                          <li key={`${subject.subjectId ?? 'none'}-${subject.label ?? ''}-${[...subject.byClass.keys()].join('-')}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-base text-ink-2">
-                            <span>{(subject.label ?? subjectName(subject.subjectId))}</span>
+                          <li key={`${subject.subjectId ?? 'none'}-${subject.label ?? ''}-${[...subject.byClass.keys()].join('-')}`} className={`flex flex-wrap items-center justify-between gap-2 py-2 text-base ${subject.workloadKind==='regency'?'rounded-lg bg-[#eaf7ef] px-3 font-semibold text-[#14532d]':'text-ink-2'}`}>
+                            <span>{subject.workloadKind==='regency'?'CARGA FIXA · ':''}{(subject.label ?? subjectName(subject.subjectId))}</span>
                             <LoadNumbers count={(subject.byClass.get(schoolClass.id)?.lessons ?? 0)} minutes={subject.byClass.get(schoolClass.id)?.minutes ?? 0} compact />
                           </li>
                         ))}
                       </ul>
                     </div>
                   ))}
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-soft p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#245991] bg-[#eaf2ff] p-3 text-[#163d68]">
                     <strong>Total desta turma no recorte</strong><LoadNumbers count={total} minutes={workload.classTotals.get(schoolClass.id)?.minutes ?? 0} />
                   </div>
                 </div>
@@ -350,7 +350,7 @@ function LoadNumbers({ count, minutes, compact = false }: { count: number; minut
     <div className={`flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 tabular ${compact ? 'text-sm' : 'text-base'}`}>
       <span><strong className="text-ink">{count ? num(count) : '—'}</strong> {count ? 'tempos' : minutes>0 ? 'carga fixa' : 'tempos'}</span>
       <span><strong className="text-ink">{num(minutes)}</strong> min pagos</span>
-      <span className="text-muted">{paidHours(minutes)}</span>
+      <span className="rounded-lg bg-[#eaf2ff] px-2 py-1 text-base font-extrabold text-[#163d68]">{paidHours(minutes)}</span>
     </div>
   );
 }

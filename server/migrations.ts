@@ -414,6 +414,30 @@ BEGIN
 END $$;
 `;
 
+const PAYROLL_LESSONS = /* sql */ `
+ALTER TABLE lessons ALTER COLUMN teacher_id DROP NOT NULL;
+ALTER TABLE lessons ADD COLUMN workload_kind text NOT NULL DEFAULT 'auto'
+  CHECK (workload_kind IN ('auto','regular','technical','excluded'));
+CREATE OR REPLACE FUNCTION lessons_unit_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = seice AS $$
+DECLARE class_unit integer;
+BEGIN
+  SELECT unit_id INTO class_unit FROM classes WHERE id = NEW.class_id;
+  IF class_unit IS NOT NULL THEN NEW.unit_id := class_unit; END IF;
+  IF NEW.teacher_id IS NULL THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM teacher_units WHERE teacher_id = NEW.teacher_id AND unit_id = NEW.unit_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM teacher_units WHERE teacher_id = NEW.teacher_id) THEN
+      INSERT INTO teacher_units(teacher_id,unit_id) VALUES(NEW.teacher_id,NEW.unit_id) ON CONFLICT DO NOTHING;
+    ELSE RAISE EXCEPTION 'TEACHER_NOT_IN_UNIT' USING ERRCODE = 'check_violation'; END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+`;
+
+const TEACHER_PAYROLL = /* sql */ `
+ALTER TABLE teachers ADD COLUMN payroll_profiles jsonb NOT NULL DEFAULT '[]'::jsonb;
+`;
+
 /** Migrações em ordem. Nunca altere uma já publicada: crie uma nova versão. */
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: 'esquema_inicial', sql: INITIAL_SCHEMA },
@@ -426,4 +450,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 8, name: 'perfil_de_demonstracao', sql: DEMO_ROLE },
   { version: 9, name: 'segmentos_de_ensino', sql: SEGMENTS },
   { version: 10, name: 'separar_danca_futebol_e_musica', sql: SEPARATE_SUBJECTS },
+  { version: 11, name: 'aulas_sem_professor_e_classificacao_de_carga', sql: PAYROLL_LESSONS },
+  { version: 12, name: 'referencias_e_regencias_por_unidade', sql: TEACHER_PAYROLL },
+  { version: 13, name: 'classificacao_padrao_das_disciplinas', sql: `ALTER TABLE subjects ADD COLUMN workload_kind text NOT NULL DEFAULT 'auto' CHECK (workload_kind IN ('auto','regular','technical'));` },
+  { version: 14, name: 'conferencia_das_referencias_recebidas', sql: `CREATE TABLE payroll_references(id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,unit_id integer NOT NULL REFERENCES units(id),supplied_name text NOT NULL,reference_items jsonb NOT NULL,teacher_id integer REFERENCES teachers(id) ON DELETE SET NULL,UNIQUE(unit_id,supplied_name));` },
 ];

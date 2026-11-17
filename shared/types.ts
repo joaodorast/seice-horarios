@@ -40,6 +40,12 @@ export interface Unit {
  */
 export type UserRole = 'admin' | 'coordenador' | 'demo';
 
+export interface TeacherPayrollProfile {
+  unitId: number;
+  references: {label: string; kind: 'regular' | 'technical'; weeklyLessons: number}[];
+  regencies: {classId: number; segment: 'infantil' | 'fund1'; weekdays: Weekday[]}[];
+}
+
 export interface Teacher {
   id: number;
   name: string;
@@ -48,6 +54,7 @@ export interface Teacher {
   phone: string | null;
   notes: string | null;
   active: boolean;
+  payrollProfiles?: TeacherPayrollProfile[];
   /** Unidade principal do professor. */
   unitId?: number;
   /** Todas as unidades em que ele atua (pode ser mais de uma: professor compartilhado). */
@@ -85,6 +92,7 @@ export interface SchoolClass {
 }
 
 export interface Subject {
+  workloadKind?: 'auto' | 'regular' | 'technical';
   id: number;
   name: string;
   color: SubjectColor;
@@ -113,7 +121,8 @@ export interface Settings {
 
 export interface Lesson {
   id: number;
-  teacherId: number;
+  teacherId: number | null;
+  workloadKind?: 'auto' | 'regular' | 'technical' | 'excluded';
   classId: number;
   subjectId: number | null;
   /** Unidade da aula (herdada da turma). */
@@ -166,4 +175,8 @@ export interface ApiErrorBody {
     issues?: LessonIssue[];
     details?: Record<string, unknown>;
   };
+}
+
+export interface PayrollReference {
+  id:number;unitId:number;suppliedName:string;references:TeacherPayrollProfile['references'];teacherId:number|null;
 }

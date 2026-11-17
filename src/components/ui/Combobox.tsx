@@ -23,6 +23,8 @@ interface ComboboxProps {
   clearable?: boolean;
   disabled?: boolean;
   autoFocusTarget?: boolean;
+  /** Lista ampla, dentro do fluxo do formulário, com nomes completos. */
+  spacious?: boolean;
   'aria-invalid'?: boolean;
   'aria-describedby'?: string;
 }
@@ -41,6 +43,7 @@ export function Combobox({
   clearable,
   disabled,
   autoFocusTarget,
+  spacious = false,
   ...aria
 }: ComboboxProps) {
   const autoId = useId();
@@ -72,6 +75,12 @@ export function Combobox({
     if (!open) return;
     listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [active, open]);
+
+  useEffect(() => {
+    if (!open || !spacious) return;
+    const frame = requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: 'nearest' }));
+    return () => cancelAnimationFrame(frame);
+  }, [open, spacious]);
 
   function openList() {
     if (disabled) return;
@@ -160,7 +169,7 @@ export function Combobox({
           className={cn(
             controlBase,
             controlState(invalid),
-            'h-10 pr-16 text-ellipsis',
+            spacious ? 'h-14 pr-20 text-lg' : 'h-10 pr-16 text-ellipsis',
             selected?.leading && !open ? 'pl-9' : 'pl-3',
           )}
         />
@@ -196,7 +205,7 @@ export function Combobox({
           ref={listRef}
           id={listId}
           role="listbox"
-          className="scrollbar-thin absolute z-50 mt-1.5 max-h-64 w-full animate-pop-in overflow-auto rounded-lg bg-surface p-1 shadow-pop"
+          className={cn('w-full animate-pop-in overflow-y-auto overscroll-contain rounded-xl bg-surface', spacious ? 'relative mt-3 max-h-80 border border-line-strong p-2 [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-track]:bg-gray-100' : 'scrollbar-thin absolute z-50 mt-1.5 max-h-64 p-1 shadow-pop')}
         >
           {filtered.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">{emptyText}</li>}
           {filtered.map((option, index) => {
@@ -213,16 +222,17 @@ export function Combobox({
                 onMouseEnter={() => !option.disabled && setActive(index)}
                 onClick={() => choose(option)}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm',
+                  'flex items-center gap-2.5 rounded-lg',
+                  spacious ? 'min-h-20 border-b border-line/70 px-4 py-4 text-lg last:border-b-0' : 'px-2.5 py-2 text-sm',
                   option.disabled ? 'cursor-not-allowed opacity-55' : 'cursor-pointer',
                   index === active && !option.disabled && 'bg-subtle ring-1 ring-line',
                 )}
               >
                 {option.leading}
                 <span className="min-w-0 flex-1">
-                  <span className={cn('block truncate', isSelected ? 'font-semibold' : 'font-medium')}>{option.label}</span>
+                  <span className={cn(spacious ? 'block break-words whitespace-normal leading-relaxed' : 'block truncate', isSelected ? 'font-semibold' : 'font-medium')}>{option.label}</span>
                   {(option.description || option.disabledReason) && (
-                    <span className="block truncate text-xs text-muted">
+                    <span className={cn('block text-muted', spacious ? 'mt-1 whitespace-normal text-base leading-relaxed' : 'truncate text-xs')}>
                       {option.disabled ? option.disabledReason : option.description}
                     </span>
                   )}

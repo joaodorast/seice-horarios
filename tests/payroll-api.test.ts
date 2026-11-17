@@ -52,6 +52,24 @@ describe('API de carga por regência e classificação',()=>{
    const current=(await call('GET',`/teachers/${teacher}`)).body;expect(current.name).toBe('Nome corrigido');expect(current.payrollProfiles.find((p:any)=>p.unitId===ce).regencies).toHaveLength(1);expect(current.payrollProfiles.find((p:any)=>p.unitId===ce).references[0].weeklyLessons).toBe(10);
    expect((await call('PUT',`/payroll-references/${ref.id}/resolve`,{teacherId:teacher})).status).toBe(409);
  });
+ it('cadastra e vincula referência em uma confirmação, sem duplicar em nova tentativa',async()=>{
+   const ref=(await server.db.query<{id:number}>(`INSERT INTO payroll_references(unit_id,supplied_name,reference_items) VALUES($1,$2,$3::jsonb) RETURNING id`,[ce,'Professora Nova da Lista',JSON.stringify([{label:'História',kind:'regular',weeklyLessons:6}])]))[0];
+   const path=`/payroll-references/${ref.id}/create-teacher`;
+   expect((await call('POST',path,{})).status).toBe(422);
+   const result=await call('POST',path,{confirmed:true});expect(result.status).toBe(201);
+   expect(result.body.name).toBe('Professora Nova da Lista');expect(result.body.unitIds).toEqual([ce]);
+   expect(result.body.payrollProfiles[0].references[0].weeklyLessons).toBe(6);
+   expect((await call('GET','/payroll-references')).body.find((r:any)=>r.id===ref.id).teacherId).toBe(result.body.id);
+   expect((await call('POST',path,{confirmed:true})).status).toBe(409);
+ });
+ it('bloqueia criar referência com nome existente inclusive de outra unidade',async()=>{
+   const otherTeacher=await call('POST','/teachers',{name:'Professora Já Existente JP',unitId:jp,unitIds:[jp]});expect(otherTeacher.status).toBe(201);
+   const ref=(await server.db.query<{id:number}>(`INSERT INTO payroll_references(unit_id,supplied_name,reference_items) VALUES($1,$2,$3::jsonb) RETURNING id`,[ce,'Professora Já Existente JP',JSON.stringify([{label:'História',kind:'regular',weeklyLessons:6}])]))[0];
+   const before=(await call('GET','/teachers')).body.length;
+   const result=await call('POST',`/payroll-references/${ref.id}/create-teacher`,{confirmed:true});expect(result.status).toBe(409);expect(result.body.error.code).toBe('duplicate_name');
+   expect((await call('GET','/teachers')).body.length).toBe(before);
+   expect((await call('GET','/payroll-references')).body.find((r:any)=>r.id===ref.id).teacherId).toBeNull();
+ });
  it('impede homônimo não confirmado e preserva o cadastro existente',async()=>{
    const count=(await call('GET','/teachers')).body.length;
    const res=await call('POST','/teachers',{name:'Nome corrigido',unitId:ce,unitIds:[ce]});expect(res.status).toBe(409);expect(res.body.error.code).toBe('duplicate_name');
@@ -63,6 +81,8 @@ describe('API de carga por regência e classificação',()=>{
    await upsertUser(server.db,'coord@teste.com','Coordenação','senha-teste-segura');await server.db.query("UPDATE users SET role='coordenador',unit_id=$1 WHERE email='coord@teste.com'",[ce]);
    const login=await server.anonymous('POST','/auth/login',{email:'coord@teste.com',password:'senha-teste-segura'});const cookie=login.headers.get('set-cookie')!.split(';')[0];
    const coord=(method:string,path:string,body?:unknown)=>server.anonymous(method,path,body,{Cookie:cookie});
+   const forbiddenRef=(await server.db.query<{id:number}>(`INSERT INTO payroll_references(unit_id,supplied_name,reference_items) VALUES($1,$2,$3::jsonb) RETURNING id`,[jp,'Referência exclusiva JP',JSON.stringify([{label:'Inglês',kind:'regular',weeklyLessons:2}])]))[0];
+   expect((await coord('POST',`/payroll-references/${forbiddenRef.id}/create-teacher`,{confirmed:true})).status).toBe(403);
    const read=await coord('GET',`/teachers/${teacher}`);expect(read.body.payrollProfiles.map((p:any)=>p.unitId)).toEqual([ce]);
    expect((await coord('PUT',`/teachers/${teacher}/payroll`,{unitId:jp,references:[],regencies:[]})).status).toBe(403);
    expect((await coord('PUT',`/teachers/${teacher}/payroll`,{unitId:ce,references:[],regencies:[]})).status).toBe(200);

@@ -20,6 +20,7 @@ type Choice = { kind: 'replace' } | { kind: 'remove' } | { kind: 'swap' } | { ki
 
 const asInput = (l: Lesson): LessonInput => ({
   teacherId: l.teacherId,
+  workloadKind:l.workloadKind ?? 'auto',
   classId: l.classId,
   subjectId: l.subjectId,
   weekday: l.weekday,
@@ -86,7 +87,7 @@ function ResolverBody({
   const batch = useLessonBatch();
   const toast = useToast();
 
-  const teacherName = (id: number) => data.teachers.find((t) => t.id === id)?.name ?? 'professor removido';
+  const teacherName = (id: number | null) => id===null ? '— Sem professor' : data.teachers.find((t) => t.id === id)?.name ?? 'professor removido';
   const className = (id: number) => data.classes.find((c) => c.id === id)?.name ?? 'turma removida';
   const subjectName = (id: number | null) => (id ? data.subjects.find((s) => s.id === id)?.name : undefined);
   const when = (l: { weekday: Lesson['weekday']; start: string; end: string }) => `${WEEKDAY_LABEL[l.weekday].toLowerCase()}, ${l.start}–${l.end}`;

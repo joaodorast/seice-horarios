@@ -40,6 +40,7 @@ export function ScheduleOverviewPage() {
       description="Visão consolidada da escola por dia e turno. Clique em um horário vazio para alocar uma aula ou em uma aula para ver detalhes."
       actions={
         <>
+          <ButtonLink to="/horarios/carga-pedagogica">Carga pedagógica (PPP)</ButtonLink>
           <PrintMenu />
           <ImportButton kind="lessons" label="Importar aulas" />
           <Button variant="primary" icon={<Plus className="size-4" />} onClick={newLesson} disabled={!actions.ready} title="Atalho: N">

@@ -15,7 +15,7 @@ import type {
 
 export interface LessonCandidate {
   id?: number;
-  teacherId: number;
+  teacherId: number | null;
   classId: number;
   subjectId: number | null;
   weekday: Weekday;
@@ -44,7 +44,7 @@ function describeLesson(lesson: Lesson, ctx: ValidationContext, omit: 'teacher' 
     .map((period) => `${periods.filter((item) => item.shift === period.shift).findIndex((item) => item.id === period.id) + 1}º tempo`);
   const parts = [
     subject ? subject.name : 'aula',
-    omit !== 'teacher' ? `com ${teacher?.name ?? 'professor removido'}` : null,
+    omit !== 'teacher' ? `com ${lesson.teacherId === null ? '— (sem professor)' : teacher?.name ?? 'professor removido'}` : null,
     omit !== 'class' ? `na turma ${schoolClass?.name ?? 'removida'}` : null,
     `(${[WEEKDAY_LABEL[lesson.weekday].toLowerCase(), ...times, formatRange(lesson.start, lesson.end)].join(', ')})`,
   ];
@@ -60,14 +60,14 @@ export function validateLesson(candidate: LessonCandidate, ctx: ValidationContex
   const teacher = ctx.teachers.find((t) => t.id === candidate.teacherId);
   const schoolClass = ctx.classes.find((c) => c.id === candidate.classId);
 
-  if (!teacher) {
+  if (!teacher && candidate.teacherId !== null) {
     issues.push({
       code: 'teacher-missing',
       severity: 'error',
       message: 'O professor selecionado não foi encontrado.',
       hint: 'Selecione um professor da lista.',
     });
-  } else if (!teacher.active) {
+  } else if (teacher && !teacher.active) {
     issues.push({
       code: 'teacher-inactive',
       severity: 'error',
@@ -148,7 +148,7 @@ export function validateLesson(candidate: LessonCandidate, ctx: ValidationContex
   );
 
   for (const other of sameDay) {
-    if (other.teacherId === candidate.teacherId) {
+    if (candidate.teacherId !== null && other.teacherId === candidate.teacherId) {
       issues.push({
         code: 'teacher-overlap',
         severity: 'error',
@@ -211,7 +211,7 @@ export function findScheduleConflicts(lessons: Lesson[]): ScheduleConflict[] {
         const a = sorted[i];
         const b = sorted[j];
         if (toMinutes(b.start) >= toMinutes(a.end)) break;
-        if (a.teacherId === b.teacherId) conflicts.push({ type: 'teacher', a, b });
+        if (a.teacherId !== null && a.teacherId === b.teacherId) conflicts.push({ type: 'teacher', a, b });
         if (a.classId === b.classId) conflicts.push({ type: 'class', a, b });
       }
     }

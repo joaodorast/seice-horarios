@@ -44,6 +44,7 @@ const unitIds = z
   .transform((ids) => [...new Set(ids)].sort((a, b) => a - b));
 
 export const teacherSchema = z.object({
+  allowDuplicateName:z.boolean().optional(),
   name: requiredText(120, 'o nome completo', 3),
   code: optionalText(30, 'A matrícula'),
   area: optionalText(80, 'A área de atuação'),
@@ -81,6 +82,7 @@ export type ClassInput = z.output<typeof classSchema>;
 export type ClassFormValues = z.input<typeof classSchema>;
 
 export const subjectSchema = z.object({
+  workloadKind: z.enum(['auto','regular','technical']).optional(),
   name: requiredText(60, 'o nome da disciplina'),
   color: z.enum(SUBJECT_COLORS).default('slate'),
   /** Segmentos em que a disciplina aparece. Vazio: em todos. */
@@ -114,7 +116,8 @@ const weekday = z.coerce
 
 export const lessonSchema = z
   .object({
-    teacherId: z.coerce.number({ error: 'Selecione o professor.' }).int().positive({ error: 'Selecione o professor.' }),
+    teacherId: z.coerce.number({ error: 'Selecione o professor.' }).int().positive({ error: 'Selecione o professor.' }).nullable(),
+    workloadKind: z.enum(['auto','regular','technical','excluded']).optional(),
     classId: z.coerce.number({ error: 'Selecione a turma.' }).int().positive({ error: 'Selecione a turma.' }),
     subjectId: z
       .union([z.coerce.number().int().positive(), z.null(), z.literal('')])
@@ -260,3 +263,15 @@ export const loginSchema = z.object({
   password: z.string({ error: 'Informe a senha.' }).min(1, { error: 'Informe a senha.' }).max(200),
   remember: z.boolean().default(false),
 });
+
+
+export const teacherPayrollSchema = z.object({
+  unitId: z.number().int().positive(),
+  references: z.array(z.object({label: z.string().trim().min(1).max(120),kind:z.enum(['regular','technical']),weeklyLessons:z.number().int().min(0).max(100)})).max(30),
+  regencies: z.array(z.object({classId:z.number().int().positive(),segment:z.enum(['infantil','fund1']),weekdays:z.array(weekday).min(1).max(6).transform((days)=>[...new Set(days)].sort())})).max(10),
+}).superRefine((input,ctx)=>{
+  if(new Set(input.regencies.map((r)=>r.classId)).size!==input.regencies.length)ctx.addIssue({code:'custom',path:['regencies'],message:'A mesma turma não pode ter duas regências para este professor.'});
+});
+export type TeacherPayrollInput = z.output<typeof teacherPayrollSchema>;
+
+export const resolvePayrollReferenceSchema=z.object({teacherId:z.number().int().positive()});

@@ -14,6 +14,7 @@ import {
   PencilRuler,
   Sigma,
   Settings2,
+  Sparkles,
   Table2,
   UserRound,
   Users,
@@ -61,6 +62,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
   },
 ];
 
+const UPDATES_ITEM: NavItem = { to: '/atualizacoes', label: 'Atualizações', icon: <Sparkles /> };
 const SETTINGS_ITEM: NavItem = { to: '/configuracoes', label: 'Configurações', icon: <Settings2 /> };
 
 interface LayoutCtx {
@@ -205,6 +207,7 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
       </nav>
 
       <div className={cn('shrink-0 border-t border-nav-line py-3 short:py-2', collapsed ? 'px-3' : 'px-4')}>
+        <SidebarLink item={UPDATES_ITEM} collapsed={collapsed} />
         <SidebarLink item={SETTINGS_ITEM} collapsed={collapsed} />
         <UserCard collapsed={collapsed} />
       </div>

@@ -57,7 +57,8 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { to: '/horarios/turma', label: 'Por turma', icon: <CalendarDays /> },
       { to: '/atribuicoes', label: 'Atribuição de aulas', icon: <ClipboardList /> },
       { to: '/horarios/montar', label: 'Montar quadro', icon: <PencilRuler /> },
-      { to: '/horarios/carga', label: 'Carga horária', icon: <Sigma /> },
+      { to: '/horarios/carga', label: 'Carga horária · RH', icon: <Sigma /> },
+      { to: '/horarios/carga-pedagogica', label: 'Carga pedagógica · PPP', icon: <BookOpen /> },
     ],
   },
 ];

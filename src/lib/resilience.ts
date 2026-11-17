@@ -1,3 +1,5 @@
+import { rememberUpdate } from './updateNews';
+
 /**
  * Proteções para o sistema publicado nunca ficar travado numa tela de erro:
  * - após uma nova publicação, os arquivos da versão anterior deixam de existir; se uma tela tentar
@@ -30,6 +32,7 @@ export function reloadOnce(): boolean {
   } catch {
     // sem sessionStorage: recarrega mesmo assim (o navegador não entra em ciclo por isso)
   }
+  try { rememberUpdate(sessionStorage, APP_VERSION); } catch { /* Armazenamento indisponível. */ }
   window.location.reload();
   return true;
 }

@@ -1,10 +1,22 @@
 /** Novidades da versão atual. Atualize este resumo junto das próximas entregas. */
-export const updateNews = [
+const assistantNews = [
   { title: 'Professores mais fáceis de conferir', description: 'Pesquise pelo nome e veja os cadastros em uma lista maior, com matrícula, unidade e barra de rolagem.', links: [{ label: 'Conferir professores', to: '/horarios/carga?configurar=professores' }] },
   { title: 'Cadastro novo em uma confirmação', description: 'Se o professor ainda não estiver no sistema, confirme para cadastrar e vincular a carga da lista. Nomes já existentes são bloqueados para conferência.', links: [{ label: 'Cadastrar ou conferir professor', to: '/horarios/carga?configurar=professores' }] },
   { title: 'Regências explicadas passo a passo', description: 'Escolha o professor, indique a turma e os dias da semana e confira o total antes de salvar.', links: [{ label: 'Configurar regências', to: '/horarios/carga?configurar=regencias' }] },
   { title: 'Letras maiores e informações mais claras', description: 'Ampliamos os textos da configuração de cargas e os cartões de próximas aulas no Dashboard.', links: [{ label: 'Ver Dashboard', to: '/' }, { label: 'Ver carga horária', to: '/horarios/carga' }] },
 ];
+export const updateNews = [
+  { title: 'Uma página para acompanhar as atualizações', description: 'Consulte as novidades e correções quando quiser, mesmo depois de fechar este aviso. A tela fica no menu lateral, em Atualizações.', links: [{ label: 'Ver histórico de atualizações', to: '/atualizacoes' }] },
+  { title: 'Vá direto à tela que mudou', description: 'Cada novidade tem um atalho. Abra a conferência de professores ou a configuração de regências na aba certa.', links: [{ label: 'Conferir professores', to: '/horarios/carga?configurar=professores' }, { label: 'Configurar regências', to: '/horarios/carga?configurar=regencias' }] },
+  { title: 'Aviso de novidades depois de atualizar', description: 'Corrigimos o caso em que o botão da versão anterior atualizava o sistema sem abrir o resumo das mudanças.', links: [{ label: 'Consultar as novidades', to: '/atualizacoes' }] },
+];
+
+/** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
+export const updateHistory = [
+  { id: '2026-11-17-historico', date: '2026-11-17', title: 'Atualizações sempre à mão', description: 'Histórico permanente, atalhos para as telas e correção do aviso após atualizar.', items: updateNews },
+  { id: '2026-11-17-assistente', date: '2026-11-17', title: 'Mais clareza para configurar professores e regências', description: 'Textos maiores, seleção com pesquisa e cadastro pela lista em uma confirmação.', items: assistantNews },
+];
+
 const VERSION_KEY = 'seice:versao-aberta';
 const PENDING_KEY = 'seice:novidades-pendentes';
 

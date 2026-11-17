@@ -21,6 +21,8 @@ import {
   statusSchema,
   subjectSchema,
   teacherSchema,
+  teacherPayrollSchema,
+  resolvePayrollReferenceSchema,
   unitSchema,
   type LessonInput,
 } from '../shared/schemas.js';
@@ -224,7 +226,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       const units = [...new Set([...(t.unitId ? [t.unitId] : []), ...(t.unitIds ?? [])])];
       return units.some((u) => allowed.includes(u));
     });
-    return { teachers: visibleTeachers, classes: classes.filter((c) => inUnit(c.unitId)), lessons: lessons.filter((l) => inUnit(l.unitId)) };
+    return { teachers: visibleTeachers.map((teacher)=>({...teacher,payrollProfiles:teacher.payrollProfiles?.filter((p)=>allowed.includes(p.unitId))})), classes: classes.filter((c) => inUnit(c.unitId)), lessons: lessons.filter((l) => inUnit(l.unitId)) };
   }
 
   /** Recusa o acesso a um registro de outra unidade. */
@@ -313,6 +315,12 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }
   }
 
+  async function assertTeacherNameConfirmed(name:string,confirmed:boolean|undefined,ignoreId?:number,source:Repository=repo) {
+    const fold=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
+    const exists=(await source.listTeachers()).some((teacher)=>teacher.id!==ignoreId&&fold(teacher.name)===fold(name));
+    if(exists&&!confirmed)throw new HttpError(409,'duplicate_name','Já existe um cadastro com este nome. Confira o vínculo entre unidades antes de criar ou renomear. Só confirme outro cadastro se for uma pessoa diferente.',{fields:{name:'Confira o cadastro existente antes de confirmar um homônimo.'}});
+  }
+
   api.post('/teachers', async (req, res) => {
     const input = parse(teacherSchema, req.body);
     // Coordenador cadastra professor apenas na própria unidade.
@@ -327,7 +335,9 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       if (!input.unitIds.length) input.unitIds = [principal];
     }
     await assertTeacherCodeFree(input.code);
-    res.status(201).json(await db.transaction((tx) => createRepository(tx).createTeacher(input)));
+    res.status(201).json(await db.transaction(async(tx)=>{
+      const source=createRepository(tx);await source.lockLessons();await assertTeacherNameConfirmed(input.name,input.allowDuplicateName,undefined,source);return source.createTeacher(input);
+    }));
   });
 
   api.put('/teachers/:id', async (req, res) => {
@@ -338,8 +348,70 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       input.unitId = current.unitId;
       input.unitIds = current.unitIds?.length ? current.unitIds : current.unitId ? [current.unitId] : [];
     }
-    await assertTeacherCodeFree(input.code, id);
-    res.json(await db.transaction((tx) => createRepository(tx).updateTeacher(id, input)));
+    await assertTeacherCodeFree(input.code,id);
+    res.json(await db.transaction(async(tx)=>{
+      const source=createRepository(tx);await source.lockLessons();const fresh=await source.getTeacher(id);
+      const allowed=visibleUnitIds(res);
+      if(allowed && fresh?.unitIds?.some((unit)=>!allowed.includes(unit)))throw new HttpError(403,'wrong_unit','A administração gerencia professores compartilhados.');
+    if(input.unitIds.length) {
+      const lessons=await source.listLessons();
+      const classes=await source.listClasses();
+      const assignments=await source.listAssignments();
+      const protectedUnits=new Set([
+        ...lessons.filter((l)=>l.teacherId===id).map((l)=>l.unitId),
+        ...assignments.filter((a)=>a.teacherId===id).map((a)=>classes.find((c)=>c.id===a.classId)?.unitId),
+        ...(fresh?.payrollProfiles ?? []).filter((p)=>p.regencies.length||p.references.length).map((p)=>p.unitId),
+      ].filter((unit):unit is number=>unit!==undefined));
+      if([...protectedUnits].some((unit)=>!input.unitIds.includes(unit)))throw new HttpError(422,'unit_in_use','Há aulas, atribuições ou cargas vinculadas à unidade que você tentou retirar. Mantenha esse vínculo ou revise esses registros antes.',{fields:{unitIds:'A unidade ainda possui informações deste professor. Nenhum horário foi removido.'}});
+    }
+      const foldName=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
+      if(foldName(input.name)!==foldName(fresh?.name??''))await assertTeacherNameConfirmed(input.name,input.allowDuplicateName,id,source);
+      return source.updateTeacher(id,input);
+    }));
+  });
+
+  api.get('/payroll-references',async(_req,res)=>{
+    const allowed=visibleUnitIds(res);
+    res.json((await repo.listPayrollReferences()).filter((r)=>!allowed||allowed.includes(r.unitId)));
+  });
+  api.put('/payroll-references/:id/resolve',async(req,res)=>{
+    const id=idParam(req),input=parse(resolvePayrollReferenceSchema,req.body);
+    await db.transaction(async(tx)=>{
+      const scoped=createRepository(tx);await scoped.lockLessons();
+      const reference=(await scoped.listPayrollReferences()).find((r)=>r.id===id);
+      if(!reference)throw new HttpError(404,'not_found','Referência não encontrada.');
+      assertUnitAccess(res,reference.unitId);
+      if(reference.teacherId!==null)throw new HttpError(409,'already_confirmed','Esta referência já foi confirmada. Edite a carga no cadastro do professor.');
+      const teacher=await scoped.getTeacher(input.teacherId);
+      if(!teacher || !(teacher.unitIds?.includes(reference.unitId)||teacher.unitId===reference.unitId))throw new HttpError(422,'wrong_unit','Escolha um professor cadastrado nesta unidade.');
+      const existing=teacher.payrollProfiles?.find((p)=>p.unitId===reference.unitId);
+      await scoped.setTeacherPayroll(teacher.id,{unitId:reference.unitId,references:reference.references,regencies:existing?.regencies ?? []});
+      await scoped.resolvePayrollReference(id,teacher.id);
+    });
+    res.json({saved:true});
+  });
+
+  api.put('/teachers/:id/payroll', async (req,res) => {
+    const id = idParam(req);
+    const input = parse(teacherPayrollSchema,req.body);
+    await db.transaction(async (tx) => {
+      const scoped = createRepository(tx);
+      await scoped.lockLessons();
+      await tx.query('SELECT id FROM teachers WHERE id = $1 FOR UPDATE',[id]);
+      const teacher = await scoped.getTeacher(id);
+      if(!teacher)throw new HttpError(404,'not_found','Professor não encontrado.');
+      assertUnitAccess(res,input.unitId);
+      const unitIds = teacher.unitIds?.length ? teacher.unitIds : teacher.unitId ? [teacher.unitId] : [];
+      if(!unitIds.includes(input.unitId))throw new HttpError(422,'wrong_unit','Este professor não atua nesta unidade.');
+      for(const regency of input.regencies) {
+        const schoolClass = await scoped.getClass(regency.classId);
+        if(!schoolClass || schoolClass.unitId !== input.unitId)throw new HttpError(422,'wrong_unit','A regência precisa ser de uma turma desta unidade.');
+        const others = await scoped.listTeachers();
+        if(others.some((other)=>other.id!==id && other.payrollProfiles?.some((p)=>p.unitId===input.unitId && p.regencies.some((r)=>r.classId===regency.classId))))throw new HttpError(409,'regency_exists','Esta turma já possui regente cadastrado. Revise o professor antes de trocar.');
+      }
+      await scoped.setTeacherPayroll(id,input);
+    });
+    res.json((await scopedTeachers(res)).find((teacher)=>teacher.id===id));
   });
 
   api.patch('/teachers/:id/status', async (req, res) => {

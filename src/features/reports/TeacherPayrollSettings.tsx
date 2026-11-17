@@ -13,7 +13,7 @@ export function TeacherPayrollSettings({teacher,data,regencyOnly=false,onDirtyCh
   const available=units.filter((unit)=>teacher.unitIds?.includes(unit.id)||teacher.unitId===unit.id);
   const [chosen,setChosen]=useState<number|null>(null);
   const unit=available.find((unit)=>unit.id===chosen)??available[0];
-  return <Card className="p-5">
+  return <Card className={regencyOnly ? "p-5 [&_select]:h-12 [&_input[type=checkbox]]:size-5 [&_fieldset_label]:rounded-lg [&_fieldset_label]:border [&_fieldset_label]:border-line [&_fieldset_label]:px-3 [&_fieldset_label]:py-3 [&_fieldset_label]:gap-2 [&_fieldset_label:has(input:checked)]:bg-brand-soft" : "p-5"}>
     <h2 className="text-lg font-bold">{regencyOnly ? `Regência de ${teacher.name}` : 'Carga horária para relatórios'}</h2>
     <p className="mt-1 text-sm text-muted">{regencyOnly ? 'Escolha a unidade, adicione as turmas e marque os dias. Confira o total antes de salvar.' : 'Informe a carga de referência da escola ou as turmas em que este professor é regente. Isso não cria nem altera aulas na grade.'}</p>
     {unit && <><label className="mt-4 block text-sm font-semibold">Unidade

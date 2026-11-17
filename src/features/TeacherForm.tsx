@@ -19,8 +19,12 @@ export function TeacherFormModal({
   teacher,
   onClose,
   onSaved,
+  initialName,
+  initialUnitId,
 }: {
   open: boolean;
+  initialName?:string;
+  initialUnitId?:number;
   teacher?: Teacher | null;
   onClose: () => void;
   onSaved?: (t: Teacher) => void;
@@ -33,17 +37,18 @@ export function TeacherFormModal({
       title={teacher ? 'Editar professor' : 'Novo professor'}
       description={teacher ? teacher.name : 'Apenas o nome é obrigatório. Os demais dados podem ser completados depois.'}
     >
-      {open && <TeacherForm key={teacher?.id ?? 'new'} teacher={teacher ?? null} onClose={onClose} onSaved={onSaved} />}
+      {open && <TeacherForm key={teacher?.id ?? 'new'} teacher={teacher ?? null} onClose={onClose} onSaved={onSaved} initialName={initialName} initialUnitId={initialUnitId} />}
     </Modal>
   );
 }
 
-function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; onClose: () => void; onSaved?: (t: Teacher) => void }) {
+function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { teacher: Teacher | null; onClose: () => void; onSaved?: (t: Teacher) => void;initialName?:string;initialUnitId?:number }) {
   const save = useSaveTeacher();
   const toast = useToast();
   const units = useUnits();
   const fixedUnitId = useFixedUnitId();
   const isAdmin = fixedUnitId === null;
+  const [nameConfirmation,setNameConfirmation]=useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -56,14 +61,15 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
   } = useForm<TeacherFormValues, unknown, TeacherInput>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
-      name: teacher?.name ?? '',
+      name: teacher?.name ?? initialName ?? '',
+      allowDuplicateName:false,
       code: teacher?.code ?? '',
       area: teacher?.area ?? '',
       phone: teacher?.phone ?? '',
       notes: teacher?.notes ?? '',
       active: teacher?.active ?? true,
-      unitId: teacher?.unitId ?? fixedUnitId ?? units.data?.[0]?.id,
-      unitIds: teacher?.unitIds?.length ? teacher.unitIds : fixedUnitId ? [fixedUnitId] : units.data?.[0] ? [units.data[0].id] : [],
+      unitId: teacher?.unitId ?? fixedUnitId ?? initialUnitId ?? units.data?.[0]?.id,
+      unitIds: teacher?.unitIds?.length ? teacher.unitIds : fixedUnitId ? [fixedUnitId] : initialUnitId ? [initialUnitId] : units.data?.[0] ? [units.data[0].id] : [],
       segments: teacher?.segments ?? [],
       subjectIds: teacher?.subjectIds ?? [],
     },
@@ -79,6 +85,7 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
       onSaved?.(saved);
       onClose();
     } catch (error) {
+      if(error instanceof ApiError && error.code==='duplicate_name')setNameConfirmation(true);
       if (error instanceof ApiError && error.fields) {
         for (const [field, message] of Object.entries(error.fields)) {
           setError(field as keyof TeacherFormValues, { message });
@@ -93,6 +100,10 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {formError && <Alert tone="danger" title={formError} />}
       <PhotoSection teacher={teacher} />
+      {nameConfirmation&&<Alert tone="warning" title="Já existe um cadastro com este nome">
+        <p className="text-sm">Se for o mesmo professor, edite o cadastro e suas unidades. Só crie outro se forem pessoas diferentes.</p>
+        <label className="mt-2 flex items-start gap-2 text-sm"><input type="checkbox" {...register('allowDuplicateName')} />Conferi e confirmo que este cadastro é de outra pessoa com o mesmo nome.</label>
+      </Alert>}
       <Field label="Nome completo" required error={errors.name?.message}>
         <Input {...register('name')} autoComplete="off" placeholder="Ex.: Maria Aparecida dos Santos" maxLength={120} />
       </Field>
@@ -134,6 +145,7 @@ function TeacherForm({ teacher, onClose, onSaved }: { teacher: Teacher | null; o
           />
         )}
       />
+      {(errors.unitIds?.message || errors.unitId?.message)&&<p className="text-sm text-danger">{String(errors.unitIds?.message ?? errors.unitId?.message)}</p>}
       <Controller
         control={control}
         name="segments"

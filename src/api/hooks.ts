@@ -262,3 +262,8 @@ export function useImport(kind: ImportKind) {
     },
   });
 }
+
+export function useSaveTeacherPayroll() {
+  const qc=useQueryClient();
+  return useMutation({mutationFn:({id,input}:{id:number;input:import('@shared/schemas').TeacherPayrollInput})=>request<Teacher>('PUT',`/teachers/${id}/payroll`,input),onSuccess:()=>qc.invalidateQueries({queryKey:keys.teachers})});
+}

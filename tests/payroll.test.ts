@@ -41,6 +41,15 @@ describe('regras de pagamento e dias no colégio',()=>{
     expect(compute([],[regent],{scope:'dia',day:1,month:'2027-03'}).grand.minutes).toBe(270);
     expect(compute([],[regent],{scope:'dia',day:6,month:'2027-03'}).grand.minutes).toBe(0);
   });
+  it('duas turmas Fund I somam 45h = 2700 minutos, sem somar novamente as disciplinas',()=>{
+    const other={...klass(14,'1002 CE Fund I','tarde'),unitId:1};
+    const regent={...t,payrollProfiles:[{unitId:1,references:[],regencies:[{classId:10,segment:'fund1' as const,weekdays:[1,2,3,4,5] as any},{classId:14,segment:'fund1' as const,weekdays:[1,2,3,4,5] as any}]}]};
+    const w=compute([lesson(1,10,1,'07:30','08:20'),lesson(1,14,1,'13:00','13:50')],[regent],undefined,subjects,[...classes,other]);
+    expect(w.rows[0].byClass.get(10)?.minutes).toBe(1350);expect(w.rows[0].byClass.get(14)?.minutes).toBe(1350);
+    expect(w.grand).toEqual({lessons:0,minutes:2700});expect(w.rows[0].payroll?.regencyMinutes).toBe(2700);expect(w.rows[0].payroll?.attendanceDays).toBe(5);
+    const infant={...regent,payrollProfiles:[{unitId:1,references:[],regencies:[{classId:12,segment:'infantil' as const,weekdays:[1,2,3,4,5] as any}]}]};
+    expect(compute([],[infant]).grand.minutes).toBe(1200);
+  });
   it('regência infantil soma 20h semanais e não cobra na unidade de outra turma',()=>{
     const regent={...t,payrollProfiles:[{unitId:1,references:[],regencies:[{classId:12,segment:'infantil' as const,weekdays:[1,2,3,4,5] as any}]}]};
     expect(compute([],[regent]).grand.minutes).toBe(1200);expect(compute([],[regent],undefined,subjects,[classes[3]]).grand.minutes).toBe(0);

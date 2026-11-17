@@ -13,8 +13,11 @@ export function rememberUpdate(storage: Storage, version: string) {
   storage.setItem(PENDING_KEY, version);
 }
 
-export function hasUpdateNews(storage: Storage, version: string): boolean {
+export function hasUpdateNews(storage: Storage, version: string, reloaded = false): boolean {
   const previous = storage.getItem(VERSION_KEY);
+  // O botão das versões anteriores a este recurso só recarregava a página.
+  // Na primeira recarga sem histórico, recuperamos esse caso sem abrir na primeira visita.
+  if (!previous && !storage.getItem(PENDING_KEY) && reloaded) rememberUpdate(storage, 'legacy-before-update-news');
   if (previous && previous !== version && !storage.getItem(PENDING_KEY)) rememberUpdate(storage, previous);
   storage.setItem(VERSION_KEY, version);
   const pending = storage.getItem(PENDING_KEY);

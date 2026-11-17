@@ -17,15 +17,22 @@ const rhNews = [
   { title: 'Impressão mais clara', description: 'Retiramos as informações de minutos por tempo que estavam confundindo a leitura. Horas e minutos passam a aparecer juntos no resumo, com uma legenda curta.', links: [{ label: 'Horários por professor', to: '/horarios/professor' }] },
 ];
 
-export const updateNews = [
+const pppInitialNews = [
   { title: 'Carga pedagógica por turma e disciplina', description: 'A nova aba PPP mostra tempos por semana, carga semanal e carga total projetada a partir das aulas cadastradas na grade.', links: [{ label: 'Abrir carga pedagógica (PPP)', to: '/horarios/carga?visao=pedagogica' }] },
   { title: 'Projeção para 2027 com base ajustável', description: 'Use 201 dias letivos para o ano ou informe as semanas de um módulo/semestre. O sistema mostra a duração por tempo e a conta utilizada.', links: [{ label: 'Consultar projeção do PPP', to: '/horarios/carga?visao=pedagogica' }] },
   { title: 'Relatório pedagógico em PDF e Excel', description: 'Filtre unidades, turmas e disciplinas e baixe exatamente o recorte escolhido. O relatório pedagógico fica separado do pagamento do RH.', links: [{ label: 'Gerar relatório pedagógico', to: '/horarios/carga?visao=pedagogica' }] },
 ];
 
+export const updateNews = [
+  { title: 'Página própria para a carga pedagógica', description: 'Acesse Carga pedagógica · PPP no menu lateral. Explore a grade por unidade, segmento, turma e disciplina, com carga semanal e total.', links: [{ label: 'Abrir carga pedagógica', to: '/horarios/carga-pedagogica' }] },
+  { title: 'O cliente pode personalizar o cálculo', description: 'Em Personalizar cálculo, salve o padrão da unidade e ajuste os segmentos ou turmas diferentes. Por exemplo: Infantil com 50 minutos e outro segmento com 60 minutos por tempo.', links: [{ label: 'Ver e personalizar regras', to: '/horarios/carga-pedagogica' }] },
+  { title: 'Regras salvas e relatórios alinhados', description: 'As configurações ficam no banco por ano e unidade. A página, o PDF e o Excel usam a mesma regra aplicada a cada turma. Não é preciso preencher tudo novamente. As regras de pagamento do RH não são alteradas.', links: [{ label: 'Consultar relatórios da grade', to: '/horarios/carga-pedagogica' }] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  { id: '2026-11-17-ppp', date: '2026-11-17', title: 'Projeção da carga horária pedagógica para o PPP', description: 'Carga semanal e total por turma e disciplina, com base ajustável e exportação.', items: updateNews },
+  { id: '2026-11-17-ppp-personalizavel', date: '2026-11-17', title: 'Carga pedagógica com regras salvas por unidade, segmento e turma', description: 'Página própria, personalização da duração dos tempos e relatórios com as mesmas regras.', items: updateNews },
+  { id: '2026-11-17-ppp', date: '2026-11-17', title: 'Projeção da carga horária pedagógica para o PPP', description: 'Carga semanal e total por turma e disciplina, com base ajustável e exportação.', items: pppInitialNews },
   { id: '2026-11-17-rh', date: '2026-11-17', title: 'Carga fixa e minutos para pagamento mais claros', description: 'Destaques de cor nos relatórios e conversão de horas para facilitar a conferência do RH.', items: rhNews },
   { id: '2026-11-17-historico', date: '2026-11-17', title: 'Atualizações sempre à mão', description: 'Histórico permanente, atalhos para as telas e correção do aviso após atualizar.', items: navigationNews },
   { id: '2026-11-17-assistente', date: '2026-11-17', title: 'Mais clareza para configurar professores e regências', description: 'Textos maiores, seleção com pesquisa e cadastro pela lista em uma confirmação.', items: assistantNews },

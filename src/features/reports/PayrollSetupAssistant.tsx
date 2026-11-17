@@ -1,5 +1,6 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router';
 import { CheckCircle2, ClipboardCheck, GraduationCap, Settings2 } from 'lucide-react';
 import { Button, Card, Combobox, ConfirmDialog, Modal } from '@/components/ui';
 import { request } from '@/api/client';
@@ -13,6 +14,7 @@ type Step = 'references' | 'regencies';
 
 export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   const query = useQuery({ queryKey: ['payroll-references'], queryFn: () => request<PayrollReference[]>('GET', '/payroll-references') });
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('references');
   const [teacherId, setTeacherId] = useState<number | null>(null);
@@ -28,6 +30,15 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   const regencyCount = configured.reduce((sum, teacher) => sum + (teacher.payrollProfiles?.reduce((count, profile) => count + profile.regencies.length, 0) ?? 0), 0);
   const selected = data.teachers.find((teacher) => teacher.id === teacherId);
   const busy = regencyBusy || referenceBusy;
+
+  useEffect(() => {
+    const destination = searchParams.get('configurar');
+    if (destination !== 'professores' && destination !== 'regencias') return;
+    setStep(destination === 'regencias' ? 'regencies' : 'references');
+    setOpen(true);
+    // Consome o atalho para que fechar o assistente não o reabra na próxima renderização.
+    setSearchParams((current) => { const next = new URLSearchParams(current); next.delete('configurar'); return next; }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   function requestChange(action: () => void) {
     if (busy) return;

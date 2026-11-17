@@ -28,6 +28,7 @@ describe('API de carga por regência e classificação',()=>{
  it('persiste classificação por aula e não aceita enum inválido',async()=>{
    const input={teacherId:teacher,classId:ceClass,subjectId:subject,weekday:2,start:'07:00',end:'07:50',workloadKind:'technical'};
    const created=await call('POST','/lessons',input);expect(created.status).toBe(201);expect(created.body.lesson.workloadKind).toBe('technical');
+   const {workloadKind,...legacy}=input;void workloadKind;const preserved=await call('PUT',`/lessons/${created.body.lesson.id}`,legacy);expect(preserved.body.lesson.workloadKind).toBe('technical');
    const edited=await call('PUT',`/lessons/${created.body.lesson.id}`,{...input,workloadKind:'regular'});expect(edited.body.lesson.workloadKind).toBe('regular');
    expect((await call('POST','/lessons',{...input,weekday:3,workloadKind:'invalid'})).status).toBe(422);
  });

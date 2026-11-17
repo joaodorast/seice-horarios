@@ -20,7 +20,7 @@ interface LessonChipProps {
 /** Bloco de aula usado em todas as grades: cor da disciplina na borda, informação principal em destaque. */
 export function LessonChip({ lesson, index, perspective, period, onClick, dimmed, compact }: LessonChipProps) {
   const subject = lesson.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
-  const teacher = index.teacherById.get(lesson.teacherId);
+  const teacher = index.teacherById.get(lesson.teacherId ?? -1);
   const schoolClass = index.classById.get(lesson.classId);
   const style = subject ? SUBJECT_STYLE[subject.color] : NO_SUBJECT_STYLE;
   const conflict = index.conflictLessonIds.has(lesson.id);
@@ -37,7 +37,7 @@ export function LessonChip({ lesson, index, perspective, period, onClick, dimmed
   const label = [
     title,
     perspective !== 'class' ? `turma ${schoolClass?.name}` : null,
-    perspective !== 'teacher' ? `professor ${teacher?.name}` : null,
+    perspective !== 'teacher' ? `professor ${teacher?.name ?? 'não definido'}` : null,
     `${lesson.start} às ${lesson.end}`,
     conflict ? 'em conflito' : null,
     inactive ? 'com cadastro inativo' : null,

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, Navigate, useSearchParams } from 'react-router';
 import { ChevronDown, Download, Printer, Users, GraduationCap, FileText, FileSpreadsheet, Check } from 'lucide-react';
 import { Page } from '@/components/layout/Page';
 import { DataGate } from '@/components/layout/DataGate';
-import { Button, Card, Input, Segmented, Modal, useToast } from '@/components/ui';
+import { Button, ButtonLink, Card, Input, Segmented, Modal, useToast } from '@/components/ui';
 import { useScheduleData, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
 import { monthWeekdayCounts } from '@shared/workload';
@@ -17,7 +17,6 @@ import { PayrollBreakdown } from '@/features/reports/PayrollBreakdown';
 import { errorMessage } from '@/api/client';
 import { downloadWorkloadReport, workloadReportFileName } from '@/lib/workloadReport';
 import { ReportSelection } from '@/features/reports/ReportSelection';
-import { AcademicWorkload } from '@/features/reports/AcademicWorkload';
 import { GUIDES } from '@/lib/guides';
 
 type Scope = 'dia' | 'semana' | 'mes';
@@ -29,15 +28,15 @@ const paidHours = (minutes: number) => Number.isInteger(minutes)
 
 export function WorkloadPage() {
   const schedule = useScheduleData();
-  const [params,setParams]=useSearchParams();
-  const academic=params.get('visao')==='pedagogica';
+  const [params]=useSearchParams();
+  if(params.get('visao')==='pedagogica')return <Navigate to="/horarios/carga-pedagogica" replace/>;
   return (
-    <Page title="Carga horária" width="wide" guide={academic?undefined:GUIDES.workload}
+    <Page title="Carga horária" width="wide" guide={GUIDES.workload}
       breadcrumbs={[{ label: 'Quadro de horários', to: '/horarios' }, { label: 'Carga horária' }]}
-      description={academic?"Confira os tempos da grade e a carga pedagógica semanal e total por turma e disciplina, para analisar o PPP.":"Confira os tempos e minutos pagos por professor, turma e disciplina. Escolha o dia, a semana ou o mês do calendário."}>
-      <Segmented size="lg" className="mb-5 [&_button]:text-base" label="Finalidade do relatório" value={academic?'pedagogica':'rh'} onChange={value=>setParams(previous=>{const next=new URLSearchParams(previous);if(value==='pedagogica')next.set('visao',value);else next.delete('visao');return next;})} options={[{value:'rh',label:'RH · Pagamento'},{value:'pedagogica',label:'PPP · Turmas e disciplinas'}]} />
+      description="Confira os tempos e minutos pagos por professor, turma e disciplina. Escolha o dia, a semana ou o mês do calendário." actions={<ButtonLink to="/horarios/carga-pedagogica">Carga pedagógica (PPP)</ButtonLink>}>
+
       <DataGate data={schedule.data} isLoading={schedule.isLoading} error={schedule.error} onRetry={schedule.refetch}>
-        {(data) => academic?<AcademicWorkload data={data}/>:<WorkloadView data={data} />}
+        {(data) => <WorkloadView data={data} />}
       </DataGate>
     </Page>
   );

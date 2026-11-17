@@ -374,6 +374,25 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const allowed=visibleUnitIds(res);
     res.json((await repo.listPayrollReferences()).filter((r)=>!allowed||allowed.includes(r.unitId)));
   });
+  // Criar e vincular é uma operação única: uma falha não deixa cadastro incompleto.
+  api.post('/payroll-references/:id/create-teacher',async(req,res)=>{
+    const id=idParam(req);
+    if(req.body?.confirmed!==true)throw new HttpError(422,'confirmation_required','Confirme que o professor ainda não possui cadastro.');
+    const created=await db.transaction(async(tx)=>{
+      const scoped=createRepository(tx);await scoped.lockLessons();
+      const reference=(await scoped.listPayrollReferences()).find((r)=>r.id===id);
+      if(!reference)throw new HttpError(404,'not_found','Referência não encontrada.');
+      assertUnitAccess(res,reference.unitId);
+      if(reference.teacherId!==null)throw new HttpError(409,'already_confirmed','Esta referência já foi confirmada.');
+      await assertTeacherNameConfirmed(reference.suppliedName,false,undefined,scoped);
+      const input=parse(teacherSchema,{name:reference.suppliedName,unitId:reference.unitId,unitIds:[reference.unitId]});
+      const teacher=await scoped.createTeacher(input);
+      await scoped.setTeacherPayroll(teacher.id,{unitId:reference.unitId,references:reference.references,regencies:[]});
+      await scoped.resolvePayrollReference(reference.id,teacher.id);
+      return scoped.getTeacher(teacher.id);
+    });
+    res.status(201).json(created);
+  });
   api.put('/payroll-references/:id/resolve',async(req,res)=>{
     const id=idParam(req),input=parse(resolvePayrollReferenceSchema,req.body);
     await db.transaction(async(tx)=>{

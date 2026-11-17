@@ -36,45 +36,51 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
     if (y + lines.length * 5 + 25 > 277) { doc.addPage(); y = 42; }
     doc.text(lines, 14, y); y += lines.length * 5 + 2;
   }
-  function table(head: string[], body: string[][], widths?: Record<number, {cellWidth: number}>, footer?: string[]) {
+  function table(head: string[], body: string[][], widths?: Record<number, {cellWidth: number}>, footer?: string[], fixedCells?: (row:number,column:number)=>boolean) {
     autoTable(doc, {
       startY: y, margin: { left: 14, right: 14, top: 40, bottom: 20 },
       head: [head], body, foot: footer ? [footer] : undefined, showFoot: 'lastPage',
       theme: 'grid', rowPageBreak: 'avoid',
-      styles: { font: 'helvetica', fontSize: 10.5, cellPadding: 3.2, overflow: 'linebreak', textColor: ink, lineColor: [220, 224, 230], lineWidth: 0.1 },
+      styles: { font: 'helvetica', fontSize: 10.5, cellPadding: 2.6, overflow: 'linebreak', textColor: ink, lineColor: [220, 224, 230], lineWidth: 0.1 },
       headStyles: { fillColor: [243,244,246], textColor: ink, fontStyle: 'bold' },
       footStyles: { fillColor: [243,244,246], textColor: ink, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [255,255,255] },
       columnStyles: widths,
+      didParseCell: (cell) => {
+        if (cell.section==='foot') { cell.cell.styles.fillColor=[22,61,104];cell.cell.styles.textColor=[255,255,255];cell.cell.styles.fontStyle='bold'; }
+        if (cell.section!=='body') return;
+        if (['Total','Horas pagas','Horas'].includes(head[cell.column.index]) || body[cell.row.index]?.[0]==='Total para pagamento') {cell.cell.styles.fillColor=[234,242,255];cell.cell.styles.textColor=[22,61,104];cell.cell.styles.fontStyle='bold';}
+        if (fixedCells?.(cell.row.index,cell.column.index)) {cell.cell.styles.fillColor=[234,247,239];cell.cell.styles.textColor=[20,83,45];cell.cell.styles.fontStyle='bold';}
+      },
     });
-    y = (doc as typeof doc & {lastAutoTable: {finalY: number}}).lastAutoTable.finalY + 10;
+    y = (doc as typeof doc & {lastAutoTable: {finalY: number}}).lastAutoTable.finalY + 6;
   }
   title('Resumo do período');
   doc.setFont('helvetica','normal').setFontSize(10).setTextColor(80);
   doc.text(input.period, 14, y); y += 9;
   const totals = numbers(workload.grand.lessons,workload.grand.minutes);
   const metrics = [
-    {label:'Tempos (aulas)',note:'Quantidade de aulas na grade',color:[235,244,253]},
-    {label:'Minutos pagos',note:'Regras por segmento e regência',color:[255,247,219]},
-    {label:'Total em horas',note:'Ex.: 250 min = 4h10',color:[234,247,239]},
+    {label:'Tempos (aulas)',note:'Regência fixa não é um tempo',color:[235,244,253]},
+    {label:'Minutos pagos',note:'Conversão das horas em minutos',color:[234,242,255]},
+    {label:'Total em horas',note:'1 hora equivale a 60 minutos',color:[234,242,255]},
   ];
   metrics.forEach(({label,note,color}, index) => {
     const x = 14 + index * 62;
     doc.setFillColor(color[0],color[1],color[2]).roundedRect(x,y,58,32,2,2,'F');
     doc.setFontSize(10).setFont('helvetica','normal').setTextColor(60).text(label,x+4,y+7);
     doc.setFontSize(19).setFont('helvetica','bold').setTextColor(...ink).text(totals[index],x+4,y+18);
-    doc.setFontSize(9.5).setFont('helvetica','normal').setTextColor(70).text(note,x+4,y+26);
+    doc.setFontSize(9.5).setFont('helvetica','normal').setTextColor(70).text(doc.splitTextToSize(note,50),x+4,y+26);
   });
   y += 39;
   doc.setFont('helvetica','normal').setFontSize(10.5).setTextColor(60);
-  const explanation = doc.splitTextToSize('Tempos = aulas regulares e técnicas. Infantil/Fund. I: 60 min por tempo; demais segmentos: 50 min. Regentes: Infantil 20h/semana; Fund. I 22h30/semana em 5 dias, sem multiplicar pelas disciplinas.',182) as string[];
+  const explanation = doc.splitTextToSize('Verde: carga fixa de regência, contada uma vez por turma. Azul: total para pagamento. Horas e minutos mostram o mesmo valor: 1 hora = 60 minutos. Em cinco dias, Infantil: 20h = 1.200 min; Fundamental I: 22h30 = 1.350 min.',182) as string[];
   doc.text(explanation,14,y);y += explanation.length * 5 + 7;
   title('Critérios utilizados');
   table(['Filtro', 'Seleção'], [...input.filters, ['Regra', 'Carga por tempo + regências fixas cadastradas. Não calcula valores em dinheiro.']], {0:{cellWidth:35}});
   title('1. Carga de cada professor');
-  table(['Professor','Regulares','Técnicos','Regência','Total'],teachers.map((row)=>[
-    row.teacher.name,`${row.payroll?.regularLessons ?? row.total.lessons} tempos`,`${row.payroll?.technicalLessons ?? 0} tempos`,formatHours(row.payroll?.regencyMinutes ?? 0),formatHours(row.total.minutes)
-  ]),{0:{cellWidth:65},1:{cellWidth:29},2:{cellWidth:29},3:{cellWidth:29},4:{cellWidth:30}},['Total do recorte','','','',formatHours(workload.grand.minutes)]);
+  table(['Professor','Regulares','Técnicos','Carga fixa','Total'],teachers.map((row)=>[
+    row.teacher.name,`${row.payroll?.regularLessons ?? row.total.lessons} tempos`,`${row.payroll?.technicalLessons ?? 0} tempos`,`${formatHours(row.payroll?.regencyMinutes ?? 0)} / ${n(row.payroll?.regencyMinutes ?? 0)} min`,`${formatHours(row.total.minutes)} / ${n(row.total.minutes)} min`
+  ]),{0:{cellWidth:65},1:{cellWidth:29},2:{cellWidth:29},3:{cellWidth:29},4:{cellWidth:30}},['Total do recorte','','','',`${formatHours(workload.grand.minutes)} / ${n(workload.grand.minutes)} min`],(row,column)=>column===3&&(teachers[row].payroll?.regencyMinutes??0)>0);
   title('2. Total de cada turma');
   table(['Unidade / Turma', 'Tempos', 'Minutos pagos', 'Horas pagas'], classes.map((c) => [className(c.id), ...numbers(workload.classTotals.get(c.id)!.lessons,workload.classTotals.get(c.id)!.minutes)]),
     {0:{cellWidth:86},1:{cellWidth:25},2:{cellWidth:38},3:{cellWidth:33}}, ['Total do recorte', ...totals]);
@@ -86,16 +92,17 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
       table(['Informação','Neste recorte'],[
         ['Regulares',`${p.regularLessons} tempos / ${formatHours(p.regularMinutes)}`],
         ['Técnicos',`${p.technicalLessons} tempos / ${formatHours(p.technicalMinutes)}`],
-        ['Regência fixa',formatHours(p.regencyMinutes)],
+        ['CARGA FIXA DE REGÊNCIA',`${formatHours(p.regencyMinutes)} = ${n(p.regencyMinutes)} minutos`],
+        ['Total para pagamento',`${formatHours(row.total.minutes)} = ${n(row.total.minutes)} minutos`],
         ['Dias no colégio',p.days.length ? p.days.map((d)=>WEEKDAY_LABEL[d]).join(', ') : 'Sem dias cadastrados'],
         ['Vale-transporte',`${p.attendanceDays} dias no recorte. Cada dia conta uma vez, mesmo com várias aulas. Sem quantidade de passagens ou valores.`],
         ...(p.hasReference ? [['Referência semanal da escola',`${p.referenceRegular} tempos regulares + ${p.referenceTechnical} técnicos = ${p.referenceRegular+p.referenceTechnical} tempos. Conferir com a grade acima.`]] : []),
-      ],{0:{cellWidth:48}});
+      ],{0:{cellWidth:48}},undefined,(index)=>index===2&&p.regencyMinutes>0);
     }
     table(['Unidade / Turma', 'Disciplina', 'Aulas', 'Min. pagos', 'Horas'], row.bySubject.flatMap((subject) =>
       [...subject.byClass].map(([id, load]) => [className(id), (subject.label ?? subjectName(subject.subjectId)), ...numbers(load.lessons,load.minutes)])),
       {0:{cellWidth:65},1:{cellWidth:47},2:{cellWidth:20},3:{cellWidth:27},4:{cellWidth:23}},
-      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons,row.total.minutes)]);
+      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons,row.total.minutes)],(index)=>row.bySubject.flatMap((subject)=>[...subject.byClass].map(()=>subject.workloadKind==='regency'))[index]);
   }
   const notes = [
     'Os resumos por professor e por turma mostram as mesmas aulas de duas formas. Não some um resumo ao outro.',

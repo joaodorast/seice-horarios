@@ -35,6 +35,7 @@ export function ClassDetailPage() {
   const team = useMemo(() => {
     const map = new Map<number, { count: number; subjects: Set<number | null> }>();
     for (const l of lessons) {
+      if (l.teacherId === null) continue;
       const cur = map.get(l.teacherId) ?? { count: 0, subjects: new Set<number | null>() };
       cur.count++;
       cur.subjects.add(l.subjectId);

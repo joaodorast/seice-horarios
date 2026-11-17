@@ -177,7 +177,7 @@ function Builder({
     const map = new Map<number, string>();
     for (const l of others) {
       if (l.weekday !== day || !overlaps(l.start, l.end, p.start, p.end)) continue;
-      if (kind === 'class') map.set(l.teacherId, data.classes.find((c) => c.id === l.classId)?.name ?? '');
+      if (kind === 'class' && l.teacherId !== null) map.set(l.teacherId, data.classes.find((c) => c.id === l.classId)?.name ?? '');
       else map.set(l.classId, data.teachers.find((t) => t.id === l.teacherId)?.name ?? '');
     }
     return map;

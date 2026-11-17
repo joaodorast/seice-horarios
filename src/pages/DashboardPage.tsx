@@ -397,7 +397,7 @@ function Pendencies({
   outsideCount: number;
   slots: ReturnType<typeof computeSlotStats>;
 }) {
-  const inactiveTeacherLessons = data.lessons.filter((l) => index.teacherById.get(l.teacherId)?.active === false);
+  const inactiveTeacherLessons = data.lessons.filter((l) => index.teacherById.get(l.teacherId ?? -1)?.active === false);
   const inactiveClassLessons = data.lessons.filter((l) => index.classById.get(l.classId)?.active === false);
   const classesWithoutLessons = data.classes.filter((c) => c.active && !data.lessons.some((l) => l.classId === c.id));
   const teachersWithoutLessons = data.teachers.filter((t) => t.active && !data.lessons.some((l) => l.teacherId === t.id));
@@ -440,7 +440,7 @@ function Pendencies({
       tone: 'warning',
       icon: <CalendarX2 />,
       title: `${plural(awayLessons.length, 'aula fora', 'aulas fora')} do horário do professor na escola`,
-      text: [...new Set(awayLessons.map((l) => index.teacherById.get(l.teacherId)?.name.split(' ')[0]))].slice(0, 4).join(', ') + ' · mude o horário ou o professor',
+      text: [...new Set(awayLessons.map((l) => index.teacherById.get(l.teacherId ?? -1)?.name.split(' ')[0]))].slice(0, 4).join(', ') + ' · mude o horário ou o professor',
       to: `/horarios/montar/professor/${awayLessons[0].teacherId}`,
     });
   if (inactiveTeacherLessons.length)
@@ -532,7 +532,7 @@ function Today({ data, index }: { data: ScheduleData; index: ScheduleIndex }) {
         <ul className="grid gap-2 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
           {lessons.map((l) => {
             const c = index.classById.get(l.classId);
-            const t = index.teacherById.get(l.teacherId);
+            const t = index.teacherById.get(l.teacherId ?? -1);
             const s = l.subjectId ? index.subjectById.get(l.subjectId) : undefined;
             return (
               <li key={l.id}>

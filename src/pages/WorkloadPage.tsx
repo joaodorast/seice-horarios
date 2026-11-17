@@ -12,7 +12,7 @@ import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
 import { downloadReportWorkbook } from '@/lib/spreadsheet';
 import { computePayrollWorkload } from '@shared/payroll';
-import { PayrollReferenceReview } from '@/features/reports/PayrollReferenceReview';
+import { PayrollSetupAssistant } from '@/features/reports/PayrollSetupAssistant';
 import { PayrollBreakdown } from '@/features/reports/PayrollBreakdown';
 import { errorMessage } from '@/api/client';
 import { downloadWorkloadReport, workloadReportFileName } from '@/lib/workloadReport';
@@ -165,7 +165,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <PayrollReferenceReview data={data} />
+      <PayrollSetupAssistant data={data} />
       <Card className="flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="mb-2 text-sm font-bold">Período do cálculo</h2>{periodControls('page')}</div>

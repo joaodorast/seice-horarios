@@ -39,7 +39,7 @@ export function UpdateNotice() {
     <Modal open={newsOpen} onClose={closeNews} size="lg"
       title={<span className="text-2xl">Pronto, seu SEICE está atualizado!</span>}
       description={<span className="text-base leading-relaxed">Fizemos algumas melhorias para facilitar o seu dia. Veja o que mudou:</span>}
-      footer={<Button variant="primary" size="lg" onClick={closeNews} data-autofocus>Entendi, continuar</Button>}>
+      footer={<><ButtonLink to="/atualizacoes" size="lg" onClick={closeNews}>Ver todas as atualizações</ButtonLink><Button variant="primary" size="lg" onClick={closeNews} data-autofocus>Entendi, continuar</Button></>}>
       <div className="mb-5 flex items-center gap-3 rounded-2xl bg-brand-soft p-5"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand"><Sparkles className="size-6" /></span><p className="text-lg font-bold">Mais clareza para cuidar dos horários da escola.</p></div>
       <ul className="space-y-4">{updateNews.map((item)=><li key={item.title} className="flex gap-3 rounded-xl border border-line p-4 sm:p-5"><Check className="mt-1 size-5 shrink-0 text-success" /><div className="min-w-0 flex-1"><h3 className="text-lg font-bold">{item.title}</h3><p className="mt-1 text-base leading-relaxed text-ink-2">{item.description}</p><div className="mt-4 flex flex-wrap gap-2">{item.links.map((link)=><ButtonLink key={link.to} to={link.to} onClick={closeNews} className="h-auto min-h-11 whitespace-normal py-2 text-base" icon={<ArrowRight className="size-4 shrink-0" />}>{link.label}</ButtonLink>)}</div></div></li>)}</ul>
     </Modal>

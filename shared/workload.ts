@@ -11,6 +11,8 @@ export interface Load {
 
 export interface SubjectLoad {
   subjectId: number | null;
+  label?: string;
+  workloadKind?: 'regular'|'technical'|'regency';
   byClass: Map<number, Load>;
   total: Load;
 }
@@ -20,6 +22,7 @@ export interface TeacherLoad {
   byClass: Map<number, Load>;
   bySubject: SubjectLoad[];
   total: Load;
+  payroll?: {regularLessons:number; technicalLessons:number; regularMinutes:number; technicalMinutes:number; regencyMinutes:number; days:Weekday[]; attendanceDays:number; referenceRegular:number; referenceTechnical:number; hasReference:boolean};
 }
 
 export interface Workload {
@@ -49,6 +52,7 @@ export function computeWorkload(
   /** Quantas aulas cada registro vale (ex.: aula dupla = 2). Por padrão, 1. */
   unitsOf: (l: Lesson) => number = () => 1,
   occurrencesOf: (l: Lesson) => number = () => 1,
+  minutesOf: (l: Lesson) => number = (l) => durationMinutes(l.start,l.end),
 ): Workload {
   const visibleClasses = classes.filter((c) => (c.active || lessons.some((l) => l.classId === c.id)) && (!classFilter || classFilter(c))).sort(byName);
   const visibleIds = new Set(visibleClasses.map((c) => c.id));
@@ -66,7 +70,7 @@ export function computeWorkload(
     for (const l of own) {
       const occurrences = occurrencesOf(l);
       if (occurrences === 0) continue;
-      const minutes = durationMinutes(l.start, l.end) * occurrences;
+      const minutes = minutesOf(l) * occurrences;
       const units = unitsOf(l) * occurrences;
       if (!row.byClass.has(l.classId)) row.byClass.set(l.classId, empty());
       add(row.byClass.get(l.classId)!, minutes, units);

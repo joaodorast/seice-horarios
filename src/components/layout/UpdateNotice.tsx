@@ -12,7 +12,10 @@ export function UpdateNotice() {
   const shownAt = useRef<string | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
   useEffect(() => {
-    try { setNewsOpen(hasUpdateNews(sessionStorage, APP_VERSION)); } catch { /* A atualização funciona mesmo sem armazenamento. */ }
+    try {
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      setNewsOpen(hasUpdateNews(sessionStorage, APP_VERSION, navigation?.type === 'reload'));
+    } catch { /* A atualização funciona mesmo sem armazenamento. */ }
   }, []);
   function update() {
     try { rememberUpdate(sessionStorage, APP_VERSION); } catch { /* Armazenamento indisponível. */ }

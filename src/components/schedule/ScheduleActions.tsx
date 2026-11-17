@@ -61,7 +61,7 @@ export function ScheduleActionsProvider({ children }: { children: ReactNode }) {
               setEditor({
                 mode: 'create',
                 duplicateOf: l,
-                prefill: { classId: l.classId, teacherId: l.teacherId, subjectId: l.subjectId, weekday: nextDay, start: l.start, end: l.end, notes: l.notes },
+                prefill: { classId: l.classId, teacherId: l.teacherId, subjectId: l.subjectId, weekday: nextDay, start: l.start, end: l.end, notes: l.notes,workloadKind:l.workloadKind },
               });
             }}
           />
@@ -94,7 +94,7 @@ function LessonDetails({
   };
 
   const subject = lesson?.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
-  const teacher = lesson ? index.teacherById.get(lesson.teacherId) : undefined;
+  const teacher = lesson ? index.teacherById.get(lesson.teacherId ?? -1) : undefined;
   const schoolClass = lesson ? index.classById.get(lesson.classId) : undefined;
   const style = subject ? SUBJECT_STYLE[subject.color] : NO_SUBJECT_STYLE;
   const conflicts = lesson && data ? findScheduleConflicts(data.lessons).filter((c) => c.a.id === lesson.id || c.b.id === lesson.id) : [];

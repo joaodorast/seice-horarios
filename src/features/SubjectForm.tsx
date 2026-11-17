@@ -21,6 +21,7 @@ export function SubjectFormModal({ subject, onClose }: { subject: Subject | 'new
 
 function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: () => void }) {
   const [name, setName] = useState(subject?.name ?? '');
+  const [workloadKind,setWorkloadKind] = useState<NonNullable<Subject['workloadKind']>>(subject?.workloadKind ?? 'auto');
   const [color, setColor] = useState<SubjectColor>(subject?.color ?? 'indigo');
   const [segments, setSegments] = useState<SegmentKey[]>((subject?.segments ?? []) as SegmentKey[]);
   const [error, setError] = useState<string | undefined>();
@@ -29,7 +30,7 @@ function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: (
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = subjectSchema.safeParse({ name, color, segments });
+    const parsed = subjectSchema.safeParse({ name, color, segments, workloadKind });
     if (!parsed.success) return setError(parsed.error.issues[0].message);
     try {
       const saved = await save.mutateAsync({ id: subject?.id, input: parsed.data });
@@ -44,6 +45,11 @@ function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field label="Nome da disciplina" required error={error}>
         <Input value={name} onChange={(e) => (setName(e.target.value), setError(undefined))} maxLength={60} placeholder="Ex.: Língua Portuguesa" autoComplete="off" />
+      </Field>
+      <Field label="Classificação no relatório" hint="Vale para todas as aulas no modo automático. Uma aula pode ter sua própria classificação.">
+        <select className="h-10 w-full rounded-md border border-line-strong px-3 text-sm" value={workloadKind} onChange={(event)=>setWorkloadKind(event.target.value as NonNullable<Subject['workloadKind']>)}>
+          <option value="auto">Automático pelo catálogo</option><option value="regular">Regular (normal)</option><option value="technical">Técnico</option>
+        </select>
       </Field>
       <fieldset>
         <legend className="mb-2 text-[13px] font-semibold text-ink-2">

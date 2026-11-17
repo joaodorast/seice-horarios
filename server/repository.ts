@@ -457,8 +457,8 @@ export function createRepository(db: Database) {
     },
     async updateLesson(id: number, input: LessonInput): Promise<Lesson | undefined> {
       const r = await one(
-        'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, workload_kind = $8, updated_at = now() WHERE id = $9 RETURNING *',
-        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, input.workloadKind ?? 'auto', id],
+        'UPDATE lessons SET teacher_id = $1, class_id = $2, subject_id = $3, weekday = $4, start_time = $5, end_time = $6, notes = $7, workload_kind = COALESCE($8,workload_kind), updated_at = now() WHERE id = $9 RETURNING *',
+        [input.teacherId, input.classId, input.subjectId, input.weekday, input.start, input.end, input.notes, input.workloadKind ?? null, id],
       );
       if (r) await this.linkTeacherSubject(input.teacherId, input.subjectId);
       return r ? toLesson(r) : undefined;

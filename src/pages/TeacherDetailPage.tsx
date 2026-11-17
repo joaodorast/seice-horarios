@@ -14,6 +14,7 @@ import { useScheduleIndex } from '@/hooks/useScheduleIndex';
 import { durationMinutes } from '@shared/time';
 import { SHIFT_LABEL } from '@shared/labels';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
+import { TeacherPayrollSettings } from '@/features/reports/TeacherPayrollSettings';
 import { TeacherAvailability } from '@/features/TeacherAvailability';
 import { SubjectChips } from '@/features/SubjectPicker';
 import { formatHours } from '@/lib/format';
@@ -130,10 +131,11 @@ export function TeacherDetailPage() {
                 </dl>
                 <div className="flex gap-6 border-line md:border-l md:pl-8">
                   <Stat value={lessons.length} label={lessons.length === 1 ? 'aula na semana' : 'aulas na semana'} />
-                  <Stat value={formatHours(minutes)} label="carga semanal" />
+                  <Stat value={formatHours(minutes)} label="duração na grade" />
                 </div>
               </Card>
 
+              <TeacherPayrollSettings teacher={teacher} data={data} />
               <TeacherAvailability key={teacher.id} teacher={teacher} data={data} />
 
               <section aria-labelledby="horario-prof">

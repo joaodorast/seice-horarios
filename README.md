@@ -64,6 +64,16 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 
 ---
 
+## Carga horária e conferência
+
+- A disciplina tem classificação editável (Regular, Técnico ou Automático). Cada aula pode seguir a disciplina ou ter uma classificação própria.
+- Atividades sem professor aparecem como “—” e não geram pagamento para outro professor.
+- No cadastro do professor, configure as turmas de regência: Infantil usa 4h por dia (20h em cinco dias); Fundamental I usa 4h30 por dia (22h30 em cinco dias). A regência não é multiplicada pelas disciplinas.
+- Aulas por tempo usam 60 minutos no Infantil/Fundamental I e 50 minutos nos demais segmentos; tempos técnicos usam 50 minutos.
+- Os relatórios mostram tempos e horas regulares, técnicos, regências e os dias distintos no colégio para conferência de vale-transporte. Não calculam valores monetários nem comprovam presença.
+- Referências enviadas pela escola são conferidas e vinculadas a cadastros existentes. Possíveis correspondências exigem confirmação; nomes e horários não são substituídos. Novos professores só são criados após conferência.
+- O mensal aplica a grade e as regências atuais ao calendário escolhido, descontando as datas sem aula cadastradas. Referências semanais permanecem identificadas como referência, sem criar horários fictícios.
+
 ## Arquitetura
 
 ```

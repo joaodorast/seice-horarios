@@ -106,7 +106,7 @@ function Dashboard({ data, index, onNew }: { data: ScheduleData; index: Schedule
         />
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <WeeklyDistribution data={data} />
         <Pendencies data={data} index={index} conflictsCount={conflicts.length} outsideCount={outside.length} slots={slots} />
       </div>
@@ -529,22 +529,23 @@ function Today({ data, index }: { data: ScheduleData; index: ScheduleIndex }) {
       {lessons.length === 0 ? (
         <p className="px-5 pb-5 text-sm text-muted">Nenhuma aula alocada neste período.</p>
       ) : (
-        <ul className="grid gap-2 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
+        <ul className="grid gap-3 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
           {lessons.map((l) => {
             const c = index.classById.get(l.classId);
             const t = index.teacherById.get(l.teacherId ?? -1);
             const s = l.subjectId ? index.subjectById.get(l.subjectId) : undefined;
             return (
-              <li key={l.id}>
+              <li key={l.id} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => actions.openLesson(l)}
-                  className="flex w-full items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-left transition-colors hover:border-line-strong hover:bg-subtle"
+                  aria-label={`${s?.name ?? 'Aula'} · ${c?.name ?? 'Turma'} · ${t?.name ?? 'Sem professor'}`}
+                  className="flex h-full w-full min-w-0 flex-col items-stretch gap-3 rounded-xl border border-line p-4 text-left transition-colors hover:border-line-strong hover:bg-subtle"
                 >
-                  <span className="grid h-9 min-w-11 place-items-center rounded-md bg-nav px-2 text-xs font-bold text-brand">{c?.name}</span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{s?.name ?? 'Aula'}</span>
-                    <span className="block truncate text-xs text-muted">{t?.name}</span>
+                  <span className="block min-w-0 break-words rounded-lg bg-nav px-3 py-2 text-base leading-snug font-bold text-brand">{c?.name ?? 'Turma não identificada'}</span>
+                  <span className="min-w-0 space-y-1">
+                    <span className="block break-words text-base leading-snug font-bold">{s?.name ?? 'Aula'}</span>
+                    <span className="block break-words text-base leading-relaxed text-ink-2">{t?.name ?? '— Sem professor'}</span>
                   </span>
                 </button>
               </li>

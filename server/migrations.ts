@@ -454,4 +454,20 @@ export const MIGRATIONS: Migration[] = [
   { version: 12, name: 'referencias_e_regencias_por_unidade', sql: TEACHER_PAYROLL },
   { version: 13, name: 'classificacao_padrao_das_disciplinas', sql: `ALTER TABLE subjects ADD COLUMN workload_kind text NOT NULL DEFAULT 'auto' CHECK (workload_kind IN ('auto','regular','technical'));` },
   { version: 14, name: 'conferencia_das_referencias_recebidas', sql: `CREATE TABLE payroll_references(id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,unit_id integer NOT NULL REFERENCES units(id),supplied_name text NOT NULL,reference_items jsonb NOT NULL,teacher_id integer REFERENCES teachers(id) ON DELETE SET NULL,UNIQUE(unit_id,supplied_name));` },
+  { version: 15, name: 'regras_pedagogicas_por_unidade_segmento_turma', sql: `
+    CREATE TABLE academic_rules (
+      id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      unit_id integer NOT NULL REFERENCES units(id),
+      year integer NOT NULL CHECK(year BETWEEN 2000 AND 9999),
+      scope text NOT NULL CHECK(scope IN ('unit','segment','class')),
+      segment text,
+      class_id integer REFERENCES classes(id) ON DELETE CASCADE,
+      values jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CHECK((scope='unit' AND segment IS NULL AND class_id IS NULL) OR (scope='segment' AND segment IS NOT NULL AND class_id IS NULL) OR (scope='class' AND class_id IS NOT NULL))
+    );
+    CREATE UNIQUE INDEX academic_unit_rule ON academic_rules(unit_id,year) WHERE scope='unit';
+    CREATE UNIQUE INDEX academic_segment_rule ON academic_rules(unit_id,year,segment) WHERE scope='segment';
+    CREATE UNIQUE INDEX academic_class_rule ON academic_rules(unit_id,year,class_id) WHERE scope='class';
+  ` },
 ];

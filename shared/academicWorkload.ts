@@ -13,12 +13,16 @@ export interface AcademicProjection {
 export interface AcademicLoad {
   classId: number;
   subjectId: number | null;
+  minutesPerPeriod?: number;
+  equivalentWeeks?: number;
   weeklyPeriods: number;
   weeklyMinutes: number;
   projectedPeriods: number;
   projectedMinutes: number;
 }
 export interface AcademicWorkload {
+  classProjections?: {classId:number;projection:AcademicProjection;source:string}[];
+  missingClasses?: number[];
   projection: AcademicProjection;
   equivalentWeeks: number;
   rows: AcademicLoad[];
@@ -53,7 +57,7 @@ export function computeAcademicWorkload(lessons: Lesson[],classes: SchoolClass[]
   }
   const rows=[...groups.values()].map(({classId,subjectId,slots})=>{
     const weeklyPeriods=slots.size,weeklyMinutes=weeklyPeriods*projection.minutesPerPeriod;
-    return {classId,subjectId,weeklyPeriods,weeklyMinutes,projectedPeriods:weeklyPeriods*weeks,projectedMinutes:Math.round(weeklyMinutes*weeks)};
+    return {classId,subjectId,minutesPerPeriod:projection.minutesPerPeriod,equivalentWeeks:weeks,weeklyPeriods,weeklyMinutes,projectedPeriods:weeklyPeriods*weeks,projectedMinutes:Math.round(weeklyMinutes*weeks)};
   });
   const total=rows.reduce((sum,row)=>({weeklyPeriods:sum.weeklyPeriods+row.weeklyPeriods,weeklyMinutes:sum.weeklyMinutes+row.weeklyMinutes,projectedPeriods:sum.projectedPeriods+row.projectedPeriods,projectedMinutes:sum.projectedMinutes+row.projectedMinutes}),{weeklyPeriods:0,weeklyMinutes:0,projectedPeriods:0,projectedMinutes:0});
   return {projection,equivalentWeeks:weeks,rows,total,outsideDays};

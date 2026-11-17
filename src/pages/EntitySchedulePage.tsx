@@ -70,6 +70,7 @@ export function EntitySchedulePage({ kind }: { kind: 'teacher' | 'class' }) {
               label="Importar aulas"
               fixed={kind === 'teacher' ? { teacherId: selected.id, label: selected.name } : { classId: selected.id, label: selected.name }}
             />
+            {kind==='class'&&<ButtonLink to={`/horarios/carga-pedagogica?turma=${selected.id}`}>Carga pedagógica da turma</ButtonLink>}
             <ButtonLink to={`/imprimir/${kind === 'teacher' ? 'professor' : 'turma'}/${selected.id}`} target="_blank" icon={<Printer className="size-4" />}>
               Imprimir ou PDF
             </ButtonLink>

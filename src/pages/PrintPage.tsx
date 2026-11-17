@@ -96,6 +96,8 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
   const payrollRow=teacher ? payrollWorkload.rows.find((r)=>r.teacher.id===teacher.id) : undefined;
   const timeCount=payrollWorkload.grand.lessons;
   const paidTotal=payrollWorkload.grand.minutes;
+  const fixedTotal=payrollWorkload.rows.reduce((sum,row)=>sum+(row.payroll?.regencyMinutes??0),0);
+  const fixedForClass=(classId:number)=>payrollRow?.bySubject.filter((subject)=>subject.workloadKind==='regency'&&subject.byClass.has(classId))??[];
 
   // Para professores, imprime cada turno em que há aulas (ou os turnos habilitados, se a grade estiver vazia).
   let sections: { title?: string; periods: Period[] }[];
@@ -110,7 +112,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
   }
   sections = sections.map((section) => ({ ...section, periods: displayPeriods(section.periods, showBreaks) }));
   const outside = lessonsOutsideGrid(lessons, data.periods, days);
-  const related = new Set(lessons.map((l) => (kind === 'professor' ? l.classId : l.teacherId)).filter((id)=>id!==null)).size;
+  const related = kind==='professor' ? (payrollRow?.byClass.size ?? 0) : new Set(lessons.map((l)=>l.teacherId).filter((id)=>id!==null)).size;
 
   return (
     <article className="rounded-xl bg-white p-8 shadow-raise print:break-after-page print:rounded-none print:p-0 print:shadow-none print:last:break-after-auto">
@@ -133,7 +135,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
 
       <div className="mt-3 print:mt-2 mb-4 print:mb-2 flex flex-wrap gap-x-6 gap-y-1 text-sm print:text-xs text-ink-2">
         <span>
-          <strong>{timeCount}</strong> tempos regulares/técnicos na semana
+          {timeCount>0?<><strong>{timeCount}</strong> tempos regulares/técnicos na semana</>:fixedTotal>0?'Carga semanal de regência fixa':'Nenhuma aula remunerada neste recorte'}
         </span>
         <span>
           <strong>{paidTotal} minutos para pagamento</strong> por semana
@@ -147,25 +149,31 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
       <div className="mb-4 print:mb-2 grid gap-2 text-sm print:text-xs sm:grid-cols-3">
         <p className="rounded-lg border border-[#bdd6f4] bg-[#edf5ff] p-2"><strong>Regulares (normais)</strong><br />{payrollRow?.payroll?.regularLessons ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regularLessons??0),0)} tempos · {formatHours(payrollRow?.payroll?.regularMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regularMinutes??0),0))}</p>
         <p className="rounded-lg border border-[#ecd891] bg-[#fff7db] p-2"><strong>Técnicos</strong><br />{payrollRow?.payroll?.technicalLessons ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.technicalLessons??0),0)} tempos · {formatHours(payrollRow?.payroll?.technicalMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.technicalMinutes??0),0))}</p>
-        <p className="rounded-lg border border-[#b9dfc7] bg-[#eaf7ef] p-2"><strong>Regência fixa / total</strong><br />Regência: {formatHours(payrollRow?.payroll?.regencyMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regencyMinutes??0),0))} · Total semanal: {formatHours(paidTotal)}</p>
+        <p className="rounded-lg border-2 border-[#27824c] bg-[#eaf7ef] p-3 text-[#14532d]"><strong>CARGA FIXA DE REGÊNCIA</strong><br /><span className="text-lg font-extrabold">{formatHours(fixedTotal)}</span> · <strong>{fixedTotal.toLocaleString('pt-BR')} min</strong><br /><span>{fixedTotal>0?'Incluída no total, sem repetir por disciplina.':'Nenhuma regência fixa neste recorte.'}</span></p>
       </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-[#245991] bg-[#eaf2ff] p-3 text-[#163d68] print:break-inside-avoid"><strong>TOTAL SEMANAL PARA PAGAMENTO</strong><span className="text-xl font-extrabold">{formatHours(paidTotal)} = {paidTotal.toLocaleString('pt-BR')} minutos</span></div>
       {payrollRow?.payroll && <p className="mb-3 rounded-lg border border-line p-2 text-sm print:text-xs"><strong>Dias no colégio:</strong> {payrollRow.payroll.days.map((d)=>WEEKDAY_LABEL[d]).join(', ') || 'Sem dias cadastrados'}. <strong>{payrollRow.payroll.attendanceDays} dias na semana para conferir vale-transporte.</strong> Várias aulas no mesmo dia contam uma vez; não é registro de presença.</p>}
       {payrollRow?.payroll?.hasReference && <p className="mb-3 text-sm print:text-xs"><strong>Carga semanal informada pela escola:</strong> {payrollRow.payroll.referenceRegular} tempos regulares + {payrollRow.payroll.referenceTechnical} técnicos. A grade abaixo mostra os horários cadastrados.</p>}
       {teacher && (
         <section className="mb-4 print:mb-2 break-inside-avoid">
           <h2 className="mb-2 text-sm font-bold">Resumo semanal por turma</h2>
-          <table className="w-full border-collapse text-sm print:text-xs">
-            <thead><tr><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-right">Aulas / semana</th><th className="border border-line p-2 text-right">Minutos para pagamento</th><th className="border border-line p-2 text-right">Total em horas</th></tr></thead>
-            <tbody>{[...(payrollRow?.byClass ?? [])].map(([classId,load])=><tr key={classId}>
-              <td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td><td className="border border-line p-2 text-right">{load.lessons || 'Regência'}</td><td className="border border-line p-2 text-right">{load.minutes}</td><td className="border border-line p-2 text-right">{formatHours(load.minutes)}</td>
-            </tr>)}</tbody>
-            <tfoot><tr><th className="border border-line p-2 text-left">Total do professor na semana</th><th className="border border-line p-2 text-right">{timeCount || 'Regência'}</th><th className="border border-line p-2 text-right">{paidTotal}</th><th className="border border-line p-2 text-right">{formatHours(paidTotal)}</th></tr></tfoot>
+          <table className="w-full border-collapse text-sm print:text-sm">
+            <thead><tr className="bg-subtle"><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-left">Tipo de carga</th><th className="border border-line p-2 text-right">Minutos para pagamento</th><th className="border border-line p-2 text-right">Total em horas</th></tr></thead>
+            <tbody>{[...(payrollRow?.byClass ?? [])].map(([classId,load])=>{
+              const fixed=fixedForClass(classId),fixedMinutes=fixed.reduce((sum,subject)=>sum+(subject.byClass.get(classId)?.minutes??0),0);
+              return <tr key={classId} className={fixedMinutes>0?'bg-[#eaf7ef] text-[#14532d]':''}>
+                <td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
+                <td className="border border-line p-2"><strong>{fixedMinutes>0?'CARGA FIXA':'Por tempos'}</strong>{fixed.map((subject)=><span key={subject.label} className="mt-1 block">{subject.label?.includes('Infantil')?'Educação Infantil':'Fundamental I'}: {formatHours(subject.total.minutes)}</span>)}{load.lessons>0&&<span className="mt-1 block">{fixedMinutes>0?'+ ':''}{load.lessons} tempos regulares/técnicos</span>}</td>
+                <td className="border border-line p-2 text-right text-base font-bold">{load.minutes.toLocaleString('pt-BR')} min</td><td className="border border-line p-2 text-right text-base font-extrabold">{formatHours(load.minutes)}</td>
+              </tr>;
+            })}</tbody>
+            <tfoot><tr className="bg-[#163d68] text-white"><th className="border border-[#163d68] p-3 text-left">TOTAL DO PROFESSOR NA SEMANA</th><th className="border border-[#163d68] p-3 text-left">{fixedTotal>0?'Carga fixa'+(timeCount>0?' + tempos':''):`${timeCount} tempos`}</th><th className="border border-[#163d68] p-3 text-right text-base">{paidTotal.toLocaleString('pt-BR')} min</th><th className="border border-[#163d68] p-3 text-right text-lg">{formatHours(paidTotal)}</th></tr></tfoot>
           </table>
-          <p className="mt-2 text-sm print:text-xs leading-relaxed text-ink-2">Regência: Infantil 4h/dia (20h em 5 dias); Fund. I 4h30/dia (22h30 em 5 dias), sem multiplicar pelas disciplinas. Demais aulas: 60 min no Infantil/Fund. I e 50 min nos outros segmentos. Aulas sem professor não geram carga.</p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2"><strong className="text-[#14532d]">Verde: carga fixa de regência.</strong> <strong className="text-[#163d68]">Azul: total para pagamento.</strong> As horas já estão convertidas em minutos (1 hora = 60 minutos). A carga fixa é contada uma vez por turma, sem multiplicar pelas disciplinas.</p>
         </section>
       )}
       {sections.map((section, si) => (
-        <section key={si} className={cn('print:break-inside-auto', sections.length > 1 ? 'mb-2.5' : 'mb-4 print:mb-2')}>
+        <section key={si} className={cn('print:break-inside-avoid', sections.length > 1 ? 'mb-2.5' : 'mb-4 print:mb-2')}>
           {section.title && <h2 className="mb-1.5 text-[13px] font-bold">{section.title}</h2>}
           {section.periods.length === 0 ? (
             <p className="rounded border border-line p-4 text-sm text-muted">Nenhum período configurado para este turno.</p>

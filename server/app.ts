@@ -1,3 +1,4 @@
+import { installAcademicRules } from './academicRules.js';
 import { WEEKDAY_LABEL } from '../shared/labels.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { existsSync } from 'node:fs';
@@ -624,6 +625,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     await db.transaction((tx) => createRepository(tx).replacePeriods(shift, input));
     res.json(await repo.listPeriods());
   });
+
+  installAcademicRules(api,db,{visible:visibleUnitIds,assert:(res,unitId)=>assertUnitAccess(res,unitId),error:(status,code,message)=>new HttpError(status,code,message)});
 
   api.get('/settings', async (_req, res) => {
     res.json(await repo.getSettings());

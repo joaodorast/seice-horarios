@@ -1,5 +1,4 @@
-import { lessonTimeCount } from '@shared/workload';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { computePayrollWorkload, lessonWorkloadKind } from '@shared/payroll';
 import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router';
@@ -10,7 +9,7 @@ import { useScheduleIndex, type ScheduleIndex } from '@/hooks/useScheduleIndex';
 import { errorMessage } from '@/api/client';
 import { lessonsInPeriod, lessonsOutsideGrid, periodsForClassShift, periodsForShifts } from '@shared/grid';
 import { SHIFT_LABEL, WEEKDAY_LABEL } from '@shared/labels';
-import { durationMinutes, overlaps } from '@shared/time';
+import { overlaps } from '@shared/time';
 import type { Lesson, Period, ShiftKey } from '@shared/types';
 import { SUBJECT_STYLE } from '@/lib/subjectColors';
 import { formatHours } from '@/lib/format';
@@ -88,13 +87,15 @@ export function PrintPage() {
 
 function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; data: ScheduleData; index: ScheduleIndex }) {
   const { showTimes, showBreaks } = useScheduleDisplay();
-  const [paidMinutes] = useLocalStorage('seice:paid-minutes', data.settings.lessonDuration);
+
   const teacher = kind === 'professor' ? index.teacherById.get(entityId) : undefined;
   const schoolClass = kind === 'turma' ? index.classById.get(entityId) : undefined;
   const lessons = data.lessons.filter((l) => (kind === 'professor' ? l.teacherId === entityId : l.classId === entityId));
   const days = data.settings.enabledDays;
-  const timeCount = lessons.reduce((sum, lesson) => sum + lessonTimeCount(lesson, data.periods, data.classes), 0);
-  const minutes = lessons.reduce((s, l) => s + durationMinutes(l.start, l.end), 0);
+  const payrollWorkload=computePayrollWorkload(data.lessons,teacher?[teacher]:data.teachers,schoolClass?[schoolClass]:data.classes,data.subjects,data.periods,data.settings,{scope:'semana',day:1,month:new Date().toISOString().slice(0,7)});
+  const payrollRow=teacher ? payrollWorkload.rows.find((r)=>r.teacher.id===teacher.id) : undefined;
+  const timeCount=payrollWorkload.grand.lessons;
+  const paidTotal=payrollWorkload.grand.minutes;
 
   // Para professores, imprime cada turno em que há aulas (ou os turnos habilitados, se a grade estiver vazia).
   let sections: { title?: string; periods: Period[] }[];
@@ -109,11 +110,11 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
   }
   sections = sections.map((section) => ({ ...section, periods: displayPeriods(section.periods, showBreaks) }));
   const outside = lessonsOutsideGrid(lessons, data.periods, days);
-  const related = new Set(lessons.map((l) => (kind === 'professor' ? l.classId : l.teacherId))).size;
+  const related = new Set(lessons.map((l) => (kind === 'professor' ? l.classId : l.teacherId)).filter((id)=>id!==null)).size;
 
   return (
     <article className="rounded-xl bg-white p-8 shadow-raise print:break-after-page print:rounded-none print:p-0 print:shadow-none print:last:break-after-auto">
-      <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-4">
+      <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-4 print:pb-2">
         <div className="flex items-center gap-4">
           <img src="/logo-seice.webp" alt="Colégio SEICE" className="h-14 w-auto print:h-12" />
         </div>
@@ -130,12 +131,12 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
         </div>
       </header>
 
-      <div className="mt-3 mb-4 flex flex-wrap gap-x-6 gap-y-1 text-sm print:text-xs text-ink-2">
+      <div className="mt-3 print:mt-2 mb-4 print:mb-2 flex flex-wrap gap-x-6 gap-y-1 text-sm print:text-xs text-ink-2">
         <span>
-          <strong>{timeCount}</strong> tempos semanais
+          <strong>{timeCount}</strong> tempos regulares/técnicos na semana
         </span>
         <span>
-          <strong>{timeCount * paidMinutes} minutos pagos</strong> por semana ({paidMinutes} min por tempo)
+          <strong>{paidTotal} minutos para pagamento</strong> por semana
         </span>
         <span>
           <strong>{related}</strong> {kind === 'professor' ? 'turma(s)' : 'professor(es)'}
@@ -143,30 +144,28 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
         <span className="ml-auto text-muted">Emitido em {new Date().toLocaleDateString('pt-BR')}</span>
       </div>
 
-      <div className="mb-4 grid gap-2 text-sm print:text-xs sm:grid-cols-3">
-        <p className="rounded-lg border border-[#bdd6f4] bg-[#edf5ff] p-2"><strong>Tempos = aulas</strong><br />{timeCount} aulas na grade desta semana.</p>
-        <p className="rounded-lg border border-[#ecd891] bg-[#fff7db] p-2"><strong>Minutos para pagamento</strong><br />{timeCount} aulas × {paidMinutes} min = {timeCount * paidMinutes} minutos.</p>
-        <p className="rounded-lg border border-[#b9dfc7] bg-[#eaf7ef] p-2"><strong>Total em horas</strong><br />{timeCount * paidMinutes} minutos = {formatHours(timeCount * paidMinutes)}. É o mesmo total em horas e minutos.</p>
+      <div className="mb-4 print:mb-2 grid gap-2 text-sm print:text-xs sm:grid-cols-3">
+        <p className="rounded-lg border border-[#bdd6f4] bg-[#edf5ff] p-2"><strong>Regulares (normais)</strong><br />{payrollRow?.payroll?.regularLessons ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regularLessons??0),0)} tempos · {formatHours(payrollRow?.payroll?.regularMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regularMinutes??0),0))}</p>
+        <p className="rounded-lg border border-[#ecd891] bg-[#fff7db] p-2"><strong>Técnicos</strong><br />{payrollRow?.payroll?.technicalLessons ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.technicalLessons??0),0)} tempos · {formatHours(payrollRow?.payroll?.technicalMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.technicalMinutes??0),0))}</p>
+        <p className="rounded-lg border border-[#b9dfc7] bg-[#eaf7ef] p-2"><strong>Regência fixa / total</strong><br />Regência: {formatHours(payrollRow?.payroll?.regencyMinutes ?? payrollWorkload.rows.reduce((sum,r)=>sum+(r.payroll?.regencyMinutes??0),0))} · Total semanal: {formatHours(paidTotal)}</p>
       </div>
+      {payrollRow?.payroll && <p className="mb-3 rounded-lg border border-line p-2 text-sm print:text-xs"><strong>Dias no colégio:</strong> {payrollRow.payroll.days.map((d)=>WEEKDAY_LABEL[d]).join(', ') || 'Sem dias cadastrados'}. <strong>{payrollRow.payroll.attendanceDays} dias na semana para conferir vale-transporte.</strong> Várias aulas no mesmo dia contam uma vez; não é registro de presença.</p>}
+      {payrollRow?.payroll?.hasReference && <p className="mb-3 text-sm print:text-xs"><strong>Carga semanal informada pela escola:</strong> {payrollRow.payroll.referenceRegular} tempos regulares + {payrollRow.payroll.referenceTechnical} técnicos. A grade abaixo mostra os horários cadastrados.</p>}
       {teacher && (
-        <section className="mb-4 break-inside-avoid">
+        <section className="mb-4 print:mb-2 break-inside-avoid">
           <h2 className="mb-2 text-sm font-bold">Resumo semanal por turma</h2>
           <table className="w-full border-collapse text-sm print:text-xs">
             <thead><tr><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-right">Aulas / semana</th><th className="border border-line p-2 text-right">Minutos para pagamento</th><th className="border border-line p-2 text-right">Total em horas</th></tr></thead>
-            <tbody>{[...new Set(lessons.map((lesson) => lesson.classId))].map((classId) => {
-              const count = lessons.filter((lesson) => lesson.classId === classId).reduce((sum, lesson) => sum + lessonTimeCount(lesson,data.periods,data.classes),0);
-              return <tr key={classId}><td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
-                <td className="border border-line p-2 text-right">{count}</td><td className="border border-line p-2 text-right">{count * paidMinutes}</td><td className="border border-line p-2 text-right">{formatHours(count * paidMinutes)}</td></tr>;
-            })}</tbody>
-            <tfoot><tr><th className="border border-line p-2 text-left">Total do professor na semana</th><th className="border border-line p-2 text-right">{timeCount}</th><th className="border border-line p-2 text-right">{timeCount * paidMinutes}</th><th className="border border-line p-2 text-right">{formatHours(timeCount * paidMinutes)}</th></tr></tfoot>
+            <tbody>{[...(payrollRow?.byClass ?? [])].map(([classId,load])=><tr key={classId}>
+              <td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td><td className="border border-line p-2 text-right">{load.lessons || 'Regência'}</td><td className="border border-line p-2 text-right">{load.minutes}</td><td className="border border-line p-2 text-right">{formatHours(load.minutes)}</td>
+            </tr>)}</tbody>
+            <tfoot><tr><th className="border border-line p-2 text-left">Total do professor na semana</th><th className="border border-line p-2 text-right">{timeCount || 'Regência'}</th><th className="border border-line p-2 text-right">{paidTotal}</th><th className="border border-line p-2 text-right">{formatHours(paidTotal)}</th></tr></tfoot>
           </table>
-          <p className="mt-2 text-sm print:text-xs leading-relaxed text-ink-2">Exemplo: 5 aulas de {paidMinutes} minutos = {5 * paidMinutes} minutos = {formatHours(5 * paidMinutes)}. Some as linhas das turmas para conferir o total do professor.
-            {minutes !== timeCount * paidMinutes && <> A duração real das aulas é {formatHours(minutes)}; o pagamento acima usa {paidMinutes} minutos por aula.</>}
-          </p>
+          <p className="mt-2 text-sm print:text-xs leading-relaxed text-ink-2">Regência: Infantil 4h/dia (20h em 5 dias); Fund. I 4h30/dia (22h30 em 5 dias), sem multiplicar pelas disciplinas. Demais aulas: 60 min no Infantil/Fund. I e 50 min nos outros segmentos. Aulas sem professor não geram carga.</p>
         </section>
       )}
       {sections.map((section, si) => (
-        <section key={si} className={cn('print:break-inside-auto', sections.length > 1 ? 'mb-2.5' : 'mb-4')}>
+        <section key={si} className={cn('print:break-inside-auto', sections.length > 1 ? 'mb-2.5' : 'mb-4 print:mb-2')}>
           {section.title && <h2 className="mb-1.5 text-[13px] font-bold">{section.title}</h2>}
           {section.periods.length === 0 ? (
             <p className="rounded border border-line p-4 text-sm text-muted">Nenhum período configurado para este turno.</p>
@@ -218,7 +217,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
       ))}
 
       {outside.length > 0 && (
-        <section className="mb-4 break-inside-avoid">
+        <section className="mb-4 print:mb-2 break-inside-avoid">
           <h2 className="mb-1.5 text-[13px] font-bold">Aulas em horários especiais</h2>
           <ul className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm print:text-xs">
             {outside.map((l) => (
@@ -241,7 +240,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
 
 function describe(l: Lesson, index: ScheduleIndex, kind: Kind) {
   const s = l.subjectId ? index.subjectById.get(l.subjectId)?.name : undefined;
-  const other = kind === 'professor' ? `Turma ${index.classById.get(l.classId)?.name}` : index.teacherById.get(l.teacherId)?.name;
+  const other = kind === 'professor' ? `Turma ${index.classById.get(l.classId)?.name}` : index.teacherById.get(l.teacherId ?? -1)?.name;
   return [s, other].filter(Boolean).join(' — ');
 }
 
@@ -250,13 +249,14 @@ function PrintLesson({ lesson, index, kind, period, showTimes }: { lesson: Lesso
   const relatedClass = index.classById.get(lesson.classId);
   const codes = relatedClass?.name.match(/\b\d{4}\b/g);
   const classReference = codes?.length ? `Turma ${codes[codes.length - 1]}${relatedClass?.name.match(/\b(CE|JP)\b/) ? ` · ${relatedClass.name.match(/\b(CE|JP)\b/)![1]}` : ''}` : relatedClass?.name;
-  const other = kind === 'professor' ? classReference : index.teacherById.get(lesson.teacherId)?.name;
+  const other = kind === 'professor' ? classReference : index.teacherById.get(lesson.teacherId ?? -1)?.name ?? '— Sem professor';
+  const loadKind=lessonWorkloadKind(lesson,[...index.subjectById.values()]);
   const custom = lesson.start !== period.start || lesson.end !== period.end;
   return (
     <div className="flex gap-1.5 leading-tight" style={{breakInside:'avoid'}} title={other}>
       <span className={cn('mt-0.5 w-[3px] shrink-0 self-stretch rounded-full', subject ? SUBJECT_STYLE[subject.color].bar : 'bg-ink/30')} />
       <div className="min-w-0">
-        <span className="block font-bold">{subject?.name ?? 'Aula'}</span>
+        <span className="block font-bold">{subject?.name ?? 'Aula'}{loadKind==='technical'?' · Técnico':''}</span>
         <span className="block break-words">{other}</span>
         {showTimes && custom && <span className="tabular block text-xs print:text-[11px] text-muted">{lesson.start}–{lesson.end}</span>}
         {lesson.notes && <span className="block break-words text-xs print:text-[11px] text-muted">{lesson.notes}</span>}

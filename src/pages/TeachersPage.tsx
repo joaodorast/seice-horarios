@@ -55,6 +55,7 @@ export function TeachersPage() {
   useOpenFromUrl(openNew);
 
   const load = (lessons.data ?? []).reduce((map, l: Lesson) => {
+    if (l.teacherId === null) return map;
     const cur = map.get(l.teacherId) ?? { count: 0, minutes: 0, classes: new Set<number>() };
     cur.count++;
     cur.minutes += durationMinutes(l.start, l.end);

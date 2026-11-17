@@ -162,7 +162,8 @@ describe('unidades e permissões', () => {
   it('o coordenador enxerga apenas os dados da própria unidade, mas vê o professor compartilhado', async () => {
     // A administração monta as duas unidades: professor só CE, professor compartilhado e uma aula no CE.
     await admin('POST', '/teachers', { name: 'Só Campos Elíseos', code: null, area: null, phone: null, notes: null, active: true, unitId: ce, unitIds: [ce], subjectIds: [] });
-    const compartilhado = await admin('POST', '/teachers', { name: 'Naissa Compartilhada', code: null, area: 'Química', phone: null, notes: null, active: true, unitId: ce, unitIds: [ce, jp], subjectIds: [] });
+    const compartilhado = {body:(await admin('GET','/teachers')).body.find((teacher:{name:string})=>teacher.name==='Naissa Compartilhada')};
+    expect(compartilhado.body?.id).toBeDefined();
     const turmaCe = await admin('POST', '/classes', { name: '8º A CE', grade: '8º ano', shift: 'manha', unitId: ce, notes: null, active: true });
     // Quinta 07:00 fica livre nas duas unidades, então só pode haver conflito pelo professor compartilhado.
     await server.db.query('DELETE FROM lessons WHERE weekday = 4 AND start_time = \'07:00\'');

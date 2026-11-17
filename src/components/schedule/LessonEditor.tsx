@@ -20,6 +20,7 @@ import type { Lesson, LessonIssue, Period, Weekday } from '@shared/types';
 export interface LessonPrefill {
   classId?: number | null;
   teacherId?: number | null;
+  workloadKind?: Lesson['workloadKind'];
   subjectId?: number | null;
   weekday?: Weekday;
   start?: string;
@@ -34,6 +35,8 @@ export type EditorRequest =
 interface FormState {
   classId: number | null;
   teacherId: number | null;
+  noTeacher: boolean;
+  workloadKind: 'auto' | 'regular' | 'technical' | 'excluded';
   subjectId: number | null;
   weekday: Weekday;
   timeMode: 'period' | 'custom';
@@ -51,6 +54,8 @@ function initialState(req: EditorRequest, data: ScheduleData): FormState {
     return {
       classId: l.classId,
       teacherId: l.teacherId,
+      noTeacher: l.teacherId === null,
+      workloadKind: l.workloadKind ?? 'auto',
       subjectId: l.subjectId,
       weekday: l.weekday,
       timeMode: matchesPeriod(data, l.classId, l.start, l.end) ? 'period' : 'custom',
@@ -66,6 +71,8 @@ function initialState(req: EditorRequest, data: ScheduleData): FormState {
   return {
     classId: p.classId ?? null,
     teacherId: p.teacherId ?? null,
+    noTeacher: req.duplicateOf?.teacherId === null,
+    workloadKind: p.workloadKind ?? req.duplicateOf?.workloadKind ?? 'auto',
     subjectId: p.subjectId ?? null,
     weekday: p.weekday ?? firstDay,
     timeMode: !start || matchesPeriod(data, p.classId ?? null, start, end) ? 'period' : 'custom',
@@ -203,7 +210,7 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
   const timesReady = TIME_PATTERN.test(form.start) && TIME_PATTERN.test(form.end);
 
   const liveIssues = useMemo(() => {
-    if (!form.classId || !form.teacherId || !timesReady) return [];
+    if (!form.classId || (!form.teacherId && !form.noTeacher) || !timesReady) return [];
     return validateLesson(
       { id: editingId, teacherId: form.teacherId, classId: form.classId, subjectId: form.subjectId, weekday: form.weekday, start: form.start, end: form.end },
       data,
@@ -259,7 +266,8 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
   async function submit(another: boolean) {
     setTouched(true);
     const parsed = lessonSchema.safeParse({
-      teacherId: form.teacherId ?? 0,
+      teacherId: form.noTeacher ? null : form.teacherId ?? 0,
+      workloadKind: form.workloadKind,
       classId: form.classId ?? 0,
       subjectId: form.subjectId,
       weekday: form.weekday,
@@ -332,15 +340,24 @@ function LessonForm({ request, data, onClose }: { request: EditorRequest; data: 
               autoFocusTarget={!form.classId}
             />
           </Field>
-          <Field label="Professor" required error={fieldErrors.teacherId}>
+          <div>
+            <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.noTeacher} onChange={(event) => {set('noTeacher',event.target.checked);set('teacherId',null);}} />Sem professor — não contar carga para ninguém</label>
+          <Field label="Professor" required={!form.noTeacher} error={fieldErrors.teacherId}>
             <Combobox
               options={teacherOptions}
+              disabled={form.noTeacher}
               value={form.teacherId}
               onChange={(v) => set('teacherId', v)}
-              placeholder="Selecione o professor"
+              placeholder={form.noTeacher ? "— Sem professor" : "Selecione o professor"}
               emptyText="Nenhum professor encontrado"
               autoFocusTarget={Boolean(form.classId) && !form.teacherId}
             />
+          </Field>
+          </div>
+          <Field label="Tipo da carga no relatório" hint="A classificação automática considera a disciplina. Ajuste se uma aula for técnica ou regular.">
+            <select className="h-10 w-full rounded-md border border-line-strong px-3 text-sm" value={form.workloadKind} onChange={(event) => set('workloadKind',event.target.value as FormState['workloadKind'])}>
+              <option value="auto">Automático pela disciplina</option><option value="regular">Tempo regular</option><option value="technical">Tempo técnico</option><option value="excluded">Não contabilizar no pagamento</option>
+            </select>
           </Field>
           <Field
             label="Disciplina"

@@ -1,11 +1,11 @@
 import type { Workload } from '@shared/workload';
+import { WEEKDAY_LABEL } from '@shared/labels';
 import { formatHours } from './format';
 
 export interface WorkloadReportInput {
   workload: Workload;
   period: string;
   filters: [string, string][];
-  paidMinutes: number;
   className: (id: number) => string;
   subjectName: (id: number | null) => string;
   calendarNote?: string;
@@ -15,11 +15,11 @@ export interface WorkloadReportInput {
 export async function createWorkloadReport(input: WorkloadReportInput) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const { workload, paidMinutes, className, subjectName } = input;
+  const { workload, className, subjectName } = input;
   const n = (value: number) => value.toLocaleString('pt-BR');
-  const numbers = (count: number) => [n(count), n(count * paidMinutes), formatHours(count * paidMinutes)];
-  const teachers = workload.rows.filter((row) => row.total.lessons > 0);
-  const classes = workload.classes.filter((c) => (workload.classTotals.get(c.id)?.lessons ?? 0) > 0);
+  const numbers = (count: number, minutes:number) => [count ? n(count) : '—', n(minutes), formatHours(minutes)];
+  const teachers = workload.rows.filter((row) => (row.total.minutes > 0 || Boolean(row.payroll?.hasReference) || Boolean(row.payroll?.attendanceDays)));
+  const classes = workload.classes.filter((c) => (workload.classTotals.get(c.id)?.minutes ?? 0) > 0);
   const issued = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   const ink: [number, number, number] = [31, 35, 40];
   const response = await fetch('/logo-seice.png');
@@ -52,10 +52,10 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
   title('Resumo do período');
   doc.setFont('helvetica','normal').setFontSize(10).setTextColor(80);
   doc.text(input.period, 14, y); y += 9;
-  const totals = numbers(workload.grand.lessons);
+  const totals = numbers(workload.grand.lessons,workload.grand.minutes);
   const metrics = [
     {label:'Tempos (aulas)',note:'Quantidade de aulas na grade',color:[235,244,253]},
-    {label:'Minutos pagos',note:`${paidMinutes} min por tempo`,color:[255,247,219]},
+    {label:'Minutos pagos',note:'Regras por segmento e regência',color:[255,247,219]},
     {label:'Total em horas',note:'Ex.: 250 min = 4h10',color:[234,247,239]},
   ];
   metrics.forEach(({label,note,color}, index) => {
@@ -67,23 +67,35 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
   });
   y += 39;
   doc.setFont('helvetica','normal').setFontSize(10.5).setTextColor(60);
-  const explanation = doc.splitTextToSize(`Como ler: 5 aulas de ${paidMinutes} minutos = ${5 * paidMinutes} minutos = ${formatHours(5 * paidMinutes)}. Os três cartões mostram a mesma carga em unidades diferentes.`,182) as string[];
+  const explanation = doc.splitTextToSize('Tempos = aulas regulares e técnicas. Infantil/Fund. I: 60 min por tempo; demais segmentos: 50 min. Regentes: Infantil 20h/semana; Fund. I 22h30/semana em 5 dias, sem multiplicar pelas disciplinas.',182) as string[];
   doc.text(explanation,14,y);y += explanation.length * 5 + 7;
   title('Critérios utilizados');
-  table(['Filtro', 'Seleção'], [...input.filters, ['Pagamento', `${paidMinutes} minutos por tempo`]], {0:{cellWidth:35}});
+  table(['Filtro', 'Seleção'], [...input.filters, ['Regra', 'Carga por tempo + regências fixas cadastradas. Não calcula valores em dinheiro.']], {0:{cellWidth:35}});
   title('1. Carga de cada professor');
-  table(['Professor', 'Tempos', 'Minutos pagos', 'Horas pagas'], teachers.map((row) => [row.teacher.name, ...numbers(row.total.lessons)]),
-    {0:{cellWidth:86},1:{cellWidth:25},2:{cellWidth:38},3:{cellWidth:33}}, ['Total do recorte', ...totals]);
+  table(['Professor','Regulares','Técnicos','Regência','Total'],teachers.map((row)=>[
+    row.teacher.name,`${row.payroll?.regularLessons ?? row.total.lessons} tempos`,`${row.payroll?.technicalLessons ?? 0} tempos`,formatHours(row.payroll?.regencyMinutes ?? 0),formatHours(row.total.minutes)
+  ]),{0:{cellWidth:65},1:{cellWidth:29},2:{cellWidth:29},3:{cellWidth:29},4:{cellWidth:30}},['Total do recorte','','','',formatHours(workload.grand.minutes)]);
   title('2. Total de cada turma');
-  table(['Unidade / Turma', 'Tempos', 'Minutos pagos', 'Horas pagas'], classes.map((c) => [className(c.id), ...numbers(workload.classTotals.get(c.id)!.lessons)]),
+  table(['Unidade / Turma', 'Tempos', 'Minutos pagos', 'Horas pagas'], classes.map((c) => [className(c.id), ...numbers(workload.classTotals.get(c.id)!.lessons,workload.classTotals.get(c.id)!.minutes)]),
     {0:{cellWidth:86},1:{cellWidth:25},2:{cellWidth:38},3:{cellWidth:33}}, ['Total do recorte', ...totals]);
   if (teachers.length) { if(y > 200) {doc.addPage(); y = 42;} title('3. Disciplinas e turmas de cada professor'); }
   for (const row of teachers) {
     title(row.teacher.name);
+    if(row.payroll) {
+      const p=row.payroll;
+      table(['Informação','Neste recorte'],[
+        ['Regulares',`${p.regularLessons} tempos / ${formatHours(p.regularMinutes)}`],
+        ['Técnicos',`${p.technicalLessons} tempos / ${formatHours(p.technicalMinutes)}`],
+        ['Regência fixa',formatHours(p.regencyMinutes)],
+        ['Dias no colégio',p.days.length ? p.days.map((d)=>WEEKDAY_LABEL[d]).join(', ') : 'Sem dias cadastrados'],
+        ['Vale-transporte',`${p.attendanceDays} dias no recorte. Cada dia conta uma vez, mesmo com várias aulas. Sem quantidade de passagens ou valores.`],
+        ...(p.hasReference ? [['Referência semanal da escola',`${p.referenceRegular} tempos regulares + ${p.referenceTechnical} técnicos = ${p.referenceRegular+p.referenceTechnical} tempos. Conferir com a grade acima.`]] : []),
+      ],{0:{cellWidth:48}});
+    }
     table(['Unidade / Turma', 'Disciplina', 'Aulas', 'Min. pagos', 'Horas'], row.bySubject.flatMap((subject) =>
-      [...subject.byClass].map(([id, load]) => [className(id), subjectName(subject.subjectId), ...numbers(load.lessons)])),
+      [...subject.byClass].map(([id, load]) => [className(id), (subject.label ?? subjectName(subject.subjectId)), ...numbers(load.lessons,load.minutes)])),
       {0:{cellWidth:65},1:{cellWidth:47},2:{cellWidth:20},3:{cellWidth:27},4:{cellWidth:23}},
-      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons)]);
+      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons,row.total.minutes)]);
   }
   const notes = [
     'Os resumos por professor e por turma mostram as mesmas aulas de duas formas. Não some um resumo ao outro.',
@@ -115,7 +127,7 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
 
 /** Nome comum para PDF e Excel; sem caracteres inválidos em nomes de arquivos. */
 export function workloadReportFileName(workload: Workload, period: string, date = new Date()) {
-  const teachers = workload.rows.filter((row) => row.total.lessons > 0);
+  const teachers = workload.rows.filter((row) => (row.total.minutes > 0 || Boolean(row.payroll?.hasReference) || Boolean(row.payroll?.attendanceDays)));
   const owner = teachers.length === 1 ? teachers[0].teacher.name : `${teachers.length}-professores`;
   const clean = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/[. -]+$/, '').slice(0, 90);
   const issued = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);

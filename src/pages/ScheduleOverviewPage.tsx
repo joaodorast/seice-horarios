@@ -506,7 +506,7 @@ function WeekMatrix({ rows, periods, days, lessons, index, classLabel, showTimes
                           const schoolClass = index.classById.get(lesson.classId)!;
                           const subject = lesson.subjectId ? index.subjectById.get(lesson.subjectId) : undefined;
                           const style = subject ? SUBJECT_STYLE[subject.color] : undefined;
-                          const teacher = index.teacherById.get(lesson.teacherId);
+                          const teacher = index.teacherById.get(lesson.teacherId ?? -1);
                           return (
                             <button key={lesson.id} type="button" onClick={() => actions.openLesson(lesson)}
                               title={`${classLabel(schoolClass)} · ${lesson.start}–${lesson.end}`}

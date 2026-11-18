@@ -343,3 +343,9 @@ Todos os coordenadores podem consultar os professores das unidades reais. Turmas
 A restrição é validada no servidor, inclusive em links diretos, importações e alterações de aulas. Não altera os horários existentes nem as regras de pagamento do RH.
 
 A tela **Montar quadro** e seus atalhos foram ocultados. Utilize **Horários por turma**, **Por professor** e **Nova aula**. Links antigos redirecionam para a grade correspondente. Capturas antigas do tutorial podem mostrar esse atalho.
+
+### Disciplinas de professores compartilhados
+
+Em **Professores → Editar**, o coordenador pode ajustar disciplinas e segmentos de professores vinculados à sua unidade, inclusive quando atuam também na outra unidade. Nesses cadastros compartilhados, o formulário preserva os dados administrativos, unidades, horários e cargas de pagamento. A administração continua responsável pela edição geral. Professores que atuam somente em outra unidade permanecem disponíveis para consulta.
+
+O fechamento dos modais (inclusive após exportar PDF ou Excel) restaura a rolagem da página. O bloqueio de rolagem considera janelas sobrepostas e só é liberado depois que a última janela fecha.

@@ -470,4 +470,5 @@ export const MIGRATIONS: Migration[] = [
     CREATE UNIQUE INDEX academic_segment_rule ON academic_rules(unit_id,year,segment) WHERE scope='segment';
     CREATE UNIQUE INDEX academic_class_rule ON academic_rules(unit_id,year,class_id) WHERE scope='class';
   ` },
+  { version: 16, name: 'turmas_por_coordenacao', sql: `ALTER TABLE users ADD COLUMN class_scope jsonb DEFAULT NULL CHECK(class_scope IS NULL OR jsonb_typeof(class_scope)='array');` },
 ];

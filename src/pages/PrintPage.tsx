@@ -1,3 +1,4 @@
+import { PayrollClassKinds } from '@/features/reports/PayrollClassKinds';
 import { computePayrollWorkload, lessonWorkloadKind } from '@shared/payroll';
 import { displayPeriods, ScheduleDisplay, useScheduleDisplay } from '@/components/schedule/ScheduleDisplay';
 import { useEffect } from 'react';
@@ -157,18 +158,18 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
       {teacher && (
         <section className="mb-4 print:mb-2 break-inside-avoid">
           <h2 className="mb-2 text-sm font-bold">Resumo semanal por turma</h2>
-          <table className="w-full border-collapse text-sm print:text-sm">
+          <div className="overflow-x-auto print:overflow-visible"><table className="w-full min-w-[720px] border-collapse text-sm print:min-w-0 print:text-sm">
             <thead><tr className="bg-subtle"><th className="border border-line p-2 text-left">Turma</th><th className="border border-line p-2 text-left">Tipo de carga</th><th className="border border-line p-2 text-right">Minutos para pagamento</th><th className="border border-line p-2 text-right">Total em horas</th></tr></thead>
             <tbody>{[...(payrollRow?.byClass ?? [])].map(([classId,load])=>{
               const fixed=fixedForClass(classId),fixedMinutes=fixed.reduce((sum,subject)=>sum+(subject.byClass.get(classId)?.minutes??0),0);
               return <tr key={classId} className={fixedMinutes>0?'bg-[#eaf7ef] text-[#14532d]':''}>
                 <td className="border border-line p-2">{index.classById.get(classId)?.name ?? 'Turma'}</td>
-                <td className="border border-line p-2"><strong>{fixedMinutes>0?'CARGA FIXA':'Por tempos'}</strong>{fixed.map((subject)=><span key={subject.label} className="mt-1 block">{subject.label?.includes('Infantil')?'Educação Infantil':'Fundamental I'}: {formatHours(subject.total.minutes)}</span>)}{load.lessons>0&&<span className="mt-1 block">{fixedMinutes>0?'+ ':''}{load.lessons} tempos regulares/técnicos</span>}</td>
+                <td className="border border-line p-2"><PayrollClassKinds row={payrollRow!} classId={classId}/></td>
                 <td className="border border-line p-2 text-right text-base font-bold">{load.minutes.toLocaleString('pt-BR')} min</td><td className="border border-line p-2 text-right text-base font-extrabold">{formatHours(load.minutes)}</td>
               </tr>;
             })}</tbody>
-            <tfoot><tr className="bg-[#163d68] text-white"><th className="border border-[#163d68] p-3 text-left">TOTAL DO PROFESSOR NA SEMANA</th><th className="border border-[#163d68] p-3 text-left">{fixedTotal>0?'Carga fixa'+(timeCount>0?' + tempos':''):`${timeCount} tempos`}</th><th className="border border-[#163d68] p-3 text-right text-base">{paidTotal.toLocaleString('pt-BR')} min</th><th className="border border-[#163d68] p-3 text-right text-lg">{formatHours(paidTotal)}</th></tr></tfoot>
-          </table>
+            <tfoot><tr className="bg-[#163d68] text-white"><th className="border border-[#163d68] p-3 text-left">TOTAL DO PROFESSOR NA SEMANA</th><th className="border border-[#163d68] p-3 text-left"><div className="space-y-1">{(payrollRow?.payroll?.regularLessons??0)>0&&<span className="block">{payrollRow!.payroll!.regularLessons} {payrollRow!.payroll!.regularLessons===1?'tempo regular':'tempos regulares'} · {payrollRow!.payroll!.regularMinutes} min</span>}{(payrollRow?.payroll?.technicalLessons??0)>0&&<span className="block">{payrollRow!.payroll!.technicalLessons} {payrollRow!.payroll!.technicalLessons===1?'tempo técnico':'tempos técnicos'} · {payrollRow!.payroll!.technicalMinutes} min</span>}{fixedTotal>0&&<span className="block">Carga fixa · {fixedTotal} min</span>}</div></th><th className="border border-[#163d68] p-3 text-right text-base">{paidTotal.toLocaleString('pt-BR')} min</th><th className="border border-[#163d68] p-3 text-right text-lg">{formatHours(paidTotal)}</th></tr></tfoot>
+          </table></div>
           <p className="mt-2 text-sm leading-relaxed text-ink-2"><strong className="text-[#14532d]">Verde: carga fixa de regência.</strong> <strong className="text-[#163d68]">Azul: total para pagamento.</strong> As horas já estão convertidas em minutos (1 hora = 60 minutos). A carga fixa é contada uma vez por turma, sem multiplicar pelas disciplinas.</p>
         </section>
       )}
@@ -178,7 +179,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
           {section.periods.length === 0 ? (
             <p className="rounded border border-line p-4 text-sm text-muted">Nenhum período configurado para este turno.</p>
           ) : (
-            <table className="w-full table-fixed border-collapse text-sm print:text-xs">
+            <div className="overflow-x-auto print:overflow-visible"><table className="w-full min-w-[720px] table-fixed border-collapse text-sm print:min-w-0 print:text-xs">
               <thead>
                 <tr>
                   <th className="w-[92px] border border-ink/30 bg-ink/[0.06] px-2 py-1.5 text-left font-bold">Tempo</th>
@@ -219,7 +220,7 @@ function Sheet({ kind, entityId, data, index }: { kind: Kind; entityId: number; 
                   ),
                 )}
               </tbody>
-            </table>
+            </table></div>
           )}
         </section>
       ))}

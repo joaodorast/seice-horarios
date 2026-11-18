@@ -1,4 +1,5 @@
 import { rememberUpdate } from './updateNews';
+import { reportFailure } from './failureNotice';
 
 /**
  * Proteções para o sistema publicado nunca ficar travado numa tela de erro:
@@ -73,6 +74,7 @@ export function installResilience() {
   });
   window.addEventListener('unhandledrejection', (event) => {
     if (isChunkLoadError(event.reason) && reloadOnce()) event.preventDefault();
+    else reportFailure(event.reason);
   });
 
   window.setInterval(checkVersion, 5 * 60_000);

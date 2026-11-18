@@ -1,3 +1,4 @@
+import { subjectDefaultWorkloadKind } from '@shared/payroll';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { BookOpen, FilterX, Pencil, Plus, Table2, Trash2 } from 'lucide-react';
@@ -188,7 +189,7 @@ export function SubjectsPage() {
                                   <button type="button" onClick={() => setEditing(s)} className="block truncate text-left font-semibold text-ink hover:underline underline-offset-2">
                                     {s.name}
                                   </button>
-                                  <span className="text-xs text-muted">{SUBJECT_STYLE[s.color].name}</span>
+                                  <span className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${subjectDefaultWorkloadKind(s)==='technical'?'bg-[#fff7db] text-[#725000]':'bg-[#edf5ff] text-[#163d68]'}`}>{subjectDefaultWorkloadKind(s)==='technical'?'Técnico':'Regular (normal)'}</span>
                                 </div>
                               </div>
                             </td>
@@ -220,7 +221,7 @@ export function SubjectsPage() {
                         <li key={s.id} className="flex items-center gap-3 px-4 py-3">
                           <span className={cn('h-9 w-[4px] shrink-0 rounded-full', SUBJECT_STYLE[s.color].bar)} aria-hidden="true" />
                           <button type="button" onClick={() => setEditing(s)} className="min-w-0 flex-1 text-left">
-                            <span className="block truncate font-semibold">{s.name}</span>
+                            <span className="block truncate font-semibold">{s.name}</span><span className="mt-1 block text-sm font-semibold text-ink-2">{subjectDefaultWorkloadKind(s)==='technical'?'Técnico':'Regular (normal)'}</span>
                             <span className="block truncate text-xs text-muted">
                               {u ? `${plural(u.lessons, 'aula', 'aulas')} · ${plural(u.classes, 'turma', 'turmas')}` : 'Sem aula no quadro'}
                             </span>

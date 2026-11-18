@@ -4,6 +4,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@ta
 import { RouterProvider } from 'react-router';
 import { ToastProvider } from '@/components/ui';
 import { ApiError } from '@/api/client';
+import { reportFailure } from '@/lib/failureNotice';
 import { ME_KEY, sessionNotice } from '@/api/auth';
 import { AuthGate } from '@/features/auth/AuthGate';
 import { AppErrorBoundary } from '@/components/layout/AppErrorBoundary';
@@ -22,7 +23,11 @@ const onError = (error: unknown) => {
 
 const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({ onError }),
-  mutationCache: new MutationCache({ onError }),
+  mutationCache: new MutationCache({ onError: (error) => {
+    onError(error);
+    // O login já explica credenciais inválidas e sessão expirada na própria tela.
+    if (!(error instanceof ApiError && error.status === 401)) reportFailure(error);
+  } }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,

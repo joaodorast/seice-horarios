@@ -56,7 +56,7 @@ export const GUIDES = {
   assignments: [
     { title: 'Por professor', text: 'Escolha o professor na lista e clique em "Atribuir turmas": marque a disciplina e todas as turmas que ele vai assumir, de uma vez, com as aulas por semana.' },
     { title: 'Por turma', text: 'Escolha a turma e defina o professor de cada disciplina. Os números mostram quantas aulas por semana e quantas já estão no quadro.' },
-    { title: 'Depois, monte o quadro', text: 'No Montar quadro, ao escolher a disciplina, o professor atribuído já aparece sozinho. Tudo aqui é salvo automaticamente.' },
+    { title: 'Depois, lance as aulas na grade', text: 'Abra Horários por turma, escolha a turma e clique em Nova aula ou em um horário vazio. Confira a disciplina, o professor e o horário antes de salvar.' },
   ],
   builderClass: [
     { title: 'Escolha a turma', text: 'Use a lista no topo ou as setas. A grade mostra a semana inteira da turma, com os horários do turno dela.' },

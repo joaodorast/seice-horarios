@@ -327,3 +327,19 @@ vercel.json    configuração de build, função, rotas e cabeçalhos da Vercel
 ---
 
 A logo usada é a fornecida pela escola (`public\logo-seice.png`); o emblema e o ícone do navegador foram recortados dela.
+
+### Acesso dos coordenadores
+
+Todos os coordenadores podem consultar os professores das unidades reais. Turmas, aulas e relatórios respeitam a unidade e os segmentos do login:
+
+| Coordenação | Unidade | Turmas |
+| --- | --- | --- |
+| Bruno | CE | Três primeiros anos do Médio; segundos e terceiros anos técnicos |
+| Rose | CE | Fundamental II (6º ao 9º) |
+| Silvinha | CE | Infantil e Fundamental I |
+| Marcela | JP | Infantil e Fundamental I |
+| Josiele | JP | Fundamental II e Médio (1º e 2º) |
+
+A restrição é validada no servidor, inclusive em links diretos, importações e alterações de aulas. Não altera os horários existentes nem as regras de pagamento do RH.
+
+A tela **Montar quadro** e seus atalhos foram ocultados. Utilize **Horários por turma**, **Por professor** e **Nova aula**. Links antigos redirecionam para a grade correspondente. Capturas antigas do tutorial podem mostrar esse atalho.

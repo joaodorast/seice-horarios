@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { failureNotices } from '@/lib/failureNotice';
+import { FailureDialog } from './FailureDialog';
 
 type ToastTone = 'success' | 'error' | 'info';
 interface ToastItem {
@@ -32,9 +34,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback(
     (tone: ToastTone, title: string, description?: string) => {
+      if (tone === 'error') {
+        failureNotices.show({key: description ?? title, title, message: description ?? title, nextStep: 'Feche este aviso para revisar a tela. Confira a orientação acima antes de tentar novamente.'});
+        return;
+      }
       const id = nextId.current++;
       setItems((list) => [...list.slice(-3), { id, tone, title, description }]);
-      window.setTimeout(() => dismiss(id), tone === 'error' ? 7000 : 4200);
+      window.setTimeout(() => dismiss(id), 4200);
     },
     [dismiss],
   );
@@ -51,6 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
+      <FailureDialog />
       <div
         aria-live="polite"
         aria-atomic="false"

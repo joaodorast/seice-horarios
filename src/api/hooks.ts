@@ -66,6 +66,16 @@ export function useSaveTeacher() {
   });
 }
 
+/** Salva somente disciplinas e segmentos, preservando o cadastro compartilhado. */
+export function useSaveTeacherTeaching() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: Pick<TeacherInput, 'subjectIds' | 'segments'> }) =>
+      request<Teacher>('PUT', `/teachers/${id}/teaching`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.teachers }),
+  });
+}
+
 export function useSetTeacherStatus() {
   const qc = useQueryClient();
   return useMutation({

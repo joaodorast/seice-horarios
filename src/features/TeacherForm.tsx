@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { teacherSchema, type TeacherFormValues, type TeacherInput } from '@shared/schemas';
 import type { Teacher } from '@shared/types';
 import { Alert, Button, Field, Input, Modal, Switch, Textarea, useToast } from '@/components/ui';
-import { useSaveTeacher, useTeachers } from '@/api/hooks';
+import { useSaveTeacher, useSaveTeacherTeaching, useTeachers } from '@/api/hooks';
 import { useFixedUnitId, useUnits } from '@/api/units';
 import { TeacherPhotoField } from '@/features/TeacherPhoto';
 import { SubjectPicker } from '@/features/SubjectPicker';
@@ -12,7 +12,7 @@ import { Check, ImagePlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatPhone } from '@/lib/text';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 export function TeacherFormModal({
   open,
@@ -44,10 +44,14 @@ export function TeacherFormModal({
 
 function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { teacher: Teacher | null; onClose: () => void; onSaved?: (t: Teacher) => void;initialName?:string;initialUnitId?:number }) {
   const save = useSaveTeacher();
+  const saveTeaching = useSaveTeacherTeaching();
   const toast = useToast();
   const units = useUnits();
   const fixedUnitId = useFixedUnitId();
   const isAdmin = fixedUnitId === null;
+  const teacherUnits = [...new Set([...(teacher?.unitIds ?? []), ...(teacher?.unitId ? [teacher.unitId] : [])])];
+  const teachingOnly = !!teacher && !isAdmin && teacherUnits.includes(fixedUnitId!) && teacherUnits.some(id => id !== fixedUnitId);
+  const pending = save.isPending || saveTeaching.isPending;
   const [nameConfirmation,setNameConfirmation]=useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -96,9 +100,27 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
     }
   });
 
+  const onTeachingSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!teacher || pending) return;
+    setFormError(null);
+    try {
+      const saved = await saveTeaching.mutateAsync({ id: teacher.id, input: { subjectIds: watch('subjectIds') ?? [], segments: segmentos } });
+      toast.success('Disciplinas e segmentos salvos', saved.name);
+      onSaved?.(saved);
+      onClose();
+    } catch (error) {
+      setFormError(errorMessage(error));
+    }
+  };
+
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={teachingOnly ? onTeachingSubmit : onSubmit} noValidate className="flex flex-col gap-4">
       {formError && <Alert tone="danger" title={formError} />}
+      {teachingOnly && <Alert tone="info" title="Professor que atua nas duas unidades">
+        Ajuste aqui as disciplinas e os segmentos. Nome, unidades, horários e regras de pagamento serão preservados. A administração gerencia os demais dados do cadastro.
+      </Alert>}
+      {!teachingOnly && <>
       <PhotoSection teacher={teacher} />
       {nameConfirmation&&<Alert tone="warning" title="Já existe um cadastro com este nome">
         <p className="text-sm">Se for o mesmo professor, edite o cadastro e suas unidades. Só crie outro se forem pessoas diferentes.</p>
@@ -146,6 +168,7 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
         )}
       />
       {(errors.unitIds?.message || errors.unitId?.message)&&<p className="text-sm text-danger">{String(errors.unitIds?.message ?? errors.unitId?.message)}</p>}
+      </>}
       <Controller
         control={control}
         name="segments"
@@ -178,7 +201,7 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
             </div>
             <p className="text-xs text-muted">
               Marque mais de um quando ele der aula em segmentos diferentes (ex.: Ciências no Fundamental II e Química no Médio).
-              O coordenador de cada segmento vê só os professores dele.
+              Os coordenadores podem consultar todos os professores; as turmas exibidas seguem o acesso de cada login.
             </p>
             {errors.segments && <p className="text-[13px] font-medium text-danger">{errors.segments.message}</p>}
           </div>
@@ -197,6 +220,7 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
           As disciplinas mostradas são as dos segmentos marcados acima. Ao lançar uma aula, o sistema sugere a disciplina certa para cada horário.
         </p>
       </div>
+      {!teachingOnly && <>
       <Field label="Área de atuação" optional error={errors.area?.message} hint="Informação livre, só para consulta. Ex.: Ciências Humanas.">
         <Input {...register('area')} placeholder="Ex.: Ciências Humanas" maxLength={80} />
       </Field>
@@ -215,11 +239,13 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
           />
         )}
       />
-      <div className="-mx-5 mt-2 -mb-5 flex flex-col-reverse gap-2 border-t border-line bg-subtle px-5 py-3.5 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
-        <Button onClick={onClose} disabled={save.isPending}>
+      </>}
+      <div className="sticky -bottom-5 -mx-5 mt-2 -mb-5 flex flex-col-reverse gap-2 border-t border-line bg-subtle px-5 py-3.5 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
+        {formError && <p role="alert" className="w-full text-sm font-semibold text-danger sm:mr-auto">{formError}</p>}
+        <Button onClick={onClose} disabled={pending}>
           Cancelar
         </Button>
-        <Button type="submit" variant="primary" loading={save.isPending}>
+        <Button type="submit" variant="primary" loading={pending}>
           {teacher ? 'Salvar alterações' : 'Cadastrar professor'}
         </Button>
       </div>

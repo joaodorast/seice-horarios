@@ -347,6 +347,32 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }));
   });
 
+  // Coordenadores podem ajustar a atuação de professores da sua unidade, inclusive compartilhados.
+  // Este endpoint não aceita nomes, unidades, dados pessoais, cargas ou horários.
+  api.put('/teachers/:id/teaching', async (req, res) => {
+    const id = idParam(req);
+    const input = parse(teacherSchema.pick({ subjectIds: true, segments: true }).strict(), req.body);
+    await requireTeacherAccess(res, id);
+    await db.transaction(async tx => {
+      const source = createRepository(tx);
+      await source.lockLessons();
+      const teacher = await source.getTeacher(id);
+      if (!teacher) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
+      const allowed = visibleUnitIds(res);
+      const units = [...(teacher.unitIds ?? []), ...(teacher.unitId ? [teacher.unitId] : [])];
+      if (allowed && !units.some(unit => allowed.includes(unit))) {
+        throw new HttpError(403, 'wrong_unit', 'Você pode ajustar as disciplinas dos professores que atuam na sua unidade.');
+      }
+      const subjects = await source.listSubjects();
+      if (input.subjectIds.some(id => !subjects.some(subject => subject.id === id))) {
+        throw new HttpError(422, 'not_found', 'Uma das disciplinas não está mais cadastrada. Atualize a página e confira a seleção.');
+      }
+      await source.setTeacherSubjects(id, input.subjectIds);
+      await source.setTeacherSegments(id, input.segments);
+    });
+    res.json((await scopedTeachers(res)).find(teacher => teacher.id === id));
+  });
+
   api.put('/teachers/:id', async (req, res) => {
     const id = idParam(req);
     const current = await requireTeacherAccess(res, id, true);

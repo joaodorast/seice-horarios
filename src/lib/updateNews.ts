@@ -35,15 +35,22 @@ const classKindsNews = [
   { title: 'Impressão, PDF e Excel com a mesma separação', description: 'A turma técnica pode ter disciplinas regulares e técnicas. Os relatórios mostram cada tipo separadamente para o RH conferir o pagamento no sistema financeiro.', links: [{ label: 'Ver relatórios por professor', to: '/horarios/professor' }] },
 ];
 
-export const updateNews = [
+const coordinationNews = [
   { title: 'Todos os professores disponíveis para consulta', description: 'Os coordenadores podem consultar os professores das duas unidades. As turmas e aulas exibidas respeitam a coordenação de cada login.', links: [{ label: 'Consultar professores', to: '/professores' }] },
   { title: 'As turmas certas para cada coordenação', description: 'Cada coordenador vê as turmas da sua unidade e dos segmentos sob sua responsabilidade. Esse limite também vale para relatórios, importação e links diretos.', links: [{ label: 'Ver minhas turmas', to: '/turmas' }] },
   { title: 'Uma navegação mais simples', description: 'Ocultamos Montar quadro e seus atalhos. Para incluir ou editar aulas, use os horários por turma ou professor e o botão Nova aula.', links: [{ label: 'Abrir horários por turma', to: '/horarios/turma' }] },
 ];
 
+export const updateNews = [
+  { title: 'Disciplinas salvas também para professores compartilhados', description: 'O coordenador pode associar disciplinas e segmentos aos professores que atuam na sua unidade, mesmo quando também trabalham na outra. Os demais dados do cadastro e os horários são preservados.', links: [{ label: 'Conferir professores', to: '/professores' }] },
+  { title: 'Rolagem funcionando depois de exportar', description: 'Corrigimos o bloqueio da página ao fechar a janela de exportação. Depois de baixar o PDF, cancelar ou fechar a janela, você pode continuar descendo a página e navegar normalmente.', links: [{ label: 'Abrir carga horária do RH', to: '/horarios/carga' }] },
+  { title: 'Formulário mais claro', description: 'O cadastro explica o que o coordenador pode ajustar em professores das duas unidades. O botão de salvar permanece acessível e os erros aparecem junto dele.', links: [{ label: 'Consultar professores', to: '/professores' }] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: updateNews },
+  { id: '2026-11-18-salvamento-rolagem', date: '2026-11-18', title: 'Correções no salvamento de disciplinas e na rolagem', description: 'Professores compartilhados e exportação com continuidade de navegação.', items: updateNews },
+  { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: coordinationNews },
   { id: '2026-11-18-tempos-por-turma', date: '2026-11-18', title: 'Tempos regulares e técnicos identificados em cada turma', description: 'Resumo por turma mais claro e classificação de disciplinas visível e editável.', items: classKindsNews },
   { id: '2026-11-17-ppp-personalizavel', date: '2026-11-17', title: 'Carga pedagógica com regras salvas por unidade, segmento e turma', description: 'Página própria, personalização da duração dos tempos e relatórios com as mesmas regras.', items: pedagogicalRulesNews },
   { id: '2026-11-17-ppp', date: '2026-11-17', title: 'Projeção da carga horária pedagógica para o PPP', description: 'Carga semanal e total por turma e disciplina, com base ajustável e exportação.', items: pppInitialNews },

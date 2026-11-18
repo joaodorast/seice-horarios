@@ -1,3 +1,4 @@
+import { PayrollClassKinds } from '@/features/reports/PayrollClassKinds';
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { ChevronDown, Download, Printer, Users, GraduationCap, FileText, FileSpreadsheet, Check } from 'lucide-react';
@@ -11,7 +12,7 @@ import { CLASS_SHIFTS, type ClassShift, type Weekday } from '@shared/types';
 import { SHIFT_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
 import { downloadReportWorkbook } from '@/lib/spreadsheet';
-import { computePayrollWorkload } from '@shared/payroll';
+import { computePayrollWorkload, payrollClassBreakdown } from '@shared/payroll';
 import { PayrollSetupAssistant } from '@/features/reports/PayrollSetupAssistant';
 import { PayrollBreakdown } from '@/features/reports/PayrollBreakdown';
 import { errorMessage } from '@/api/client';
@@ -155,6 +156,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
       ]);
       await downloadReportWorkbook(workloadReportFileName(workload,periodLabel),[
         {name:'Resumo por professor',header:['Professor','Regulares (tempos)','Horas regulares','Técnicos (tempos)','Horas técnicas','Regência fixa','Total de tempos','Minutos totais','Total em horas','Dias no colégio','Dias para conferir VT','Referência regular por semana','Referência técnica por semana'],rows:summary},
+        {name:'Resumo por turma',header:['Professor','Unidade / Turma','Tempos regulares','Minutos regulares','Horas regulares','Tempos técnicos','Minutos técnicos','Horas técnicas','Minutos de regência fixa','Total de tempos','Minutos totais','Total em horas'],rows:workload.rows.flatMap(row=>[...row.byClass.keys()].map(id=>{const p=payrollClassBreakdown(row,id);return [row.teacher.name,className(id),p.regularLessons,p.regularMinutes,formatHours(p.regularMinutes),p.technicalLessons,p.technicalMinutes,formatHours(p.technicalMinutes),p.regencyMinutes,p.totalLessons,p.totalMinutes,formatHours(p.totalMinutes)];}))},
         {name:'Detalhes',header:['Professor','Turma','Disciplina / regência','Período','Tempos','Minutos pagos','Horas','Dias no colégio','Dias para conferir VT'],rows:details,totals:['Total do recorte','','',periodLabel,workload.grand.lessons,workload.grand.minutes,paidHours(workload.grand.minutes),'','']},
         {name:'Como ler',header:['Informação','Descrição'],rows:[...exportFilters,['Cálculo','Regulares e técnicos são contados separadamente. Regência Infantil 20h/semana e Fund. I 22h30/semana em 5 dias, sem multiplicar por disciplina.'],['Vale-transporte','Dias distintos neste recorte; várias aulas no mesmo dia contam uma vez. Não são valores ou quantidade de passagens.'],['Referência','Valores semanais informados pela escola, separados dos horários cadastrados.']]},
       ]);
@@ -229,6 +231,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
               </summary>
               <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
                 <PayrollBreakdown row={row} scope={scope} />
+                <section className="rounded-xl border border-line bg-surface p-4"><h3 className="mb-3 text-lg font-bold">Resumo por turma · regulares e técnicos</h3><div className="grid gap-3 lg:grid-cols-2">{[...row.byClass.keys()].map(id=><div key={id} className="rounded-lg border border-line p-3"><h4 className="mb-3 text-base font-bold">{className(id)}</h4><PayrollClassKinds row={row} classId={id}/></div>)}</div></section>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold">Disciplinas de {row.teacher.name}</h3>
                   <Button icon={<Download className="size-4" />} onClick={() => {setTeacherIds([row.teacher.id]);setExportOpen(true);}}>Exportar este professor</Button>
@@ -281,6 +284,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                         <h3 className="text-base font-semibold">{row.teacher.name}</h3>
                         <LoadNumbers count={(row.byClass.get(schoolClass.id)?.lessons ?? 0)} minutes={row.byClass.get(schoolClass.id)?.minutes ?? 0} compact />
                       </div>
+                      <div className="mt-3"><PayrollClassKinds row={row} classId={schoolClass.id}/></div>
                       <ul className="mt-2 divide-y divide-line">
                         {row.bySubject.filter((subject) => subject.byClass.has(schoolClass.id)).map((subject) => (
                           <li key={`${subject.subjectId ?? 'none'}-${subject.label ?? ''}-${[...subject.byClass.keys()].join('-')}`} className={`flex flex-wrap items-center justify-between gap-2 py-2 text-base ${subject.workloadKind==='regency'?'rounded-lg bg-[#eaf7ef] px-3 font-semibold text-[#14532d]':'text-ink-2'}`}>

@@ -20,7 +20,7 @@ const sameRanges = (a: Range[], b: Range[]) => a.length === b.length && a.every(
 
 /**
  * Dias e horários em que o professor está na escola. O sistema não deixa colocar aulas fora deles
- * (no lançamento, no Montar quadro e na importação). Sem nada informado, vale qualquer horário.
+ * (no lançamento e na importação). Sem nada informado, vale qualquer horário.
  */
 export function TeacherAvailability({ teacher, data }: { teacher: Teacher; data: ScheduleData }) {
   const days = data.settings.enabledDays;
@@ -82,7 +82,7 @@ export function TeacherAvailability({ teacher, data }: { teacher: Teacher; data:
           <h2 className="text-base font-bold text-ink">Dias e horários na escola</h2>
           <p className="mt-0.5 text-[14px] text-ink-2">
             Marque quando {teacher.name.split(' ')[0]} está na escola. O sistema <strong className="text-ink">não deixa colocar aulas fora desses horários</strong> — nem no
-            lançamento, nem no Montar quadro, nem na importação.
+            lançamento nem na importação.
           </p>
         </div>
         {!informed && !dirty && (

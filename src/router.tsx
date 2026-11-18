@@ -1,6 +1,11 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate, useParams } from 'react-router';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RouteErrorPage } from '@/pages/NotFoundPage';
+
+function LegacyBuilderRedirect({ kind }: { kind: 'turma' | 'professor' }) {
+  const { id } = useParams();
+  return <Navigate replace to={`/horarios/${kind}${id ? `/${id}` : ''}`} />;
+}
 
 // Cada página é carregada sob demanda, reduzindo o tempo da primeira abertura do sistema.
 export const router = createBrowserRouter([
@@ -22,9 +27,9 @@ export const router = createBrowserRouter([
       { path: 'atribuicoes', lazy: () => import('@/pages/AssignmentsPage').then((m) => ({ Component: m.TeacherAssignmentsPage })) },
       { path: 'atribuicoes/professor/:id?', lazy: () => import('@/pages/AssignmentsPage').then((m) => ({ Component: m.TeacherAssignmentsPage })) },
       { path: 'atribuicoes/turma/:id?', lazy: () => import('@/pages/AssignmentsPage').then((m) => ({ Component: m.ClassAssignmentsPage })) },
-      { path: 'horarios/montar', lazy: () => import('@/pages/BuilderPage').then((m) => ({ Component: m.ClassBuilderPage })) },
-      { path: 'horarios/montar/turma/:id?', lazy: () => import('@/pages/BuilderPage').then((m) => ({ Component: m.ClassBuilderPage })) },
-      { path: 'horarios/montar/professor/:id?', lazy: () => import('@/pages/BuilderPage').then((m) => ({ Component: m.TeacherBuilderPage })) },
+      { path: 'horarios/montar', element: <LegacyBuilderRedirect kind="turma" /> },
+      { path: 'horarios/montar/turma/:id?', element: <LegacyBuilderRedirect kind="turma" /> },
+      { path: 'horarios/montar/professor/:id?', element: <LegacyBuilderRedirect kind="professor" /> },
       { path: 'horarios/carga-pedagogica', lazy: () => import('@/pages/AcademicWorkloadPage').then((m) => ({ Component: m.AcademicWorkloadPage })) },
       { path: 'horarios/carga', lazy: () => import('@/pages/WorkloadPage').then((m) => ({ Component: m.WorkloadPage })) },
       { path: 'atualizacoes', lazy: () => import('@/pages/UpdatesPage').then((m) => ({ Component: m.UpdatesPage })) },

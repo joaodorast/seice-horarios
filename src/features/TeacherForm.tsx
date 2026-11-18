@@ -98,7 +98,7 @@ function TeacherForm({ teacher, onClose, onSaved,initialName,initialUnitId }: { 
         setFormError(errorMessage(error));
       }
     }
-  });
+  }, (errors) => toast.error('Confira os campos antes de salvar', Object.values(errors).map(error => error?.message).filter(Boolean).join(' ')));
 
   const onTeachingSubmit = async (event: FormEvent) => {
     event.preventDefault();

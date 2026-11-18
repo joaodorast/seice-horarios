@@ -32,7 +32,7 @@ function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: (
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = subjectSchema.safeParse({ name, color, segments, workloadKind });
-    if (!parsed.success) return setError(parsed.error.issues[0].message);
+    if (!parsed.success) { setError(parsed.error.issues[0].message); toast.error('Confira os dados da disciplina', parsed.error.issues[0].message); return; }
     try {
       const saved = await save.mutateAsync({ id: subject?.id, input: parsed.data });
       toast.success(subject ? 'Disciplina atualizada' : 'Disciplina cadastrada', saved.name);

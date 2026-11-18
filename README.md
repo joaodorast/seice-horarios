@@ -349,3 +349,13 @@ A tela **Montar quadro** e seus atalhos foram ocultados. Utilize **Horários por
 Em **Professores → Editar**, o coordenador pode ajustar disciplinas e segmentos de professores vinculados à sua unidade, inclusive quando atuam também na outra unidade. Nesses cadastros compartilhados, o formulário preserva os dados administrativos, unidades, horários e cargas de pagamento. A administração continua responsável pela edição geral. Professores que atuam somente em outra unidade permanecem disponíveis para consulta.
 
 O fechamento dos modais (inclusive após exportar PDF ou Excel) restaura a rolagem da página. O bloqueio de rolagem considera janelas sobrepostas e só é liberado depois que a última janela fecha.
+
+### Avisos de falha e rolagem
+
+Ações de gravação com falha abrem um aviso persistente, com motivo e orientação, mesmo quando um formulário já está aberto. A validação local dos cadastros, calendário e períodos também avisa antes de enviar. Falhas de leitura têm estado de erro ou aviso de dados da última consulta. O sistema não repete automaticamente gravações: depois de perda de conexão ou demora de resposta, confira o resultado antes de tentar novamente.
+
+Todas as janelas usam um controle de rolagem compartilhado. Cada janela libera apenas seu próprio bloqueio; fechar uma janela sobreposta mantém a anterior funcionando, e fechar a última restaura a rolagem original. Os testes de regressão cobrem fechamento em ordem diferente, limpeza repetida, remontagem e cem ciclos de abertura e fechamento.
+
+A conferência no navegador percorre 21 rotas/variações, com 65 verificações de rolagem, incluindo sete tipos de janela abertos e fechados três vezes, erro sobre formulário, salvamento, duas janelas sobrepostas e downloads PDF/Excel. O scroll é testado com a roda do mouse na mesma tela, sem recarregar após fechar a janela. Em telas curtas, o teste acrescenta espaço temporário somente no ambiente descartável para permitir verificar a rolagem.
+
+O roteiro está em `scripts/check-interface.mjs`. Após compilar, execute `node --import tsx scripts/check-interface.mjs` em um ambiente com Playwright e Microsoft Edge disponíveis. Se o pacote Playwright estiver instalado fora do projeto, a variável `SEICE_PLAYWRIGHT_PACKAGE` pode apontar para o caminho absoluto de seu `package.json`. O roteiro usa PostgreSQL em memória, não carrega `.env` e não modifica o sistema real. As capturas e o resultado ficam em uma pasta temporária informada ao final.

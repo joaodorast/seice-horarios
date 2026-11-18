@@ -74,7 +74,7 @@ function ClassForm({ schoolClass, onClose, onSaved }: { schoolClass: SchoolClass
         setFormError(errorMessage(error));
       }
     }
-  });
+  }, (errors) => toast.error('Confira os campos antes de salvar', Object.values(errors).map(error => error?.message).filter(Boolean).join(' ')));
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">

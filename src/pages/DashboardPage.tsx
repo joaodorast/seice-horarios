@@ -412,7 +412,7 @@ function Pendencies({
   const items: { tone: 'danger' | 'warning' | 'info'; icon: ReactNode; title: string; text: string; to: string }[] = [];
   if (conflictsCount)
     items.push({ tone: 'danger', icon: <AlertTriangle />, title: plural(conflictsCount, 'conflito de horário', 'conflitos de horário'), text: 'Aulas sobrepostas para o mesmo professor ou turma.', to: '/horarios' });
-  // Atribuições: aulas combinadas que ainda não estão no quadro, por turma (a com mais faltas abre direto no Montar quadro).
+  // Atribuições: aulas combinadas que ainda não estão no quadro, por turma (a com mais faltas abre direto nos horários da turma).
   const missingByClass = new Map<number, number>();
   for (const p of assignmentProgress(data.assignments, data.lessons, data.periods, data.classes).values()) {
     if (p.missing > 0 && index.classById.get(p.assignment.classId)?.active) missingByClass.set(p.assignment.classId, (missingByClass.get(p.assignment.classId) ?? 0) + p.missing);
@@ -428,7 +428,7 @@ function Pendencies({
         .slice(0, 4)
         .map(([id, n]) => `${index.classById.get(id)?.name} (${n})`)
         .join(', ') + (worst.length > 4 ? '…' : '') + ' · clique para montar',
-      to: `/horarios/montar/turma/${worst[0][0]}`,
+      to: `/horarios/turma/${worst[0][0]}`,
     });
   } else if (data.assignments.length === 0 && data.teachers.some((t) => t.active) && data.classes.some((c) => c.active)) {
     items.push({ tone: 'info', icon: <ClipboardList />, title: 'Nenhuma aula atribuída ainda', text: 'Diga quem dá cada disciplina em cada turma para o quadro sugerir tudo sozinho.', to: '/atribuicoes' });
@@ -441,7 +441,7 @@ function Pendencies({
       icon: <CalendarX2 />,
       title: `${plural(awayLessons.length, 'aula fora', 'aulas fora')} do horário do professor na escola`,
       text: [...new Set(awayLessons.map((l) => index.teacherById.get(l.teacherId ?? -1)?.name.split(' ')[0]))].slice(0, 4).join(', ') + ' · mude o horário ou o professor',
-      to: `/horarios/montar/professor/${awayLessons[0].teacherId}`,
+      to: `/horarios/professor/${awayLessons[0].teacherId}`,
     });
   if (inactiveTeacherLessons.length)
     items.push({ tone: 'warning', icon: <UserX />, title: `${plural(inactiveTeacherLessons.length, 'aula', 'aulas')} com professor inativo`, text: 'Reatribua essas aulas ou reative o cadastro.', to: `/horarios/professor/${inactiveTeacherLessons[0].teacherId}` });

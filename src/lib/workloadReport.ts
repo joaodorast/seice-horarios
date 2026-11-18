@@ -1,3 +1,4 @@
+import { payrollClassBreakdown } from '@shared/payroll';
 import type { Workload } from '@shared/workload';
 import { WEEKDAY_LABEL } from '@shared/labels';
 import { formatHours } from './format';
@@ -36,7 +37,7 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
     if (y + lines.length * 5 + 25 > 277) { doc.addPage(); y = 42; }
     doc.text(lines, 14, y); y += lines.length * 5 + 2;
   }
-  function table(head: string[], body: string[][], widths?: Record<number, {cellWidth: number}>, footer?: string[], fixedCells?: (row:number,column:number)=>boolean) {
+  function table(head: string[], body: string[][], widths?: Record<number, {cellWidth: number}>, footer?: string[], fixedCells?: (row:number,column:number)=>boolean, caption?:string) {
     autoTable(doc, {
       startY: y, margin: { left: 14, right: 14, top: 40, bottom: 20 },
       head: [head], body, foot: footer ? [footer] : undefined, showFoot: 'lastPage',
@@ -46,9 +47,12 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
       footStyles: { fillColor: [243,244,246], textColor: ink, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [255,255,255] },
       columnStyles: widths,
+      didDrawPage: (page)=>{if(page.pageNumber>1&&caption){doc.setFont('helvetica','bold').setFontSize(9).setTextColor(...ink);doc.text(doc.splitTextToSize(caption,180)[0],14,36);}},
       didParseCell: (cell) => {
         if (cell.section==='foot') { cell.cell.styles.fillColor=[22,61,104];cell.cell.styles.textColor=[255,255,255];cell.cell.styles.fontStyle='bold'; }
         if (cell.section!=='body') return;
+        if (head[cell.column.index]==='Regulares'&&parseFloat(body[cell.row.index]?.[cell.column.index]??'0')>0){cell.cell.styles.fillColor=[237,245,255];cell.cell.styles.textColor=[22,61,104];}
+        if (head[cell.column.index]==='Técnicos'&&parseFloat(body[cell.row.index]?.[cell.column.index]??'0')>0){cell.cell.styles.fillColor=[255,247,219];cell.cell.styles.textColor=[114,80,0];}
         if (['Total','Horas pagas','Horas'].includes(head[cell.column.index]) || body[cell.row.index]?.[0]==='Total para pagamento') {cell.cell.styles.fillColor=[234,242,255];cell.cell.styles.textColor=[22,61,104];cell.cell.styles.fontStyle='bold';}
         if (fixedCells?.(cell.row.index,cell.column.index)) {cell.cell.styles.fillColor=[234,247,239];cell.cell.styles.textColor=[20,83,45];cell.cell.styles.fontStyle='bold';}
       },
@@ -99,10 +103,12 @@ export async function createWorkloadReport(input: WorkloadReportInput) {
         ...(p.hasReference ? [['Referência semanal da escola',`${p.referenceRegular} tempos regulares + ${p.referenceTechnical} técnicos = ${p.referenceRegular+p.referenceTechnical} tempos. Conferir com a grade acima.`]] : []),
       ],{0:{cellWidth:48}},undefined,(index)=>index===2&&p.regencyMinutes>0);
     }
+    title('Resumo por turma - regulares e técnicos');
+    table(['Unidade / Turma','Regulares','Técnicos','Carga fixa','Total'],[...row.byClass.keys()].map(id=>{const p=payrollClassBreakdown(row,id);return [className(id),`${p.regularLessons} ${p.regularLessons===1?'tempo':'tempos'} / ${n(p.regularMinutes)} min / ${formatHours(p.regularMinutes)}`,`${p.technicalLessons} ${p.technicalLessons===1?'tempo':'tempos'} / ${n(p.technicalMinutes)} min / ${formatHours(p.technicalMinutes)}`,`${n(p.regencyMinutes)} min / ${formatHours(p.regencyMinutes)}`,`${n(p.totalMinutes)} min / ${formatHours(p.totalMinutes)}`];}),{0:{cellWidth:62},1:{cellWidth:32},2:{cellWidth:32},3:{cellWidth:27},4:{cellWidth:29}},['Total do professor',`${row.payroll?.regularLessons??0} tempos / ${n(row.payroll?.regularMinutes??0)} min`,`${row.payroll?.technicalLessons??0} tempos / ${n(row.payroll?.technicalMinutes??0)} min`,`${n(row.payroll?.regencyMinutes??0)} min`,`${n(row.total.minutes)} min / ${formatHours(row.total.minutes)}`],undefined,row.teacher.name);
     table(['Unidade / Turma', 'Disciplina', 'Aulas', 'Min. pagos', 'Horas'], row.bySubject.flatMap((subject) =>
       [...subject.byClass].map(([id, load]) => [className(id), (subject.label ?? subjectName(subject.subjectId)), ...numbers(load.lessons,load.minutes)])),
       {0:{cellWidth:65},1:{cellWidth:47},2:{cellWidth:20},3:{cellWidth:27},4:{cellWidth:23}},
-      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons,row.total.minutes)],(index)=>row.bySubject.flatMap((subject)=>[...subject.byClass].map(()=>subject.workloadKind==='regency'))[index]);
+      [`Total de ${row.teacher.name}`, '', ...numbers(row.total.lessons,row.total.minutes)],(index)=>row.bySubject.flatMap((subject)=>[...subject.byClass].map(()=>subject.workloadKind==='regency'))[index],row.teacher.name);
   }
   const notes = [
     'Os resumos por professor e por turma mostram as mesmas aulas de duas formas. Não some um resumo ao outro.',

@@ -36,7 +36,7 @@ export function AssignmentsPage({ view }: { view: View }) {
       width="wide"
       guide={GUIDES.assignments}
       breadcrumbs={[{ label: 'Quadro de horários', to: '/horarios' }, { label: 'Atribuição de aulas' }]}
-      description="Defina quais turmas cada professor assume, em qual disciplina e com quantas aulas por semana. Depois, no Montar quadro, o professor certo já aparece sozinho."
+      description="Defina quais turmas cada professor assume, em qual disciplina e com quantas aulas por semana. Depois, abra os horários da turma para lançar as aulas na grade."
       actions={
         <>
           <TemplateButton kind="assignments" />
@@ -266,10 +266,10 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
                       <ProgressPill progress={progress.get(assignmentKey(a.classId, a.subjectId))} />
                       <span className="flex items-center gap-1">
                         <Link
-                          to={`/horarios/montar/turma/${c.id}`}
+                          to={`/horarios/turma/${c.id}`}
                           className="grid size-9 place-items-center rounded-lg text-ink-2 hover:bg-subtle hover:text-ink"
-                          title={`Montar o quadro do ${c.name}`}
-                          aria-label={`Montar o quadro do ${c.name}`}
+                          title={`Ver horários de ${c.name}`}
+                          aria-label={`Ver horários de ${c.name}`}
                         >
                           <PencilRuler className="size-[18px]" />
                         </Link>
@@ -626,8 +626,8 @@ function ClassView({ data }: { data: ScheduleData }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SaveStatus pending={writer.pending} />
-        <Link to={`/horarios/montar/turma/${selected.id}`} className="inline-flex items-center gap-2 text-[14px] font-bold text-ink underline-offset-4 hover:underline">
-          Montar o quadro do {selected.name} <ArrowRight className="size-4" />
+        <Link to={`/horarios/turma/${selected.id}`} className="inline-flex items-center gap-2 text-[14px] font-bold text-ink underline-offset-4 hover:underline">
+          Ver horários de {selected.name} <ArrowRight className="size-4" />
         </Link>
       </div>
     </div>

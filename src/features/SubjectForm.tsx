@@ -1,3 +1,4 @@
+import { subjectDefaultWorkloadKind } from '@shared/payroll';
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Button, Field, Input, Modal, useToast } from '@/components/ui';
@@ -13,7 +14,7 @@ export function SubjectFormModal({ subject, onClose }: { subject: Subject | 'new
   const open = subject !== null;
   const current = subject === 'new' ? null : subject;
   return (
-    <Modal open={open} onClose={onClose} size="sm" title={current ? 'Editar disciplina' : 'Nova disciplina'}>
+    <Modal open={open} onClose={onClose} size="md" title={current ? 'Editar disciplina' : 'Nova disciplina'}>
       {open && <SubjectForm key={current?.id ?? 'new'} subject={current} onClose={onClose} />}
     </Modal>
   );
@@ -46,9 +47,9 @@ function SubjectForm({ subject, onClose }: { subject: Subject | null; onClose: (
       <Field label="Nome da disciplina" required error={error}>
         <Input value={name} onChange={(e) => (setName(e.target.value), setError(undefined))} maxLength={60} placeholder="Ex.: Língua Portuguesa" autoComplete="off" />
       </Field>
-      <Field label="Classificação no relatório" hint="Vale para todas as aulas no modo automático. Uma aula pode ter sua própria classificação.">
-        <select className="h-10 w-full rounded-md border border-line-strong px-3 text-sm" value={workloadKind} onChange={(event)=>setWorkloadKind(event.target.value as NonNullable<Subject['workloadKind']>)}>
-          <option value="auto">Automático pelo catálogo</option><option value="regular">Regular (normal)</option><option value="technical">Técnico</option>
+      <Field label="Tipo de tempo para o RH" hint="Define se as aulas desta disciplina são regulares ou técnicas. No lançamento de uma aula, você pode escolher uma classificação diferente para aquela aula.">
+        <select className="h-12 w-full rounded-lg border border-line-strong px-3 text-base" value={workloadKind} onChange={(event)=>setWorkloadKind(event.target.value as NonNullable<Subject['workloadKind']>)}>
+          <option value="auto">Automático · {subjectDefaultWorkloadKind({...subject,name,workloadKind:'auto'} as Subject)==='technical'?'Técnico':'Regular (normal)'}</option><option value="regular">Regular (normal)</option><option value="technical">Técnico</option>
         </select>
       </Field>
       <fieldset>

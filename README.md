@@ -10,10 +10,22 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 | **Acesso** | Login com e-mail e senha (somente a coordenação) |
 
 > 📘 **Guias para quem usa o sistema:**
-> - [Tutorial visual completo](docs/TUTORIAL-VISUAL.md) — 72 slides com telas reais, passos de uso e PowerPoint para download.
+> - [Tutorial visual completo](docs/TUTORIAL-VISUAL.md) — 71 slides para desktop, com telas reais, cliques passo a passo e PowerPoint para download.
 > - [Começar do zero](docs/COMECAR-DO-ZERO.md) — do primeiro acesso ao quadro impresso, e a instalação passo a passo.
 > - [Guia das telas](docs/GUIA-DAS-TELAS.md) — o que cada tela faz e como as telas se comunicam.
 > - [Relatório do sistema](docs/RELATORIO.md) — o que o sistema faz hoje, o que mudou, as regras que ele garante e os próximos passos.
+
+---
+
+## Tutorial visual para computador
+
+[Baixar o PowerPoint completo — 71 slides](docs/tutorial/SEICE-Tutorial-Completo-2026-11-18.pptx)
+
+[Consultar o passo a passo escrito e o índice das telas](docs/TUTORIAL-VISUAL.md)
+
+O tutorial mostra o uso no desktop, com capturas reais, caminhos dos menus e passos numerados. Abrange configurações, disciplinas, professores, turmas, importação, atribuição de aulas, montagem e consulta da grade, relatórios do RH, regências, carga pedagógica do PPP, exportação e atualizações.
+
+O material começa com o ambiente vazio e usa exemplos fictícios nas etapas seguintes. A preparação não alterou os cadastros nem os horários do sistema real. As opções disponíveis dependem das permissões de cada usuário.
 
 ---
 
@@ -47,7 +59,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
   - Clique em um horário vazio abre o formulário já preenchido com turma/professor, dia e período.
   - Detalhes da aula com editar, **duplicar** (os conflitos são verificados de novo) e excluir com confirmação.
   - "Salvar e adicionar outra" mantém turma, professor e disciplina para lançamentos em sequência.
-  - Em celulares, a grade vira uma visão por dia. Atalho **N** abre um novo cadastro ou aula.
+  - Atalho **N** abre um novo cadastro ou aula.
 - **Atribuição de aulas**: quem dá cada disciplina em cada turma e quantas aulas por semana. Por professor (atribui **várias turmas de uma vez**) ou por turma (um professor por disciplina). Salva sozinho e mostra quantas aulas já estão no quadro (*faltam 2*, *completo*, *1 a mais*).
 - **Montar quadro**: a semana de uma turma ou de um professor como uma grade editável.
   - Por turma: disciplina + professor em cada horário; o professor **atribuído já vem preenchido**.

@@ -29,15 +29,22 @@ const pedagogicalRulesNews = [
   { title: 'Regras salvas e relatórios alinhados', description: 'As configurações ficam no banco por ano e unidade. A página, o PDF e o Excel usam a mesma regra aplicada a cada turma. Não é preciso preencher tudo novamente. As regras de pagamento do RH não são alteradas.', links: [{ label: 'Consultar relatórios da grade', to: '/horarios/carga-pedagogica' }] },
 ];
 
-export const updateNews = [
+const classKindsNews = [
   { title: 'Regulares e técnicos separados em cada turma', description: 'O resumo do professor agora identifica quantos tempos regulares e técnicos ele tem em cada turma, com minutos e disciplinas associadas. O total para pagamento continua consolidado.', links: [{ label: 'Conferir carga horária do RH', to: '/horarios/carga' }] },
   { title: 'Escolha o tipo de cada disciplina', description: 'Em Disciplinas, abra o cadastro e escolha Regular (normal) ou Técnico em Tipo de tempo para o RH. Uma aula também pode ter uma classificação própria.', links: [{ label: 'Classificar disciplinas', to: '/disciplinas' }] },
   { title: 'Impressão, PDF e Excel com a mesma separação', description: 'A turma técnica pode ter disciplinas regulares e técnicas. Os relatórios mostram cada tipo separadamente para o RH conferir o pagamento no sistema financeiro.', links: [{ label: 'Ver relatórios por professor', to: '/horarios/professor' }] },
 ];
 
+export const updateNews = [
+  { title: 'Todos os professores disponíveis para consulta', description: 'Os coordenadores podem consultar os professores das duas unidades. As turmas e aulas exibidas respeitam a coordenação de cada login.', links: [{ label: 'Consultar professores', to: '/professores' }] },
+  { title: 'As turmas certas para cada coordenação', description: 'Cada coordenador vê as turmas da sua unidade e dos segmentos sob sua responsabilidade. Esse limite também vale para relatórios, importação e links diretos.', links: [{ label: 'Ver minhas turmas', to: '/turmas' }] },
+  { title: 'Uma navegação mais simples', description: 'Ocultamos Montar quadro e seus atalhos. Para incluir ou editar aulas, use os horários por turma ou professor e o botão Nova aula.', links: [{ label: 'Abrir horários por turma', to: '/horarios/turma' }] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  { id: '2026-11-18-tempos-por-turma', date: '2026-11-18', title: 'Tempos regulares e técnicos identificados em cada turma', description: 'Resumo por turma mais claro e classificação de disciplinas visível e editável.', items: updateNews },
+  { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: updateNews },
+  { id: '2026-11-18-tempos-por-turma', date: '2026-11-18', title: 'Tempos regulares e técnicos identificados em cada turma', description: 'Resumo por turma mais claro e classificação de disciplinas visível e editável.', items: classKindsNews },
   { id: '2026-11-17-ppp-personalizavel', date: '2026-11-17', title: 'Carga pedagógica com regras salvas por unidade, segmento e turma', description: 'Página própria, personalização da duração dos tempos e relatórios com as mesmas regras.', items: pedagogicalRulesNews },
   { id: '2026-11-17-ppp', date: '2026-11-17', title: 'Projeção da carga horária pedagógica para o PPP', description: 'Carga semanal e total por turma e disciplina, com base ajustável e exportação.', items: pppInitialNews },
   { id: '2026-11-17-rh', date: '2026-11-17', title: 'Carga fixa e minutos para pagamento mais claros', description: 'Destaques de cor nos relatórios e conversão de horas para facilitar a conferência do RH.', items: rhNews },

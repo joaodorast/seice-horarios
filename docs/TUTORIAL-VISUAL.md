@@ -1,6 +1,6 @@
-# Tutorial visual do SEICE
+# Tutorial visual do SEICE para computador
 
-Guia de uso com **72 slides**, capturas reais da interface e instruções curtas. Revisão de **18/11/2026**.
+Guia de uso com **71 slides**, capturas reais da interface desktop e instruções de clique passo a passo. Revisão de **18/11/2026**.
 
 [Baixar o PowerPoint completo](tutorial/SEICE-Tutorial-Completo-2026-11-18.pptx)
 
@@ -31,7 +31,7 @@ O treinamento começa com o ambiente vazio. As etapas que precisam de cadastros 
 | RH | 46–59 |
 | Impressão | 60–61 |
 | PPP | 62–68 |
-| Ajuda | 69–71 |
+| Ajuda | 69–70 |
 
 ## Atalhos para as telas
 
@@ -87,25 +87,25 @@ Em **Carga horária · RH → Baixar PDF ou Excel**, use **Escolher** em Profess
 
 **Caminho:** Login.
 
-1. **Entrar:** Use o e-mail e a senha recebidos da administração.
-2. **Manter conectado:** Marque somente quando estiver usando um computador de confiança.
-3. **Conta individual:** Se não conseguir entrar, procure a administração responsável.
+1. **Preencher os campos:** Digite seu e-mail e sua senha nos campos da tela.
+2. **Manter conectado:** Marque a opção somente em um computador de confiança.
+3. **Entrar:** Clique em Entrar. Se não conseguir acessar, procure a administração responsável.
 
 #### Slide 5 — Menu e navegação
 
 **Caminho:** Menu lateral.
 
-1. **Cadastros:** Professores, Turmas e Disciplinas guardam as informações usadas na grade.
-2. **Horários:** As telas de consulta, montagem e relatórios trabalham com esses mesmos cadastros.
-3. **Ajuda e leitura:** “Como usar” explica a página. O botão T, no rodapé do menu, ajusta o tamanho do texto.
+1. **Abrir uma tela:** Clique no nome da página no menu lateral.
+2. **Encontrar a função:** Use Cadastros para os registros e Horários para a grade e os relatórios.
+3. **Abrir a ajuda:** No topo da página, clique em Como usar para ler as orientações daquela tela.
 
 #### Slide 6 — Dashboard com o sistema vazio
 
 **Caminho:** Dashboard.
 
-1. **Primeiros passos:** Siga as etapas exibidas para preparar o sistema.
-2. **Indicadores:** Professores, turmas e aulas começam em zero. Os números mudam com os cadastros.
-3. **Pendências:** Use os avisos para abrir o ponto da grade que precisa de revisão.
+1. **Ver os primeiros passos:** Na página inicial, localize a seção Primeiros passos.
+2. **Seguir a ordem:** Comece revisando os turnos e depois cadastre professores e turmas.
+3. **Voltar para acompanhar:** Depois dos lançamentos, volte ao Dashboard para conferir os indicadores e as pendências.
 
 ### Configurações
 
@@ -113,9 +113,9 @@ Em **Carga horária · RH → Baixar PDF ou Excel**, use **Escolher** em Profess
 
 **Caminho:** Configurações / Calendário e turnos.
 
-1. **Dias letivos:** Marque os dias da semana que aparecem nas grades.
-2. **Turnos:** Habilite os turnos utilizados pela escola e revise a duração padrão.
-3. **Salvar:** Confira as alterações antes de salvar. O sistema não apaga as aulas existentes.
+1. **Abrir as configurações:** No menu, clique em Configurações. Abra Calendário e turnos.
+2. **Marcar as opções:** Escolha os dias letivos, os turnos e a duração padrão da aula.
+3. **Salvar:** Clique em Salvar configurações. Leia a confirmação se o sistema mostrar algum aviso.
 
 #### Slide 8 — Datas sem aula
 
@@ -129,9 +129,9 @@ Em **Carga horária · RH → Baixar PDF ou Excel**, use **Escolher** em Profess
 
 **Caminho:** Configurações / Horários dos turnos.
 
-1. **Escolher turno:** Abra Manhã, Tarde ou Noite para conferir os períodos.
-2. **Aula ou intervalo:** Em cada linha, confira tipo, nome, início e término.
-3. **Salvar horários:** Revise a sequência. O sistema avisa se uma alteração deixar aulas fora da grade.
+1. **Escolher o turno:** Em Configurações, abra Horários dos turnos e clique em Manhã, Tarde ou Noite.
+2. **Conferir as linhas:** Em cada período, confira tipo, nome, início e término. Aula e intervalo têm tipos diferentes.
+3. **Salvar a sequência:** Clique em Salvar horários. Leia os avisos antes de confirmar uma mudança.
 
 #### Slide 10 — Gerador de períodos
 
@@ -163,17 +163,17 @@ Em **Carga horária · RH → Baixar PDF ou Excel**, use **Escolher** em Profess
 
 **Caminho:** Disciplinas / Nova disciplina.
 
-1. **Nome e segmentos:** Informe o nome e marque os segmentos em que a matéria aparece.
-2. **Cor da grade:** Escolha a cor usada para reconhecer a disciplina nos horários.
-3. **Cadastrar disciplina:** Confira os campos e confirme o cadastro.
+1. **Abrir o cadastro:** Em Disciplinas, clique em Nova disciplina e informe o nome.
+2. **Definir as opções:** Escolha o tipo para o RH, os segmentos e a cor usada na grade.
+3. **Cadastrar:** Revise os campos e clique em Cadastrar disciplina.
 
 #### Slide 14 — Técnico ou Regular no RH
 
 **Caminho:** Disciplinas / nome da matéria / Editar disciplina.
 
-1. **Onde fica:** Logo abaixo do nome está “Tipo de tempo para o RH”.
-2. **Classificação:** Escolha Regular (normal), Técnico ou Automático.
-3. **Efeito:** As aulas que seguem o padrão da disciplina usam essa classificação nos relatórios.
+1. **Abrir a matéria:** Em Disciplinas, clique no nome da matéria ou em Editar.
+2. **Escolher o tipo:** Abaixo do nome, em Tipo de tempo para o RH, selecione Regular, Técnico ou Automático.
+3. **Salvar a alteração:** Clique em Salvar alterações. As aulas em Automático seguem esse padrão.
 
 Matemática e outras matérias gerais continuam regulares mesmo em um curso técnico.
 
@@ -201,9 +201,9 @@ Nesta etapa, os nomes e dados são exemplos fictícios de treinamento.
 
 **Caminho:** Professores / Novo professor.
 
-1. **Identificação:** Preencha nome completo e, se necessário, matrícula, telefone e área.
-2. **Unidades:** Marque onde o professor atua. Pode selecionar CE e JP quando for o caso.
-3. **Segmentos e disciplinas:** Marque os segmentos e as matérias que ele leciona.
+1. **Abrir e identificar:** Em Professores, clique em Novo professor e preencha o nome completo.
+2. **Escolher onde atua:** Marque a unidade e os segmentos. Marque CE e JP se ele atuar nas duas unidades.
+3. **Completar os dados:** Selecione as disciplinas e preencha os outros campos, quando necessário.
 
 #### Slide 18 — Finalização do cadastro
 
@@ -217,9 +217,9 @@ Nesta etapa, os nomes e dados são exemplos fictícios de treinamento.
 
 **Caminho:** Cadastros / Professores.
 
-1. **Filtros:** Use pesquisa e os filtros disponíveis para localizar a pessoa.
-2. **Abrir detalhes:** Clique no nome para consultar os dados e a grade.
-3. **Editar:** O botão Editar abre o mesmo cadastro para correções.
+1. **Localizar o professor:** Digite o nome na pesquisa. Se precisar, ajuste os filtros de situação, segmento e unidade.
+2. **Consultar o cadastro:** Clique no nome do professor para abrir os detalhes e a grade.
+3. **Corrigir informações:** Para mudar os dados, clique em Editar e depois salve as alterações.
 
 #### Slide 20 — Detalhes do professor
 
@@ -269,9 +269,9 @@ Sem disponibilidade informada, o professor pode receber aulas em qualquer horár
 
 **Caminho:** Turmas / Nova turma.
 
-1. **Identificação:** Informe o nome ou código da turma e o ano, série ou etapa.
-2. **Unidade e turno:** Escolha a unidade e o turno da turma.
-3. **Confirmar:** Revise as informações e use Cadastrar turma.
+1. **Abrir o cadastro:** Em Turmas, clique em Nova turma. Informe a identificação e o ano, série ou etapa.
+2. **Selecionar unidade e turno:** Escolha onde a turma funciona e se é manhã, tarde, noite ou integral.
+3. **Confirmar:** Confira os dados e clique em Cadastrar turma.
 
 #### Slide 26 — Detalhes e grade da turma
 
@@ -357,41 +357,41 @@ O exemplo usa dados fictícios. Cada tipo de importação possui seus próprios 
 
 **Caminho:** Horários / Quadro geral.
 
-1. **Dia e turno:** Selecione os dias e o turno no topo.
-2. **Filtros:** Combine unidade, professor, turma e disciplina.
-3. **Abrir horário:** Clique em um espaço vazio para lançar aula ou em uma aula para consultar.
+1. **Escolher dia e turno:** Em Quadro geral, clique no dia da semana e no turno desejados.
+2. **Filtrar a consulta:** Selecione a unidade e, se necessário, professor, turma ou disciplina.
+3. **Abrir o horário:** Clique em um espaço vazio para lançar aula. Clique em uma aula para ver seus detalhes.
 
 #### Slide 36 — Semana inteira
 
 **Caminho:** Quadro geral / Semana inteira.
 
-1. **Visão semanal:** Compare os dias da semana para o turno selecionado.
-2. **Recorte:** Os filtros também valem para a semana inteira.
-3. **Sem resultado:** Confira dia, turno, unidade e filtros antes de concluir que a aula não existe.
+1. **Abrir a semana:** Em Quadro geral, clique em Semana inteira.
+2. **Escolher o recorte:** Selecione o turno e ajuste os filtros. Use o seletor da agenda para escolher uma turma.
+3. **Conferir as aulas:** Leia as aulas de cada dia. Se nada aparecer, revise os filtros e o turno.
 
 #### Slide 37 — Horários por professor
 
 **Caminho:** Horários / Por professor.
 
-1. **Seletor:** Pesquise o professor no topo ou use as setas.
-2. **Quadro semanal:** Veja em quais turmas e dias ele tem aula.
-3. **Imprimir ou PDF:** Abra a visualização de impressão para entregar o horário.
+1. **Abrir a consulta:** No menu, clique em Por professor.
+2. **Escolher a pessoa:** Pesquise o professor no seletor do topo ou use as setas.
+3. **Consultar ou imprimir:** Clique em uma aula para ver os detalhes. Para o relatório, clique em Imprimir ou PDF.
 
 #### Slide 38 — Horários por turma
 
 **Caminho:** Horários / Por turma.
 
-1. **Selecionar turma:** Pesquise a turma no topo ou navegue pelas setas.
-2. **Consulta semanal:** Cada aula mostra a disciplina e o professor.
-3. **Opções de visualização:** Mostrar horários vem marcado. Intervalos e outras opções ajustam a leitura da grade.
+1. **Abrir a consulta:** No menu, clique em Por turma.
+2. **Escolher a turma:** Pesquise no seletor do topo ou use as setas para navegar.
+3. **Ler a grade:** Confira disciplina e professor. Use Mostrar horários e Mostrar intervalos para ajustar a exibição.
 
 #### Slide 39 — Nova aula
 
 **Caminho:** Quadro geral / Nova aula.
 
-1. **Quem e onde:** Escolha turma, professor e disciplina.
-2. **Quando:** Escolha o dia e o tempo da grade ou informe um horário personalizado.
-3. **Salvar:** Revise os avisos e confirme. Salvar e adicionar outra agiliza lançamentos em sequência.
+1. **Preencher turma e professor:** Clique em Nova aula e escolha a turma, o professor e a disciplina.
+2. **Escolher dia e horário:** Clique no dia e no tempo da grade. Use Personalizado se precisar informar início e término.
+3. **Salvar a aula:** Confira os avisos e clique em Salvar aula. Salvar e adicionar outra abre o próximo lançamento.
 
 #### Slide 40 — Detalhes de uma aula
 
@@ -405,9 +405,9 @@ O exemplo usa dados fictícios. Cada tipo de importação possui seus próprios 
 
 **Caminho:** Aula / Editar / Tipo da carga no relatório.
 
-1. **Automático:** Segue a classificação definida na disciplina.
-2. **Regular ou Técnico:** Escolha um tipo específico quando esta aula for uma exceção.
-3. **Sem pagamento:** Não contabilizar exclui a aula do cálculo. Sem professor não gera carga para ninguém.
+1. **Abrir a edição:** Na grade, clique na aula e depois em Editar.
+2. **Escolher a classificação:** Em Tipo da carga no relatório, escolha Automático, Tempo regular ou Tempo técnico.
+3. **Salvar:** Clique em Salvar alterações. Não contabilizar exclui a aula do cálculo de pagamento.
 
 O campo da aula se chama “Tipo da carga no relatório”. Na disciplina, o nome é “Tipo de tempo para o RH”.
 
@@ -433,17 +433,17 @@ O campo da aula se chama “Tipo da carga no relatório”. Na disciplina, o nom
 
 **Caminho:** Horários / Montar quadro / Por turma.
 
-1. **Escolher turma:** Abra a turma e confira o turno da grade.
-2. **Preencher células:** Escolha disciplina e professor nos horários desejados. A atribuição ajuda a sugerir o professor.
-3. **Salvar alterações:** Confira as marcações e salve o conjunto de mudanças.
+1. **Abrir a turma:** Em Montar quadro, selecione Por turma e escolha a turma no topo.
+2. **Preencher os horários:** Em cada célula, escolha a disciplina e o professor. Repita nos horários que deseja montar.
+3. **Salvar o conjunto:** Confira as células alteradas e clique em Salvar quadro. Sair sem salvar descarta as mudanças pendentes.
 
 #### Slide 45 — Montar quadro por professor
 
 **Caminho:** Horários / Montar quadro / Por professor.
 
-1. **Escolher professor:** Veja a semana do professor selecionado.
-2. **Horários disponíveis:** Escolha entre as turmas livres. As ocupadas exibem o motivo.
-3. **Conferir e salvar:** Revise a carga atribuída, os avisos e as alterações antes de salvar.
+1. **Abrir o professor:** Em Montar quadro, selecione Por professor e escolha o nome no topo.
+2. **Escolher turma e disciplina:** Use as turmas livres no horário desejado e confira a disciplina. As ocupadas exibem o motivo.
+3. **Conferir e salvar:** Revise os horários preenchidos e clique em Salvar quadro para gravar o conjunto.
 
 ### RH
 
@@ -459,9 +459,9 @@ O campo da aula se chama “Tipo da carga no relatório”. Na disciplina, o nom
 
 **Caminho:** Horários / Carga horária · RH.
 
-1. **Período:** Escolha Diário, Semanal ou Mensal.
-2. **Recorte:** Combine professores, turmas, disciplinas, unidades e turno.
-3. **Leitura:** Tempos são a quantidade de aulas. Minutos e horas mostram a carga convertida.
+1. **Escolher o período:** Em Carga horária · RH, clique em Diário, Semanal ou Mensal.
+2. **Escolher quem entra:** Use Todos ou Escolher para professores, turmas, disciplinas e unidades. Ajuste o turno.
+3. **Conferir os totais:** Leia os tempos, minutos e horas do recorte. Expanda um professor para ver os detalhes.
 
 O sistema não calcula o valor em reais. O RH usa os tempos e minutos no sistema de pagamento.
 
@@ -479,9 +479,9 @@ O relatório aplica a grade atual ao mês escolhido. Ele não comprova presença
 
 **Caminho:** Carga horária · RH / expandir professor.
 
-1. **Abrir professor:** Expanda o nome para ver o detalhamento.
-2. **Separação por turma:** O resumo mostra tempos regulares, técnicos e seus minutos em cada turma.
-3. **Conferência:** As disciplinas de cada tipo aparecem junto aos valores.
+1. **Expandir o professor:** Na carga horária do RH, clique no nome do professor.
+2. **Localizar o resumo:** Role até Resumo por turma · regulares e técnicos.
+3. **Conferir os valores:** Leia os tempos, minutos e disciplinas de cada tipo em cada turma.
 
 #### Slide 50 — Configurar cargas e professores
 
@@ -529,9 +529,9 @@ A referência deste exemplo é fictícia e serve apenas para explicar o procedim
 
 **Caminho:** Configurar cargas / 2. Configurar regências.
 
-1. **Professor regente:** É o responsável por uma turma de Infantil ou Fundamental I.
-2. **Escolher pessoa:** Pesquise o professor e confira a unidade.
-3. **Adicionar turma:** Use Adicionar turma de regência para informar turma, segmento e dias.
+1. **Abrir as regências:** Em Carga horária · RH, clique em Configurar cargas e professores e na aba 2. Configurar regências.
+2. **Escolher o professor:** Pesquise o nome no campo de seleção e clique no cadastro correto.
+3. **Adicionar a turma:** Confira a unidade e clique em Adicionar turma de regência.
 
 #### Slide 56 — Turma e dias de regência
 
@@ -601,9 +601,9 @@ A mesma lógica vale para turmas, disciplinas e unidades. Selecionar professor r
 
 **Caminho:** Carga pedagógica · PPP / Personalizar cálculo.
 
-1. **Ano e unidade:** Confira o ano da página e a unidade do modal.
-2. **Padrão da unidade:** Defina base do cálculo, dias letivos, dias por semana e minutos por tempo.
-3. **Salvar regra:** O padrão salvo vale para as turmas que não possuem exceções.
+1. **Abrir o cálculo:** No PPP, confira o ano e clique em Personalizar cálculo. Selecione a unidade.
+2. **Preencher o padrão:** Na aba 1. Padrão da unidade, defina a base, os dias de aula e os minutos por tempo.
+3. **Salvar a regra:** Clique em Salvar regra. Esse padrão vale para as turmas que não têm exceções.
 
 201 dias e 50 minutos são sugestões editáveis. Revise os valores antes de salvar.
 
@@ -611,17 +611,17 @@ A mesma lógica vale para turmas, disciplinas e unidades. Selecionar professor r
 
 **Caminho:** Personalizar cálculo / 2. Segmento.
 
-1. **Selecionar segmento:** Escolha Infantil, Fundamental I, Fundamental II, Médio ou outro segmento disponível.
-2. **Personalizar:** Marque Personalizar em Minutos pedagógicos por tempo e informe a duração desejada.
-3. **Herança:** Os campos não personalizados continuam seguindo o padrão da unidade.
+1. **Selecionar o segmento:** Abra Personalizar cálculo, clique em 2. Segmento e escolha o segmento desejado.
+2. **Alterar os minutos:** Marque Personalizar em Minutos pedagógicos por tempo e digite a duração.
+3. **Salvar:** Clique em Salvar regra. Os campos não personalizados continuam seguindo o padrão da unidade.
 
 #### Slide 65 — Exceção para uma turma
 
 **Caminho:** Personalizar cálculo / 3. Turma.
 
-1. **Escolher turma:** Pesquise a turma da unidade selecionada.
-2. **Definir exceção:** Personalize apenas os campos que precisam ser diferentes.
-3. **Salvar:** A regra da turma tem prioridade sobre o segmento e o padrão da unidade.
+1. **Selecionar a turma:** Abra Personalizar cálculo, clique em 3. Turma e pesquise a turma.
+2. **Definir o que muda:** Marque Personalizar somente nos campos que precisam ser diferentes. Preencha os valores.
+3. **Salvar:** Clique em Salvar regra. A exceção da turma tem prioridade sobre as regras herdadas.
 
 #### Slide 66 — Ano inteiro ou módulo
 
@@ -657,25 +657,17 @@ Uma grade incompleta gera resultados parciais. A projeção não representa aula
 
 **Caminho:** Menu / Atualizações.
 
-1. **Consultar novidades:** Veja as mudanças publicadas e suas datas.
-2. **Pesquisa:** Localize atualizações pelo texto disponível na página.
-3. **Abrir a função:** Os links de cada novidade levam à tela relacionada.
+1. **Abrir o histórico:** No menu lateral, clique em Atualizações.
+2. **Pesquisar uma mudança:** Digite o assunto no campo de pesquisa da página.
+3. **Abrir a tela relacionada:** Leia a novidade e clique no link da função que deseja acessar.
 
-#### Slide 70 — Texto maior e uso no celular
+#### Slide 70 — Tamanho do texto no computador
 
 **Caminho:** Rodapé do menu / Tamanho do texto.
 
-1. **Botão T:** Abra o controle de tamanho do texto no menu.
-2. **Ajustar leitura:** Selecione o tamanho que fica confortável no seu dispositivo.
-3. **Celular:** Abra o menu pelo botão próprio. As grades oferecem uma leitura adaptada à tela.
-
-#### Slide 71 — Grade no celular
-
-**Caminho:** Horários / Por turma no celular.
-
-1. **Navegação:** Escolha a turma e o dia pelos controles disponíveis.
-2. **Consultar e editar:** Toque nas aulas para abrir os detalhes.
-3. **Leitura:** Use as opções de horários e intervalos para ajustar o que aparece na grade.
+1. **Abrir o botão T:** No rodapé do menu lateral, clique no botão T.
+2. **Escolher o tamanho:** Clique em Normal, Grande ou Maior. Automático ajusta o texto à tela.
+3. **Conferir a leitura:** Continue usando o sistema com o tamanho escolhido. Para mudar, abra o botão T novamente.
 
 ## Versão do material
 

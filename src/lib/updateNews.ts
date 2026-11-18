@@ -41,15 +41,22 @@ const coordinationNews = [
   { title: 'Uma navegação mais simples', description: 'Ocultamos Montar quadro e seus atalhos. Para incluir ou editar aulas, use os horários por turma ou professor e o botão Nova aula.', links: [{ label: 'Abrir horários por turma', to: '/horarios/turma' }] },
 ];
 
-export const updateNews = [
+const savingScrollNews = [
   { title: 'Disciplinas salvas também para professores compartilhados', description: 'O coordenador pode associar disciplinas e segmentos aos professores que atuam na sua unidade, mesmo quando também trabalham na outra. Os demais dados do cadastro e os horários são preservados.', links: [{ label: 'Conferir professores', to: '/professores' }] },
   { title: 'Rolagem funcionando depois de exportar', description: 'Corrigimos o bloqueio da página ao fechar a janela de exportação. Depois de baixar o PDF, cancelar ou fechar a janela, você pode continuar descendo a página e navegar normalmente.', links: [{ label: 'Abrir carga horária do RH', to: '/horarios/carga' }] },
   { title: 'Formulário mais claro', description: 'O cadastro explica o que o coordenador pode ajustar em professores das duas unidades. O botão de salvar permanece acessível e os erros aparecem junto dele.', links: [{ label: 'Consultar professores', to: '/professores' }] },
 ];
 
+export const updateNews = [
+  { title: 'Avisos claros quando uma ação não pode continuar', description: 'Bloqueios de acesso, conflitos e falhas ao salvar agora abrem um aviso com o motivo e uma orientação. Ele permanece visível até você fechar, inclusive sobre outros formulários.', links: [{label:'Conferir professores',to:'/professores'}] },
+  { title: 'Rolagem revisada nas janelas do sistema', description: 'O controle de rolagem foi centralizado e testado com janelas sobrepostas e abertura repetida. Fechar a última janela libera a página para continuar navegando.', links: [{label:'Abrir carga horária',to:'/horarios/carga'}] },
+  { title: 'Sem espera indefinida ou repetição automática', description: 'Se o SEICE demorar para responder, a tela explica que o resultado precisa ser conferido antes de repetir a operação. Os campos inválidos também recebem uma orientação antes de salvar.', links: [{label:'Consultar atualizações',to:'/atualizacoes'}] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  { id: '2026-11-18-salvamento-rolagem', date: '2026-11-18', title: 'Correções no salvamento de disciplinas e na rolagem', description: 'Professores compartilhados e exportação com continuidade de navegação.', items: updateNews },
+  {id:'2026-11-18-avisos-rolagem',date:'2026-11-18',title:'Avisos persistentes e revisão da rolagem',description:'Falhas de ações explicadas e controle único para as janelas do sistema.',items:updateNews},
+  { id: '2026-11-18-salvamento-rolagem', date: '2026-11-18', title: 'Correções no salvamento de disciplinas e na rolagem', description: 'Professores compartilhados e exportação com continuidade de navegação.', items: savingScrollNews },
   { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: coordinationNews },
   { id: '2026-11-18-tempos-por-turma', date: '2026-11-18', title: 'Tempos regulares e técnicos identificados em cada turma', description: 'Resumo por turma mais claro e classificação de disciplinas visível e editável.', items: classKindsNews },
   { id: '2026-11-17-ppp-personalizavel', date: '2026-11-17', title: 'Carga pedagógica com regras salvas por unidade, segmento e turma', description: 'Página própria, personalização da duração dos tempos e relatórios com as mesmas regras.', items: pedagogicalRulesNews },

@@ -10,6 +10,7 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
 | **Acesso** | Login com e-mail e senha (somente a coordenação) |
 
 > 📘 **Guias para quem usa o sistema:**
+> - [Tutorial visual completo](docs/TUTORIAL-VISUAL.md) — 72 slides com telas reais, passos de uso e PowerPoint para download.
 > - [Começar do zero](docs/COMECAR-DO-ZERO.md) — do primeiro acesso ao quadro impresso, e a instalação passo a passo.
 > - [Guia das telas](docs/GUIA-DAS-TELAS.md) — o que cada tela faz e como as telas se comunicam.
 > - [Relatório do sistema](docs/RELATORIO.md) — o que o sistema faz hoje, o que mudou, as regras que ele garante e os próximos passos.
@@ -52,9 +53,10 @@ Sistema administrativo do **Colégio SEICE — Sistema de Ensino Integrado de Ca
   - Por turma: disciplina + professor em cada horário; o professor **atribuído já vem preenchido**.
   - Por professor: cada horário vago mostra as turmas do turno — **verdes (livres, um clique)** e **cinzas (ocupadas, com quem)**.
   - Faixa "Atribuição desta turma" com o progresso de cada disciplina (**2 de 3**), legenda das cores, alterações destacadas e salvas de uma vez, aula dupla automática e aviso ao sair sem salvar.
-- **Quadro geral — Semana inteira**: a semana do turno em uma tela (horários × dias, uma linha por turma), com os mesmos filtros e legenda das cores.
-- **Carga horária**: professor × turma com aulas e horas por semana e totais **por semana e por mês** (4, 4,5 ou 5 semanas), detalhe por disciplina e exportação para Excel.
+- **Quadro geral — Semana inteira**: agenda do turno por dia, com filtros por unidade, professor, turma e disciplina, e seleção de turma para consultar a semana.
+- **Carga horária · RH**: cálculo diário, semanal e mensal pelo calendário, filtros combináveis e separação de tempos e minutos regulares, técnicos e de regência por professor, turma e disciplina. Exportação para PDF ou Excel.
 - **Resolução de horário ocupado**: ao lançar uma aula num horário com aula, o sistema oferece **substituir**, **trocar** os horários ou **passar** a aula para outro professor, tudo numa única gravação.
+- **Carga pedagógica · PPP**: regras salvas por ano e unidade, com personalização por segmento e turma, duração dos tempos, dias letivos ou semanas do módulo. Consulta por turma ou disciplina e exportação para PDF e Excel, sem alterar as regras de pagamento do RH.
 - **Ambiente de teste** (`npm run demo`) com dados fictícios em memória, separado do banco real.
 - **Leitura confortável**: contraste reforçado, texto ampliável (botão **T** no menu) e layout que aproveita telas baixas, sem precisar de tela cheia.
 - **Prevenção de conflitos** em três camadas: verificação ao vivo no formulário, validação no servidor e gatilho no banco de dados, com gravações de aulas serializadas para que dois usuários salvando ao mesmo tempo não criem sobreposição. Detecta professor em duas turmas ao mesmo tempo, turma com aulas simultâneas, sobreposição parcial (08h–09h30 × 09h–10h), término antes do início, professor/turma inativos e dia não habilitado.

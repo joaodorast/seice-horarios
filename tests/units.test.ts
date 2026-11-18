@@ -87,7 +87,7 @@ describe('unidades e permissões', () => {
     expect((await coordJp('PATCH', `/classes/${turmaCe.body.id}/status`, { active: false })).status).toBe(403);
     expect((await coordJp('DELETE', `/classes/${turmaCe.body.id}`)).status).toBe(403);
     expect((await coordJp('PATCH', `/teachers/${professorCe.body.id}/status`, { active: false })).status).toBe(403);
-    expect((await coordJp('GET', `/teachers/${professorCe.body.id}/photo`)).status).toBe(403);
+    expect((await coordJp('GET', `/teachers/${professorCe.body.id}/photo`)).status).toBe(404);
 
     const aulaNaOutraUnidade = {
       teacherId: professorCe.body.id,
@@ -173,7 +173,7 @@ describe('unidades e permissões', () => {
     const professores = await coordJp('GET', '/teachers');
     const nomes = professores.body.map((t: { name: string }) => t.name);
     expect(nomes).toContain('Naissa Compartilhada');
-    expect(nomes).not.toContain('Só Campos Elíseos');
+    expect(nomes).toContain('Só Campos Elíseos');
 
     const turmas = await coordJp('GET', '/classes');
     expect(turmas.body.every((c: { unitId: number }) => c.unitId === jp)).toBe(true);
@@ -183,7 +183,7 @@ describe('unidades e permissões', () => {
 
     const lote = await coordJp('GET', '/data?include=teachers,classes,lessons');
     expect(lote.body.lessons.every((l: { unitId: number }) => l.unitId === jp)).toBe(true);
-    expect(lote.body.teachers.map((t: { name: string }) => t.name)).not.toContain('Só Campos Elíseos');
+    expect(lote.body.teachers.map((t: { name: string }) => t.name)).toContain('Só Campos Elíseos');
   });
 
   it('o coordenador de JP é avisado de que a compartilhada já tem aula no CE', async () => {

@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {computePayrollWorkload,lessonWorkloadKind} from '../shared/payroll.js';
+import {computePayrollWorkload,lessonWorkloadKind,payrollClassBreakdown,subjectDefaultWorkloadKind} from '../shared/payroll.js';
 import {validateLesson} from '../shared/conflicts.js';
 import type {Lesson,Teacher,SchoolClass,Subject,Settings} from '../shared/types.js';
 const ts = '2026-01-01T00:00:00.000Z';
@@ -34,6 +34,22 @@ describe('regras de pagamento e dias no colégio',()=>{
     expect(compute([lesson(1,10,1,'07:30','08:20')]).grand.minutes).toBe(60);
     expect(compute([lesson(1,12,1,'07:30','08:20')]).grand.minutes).toBe(60);
     expect(compute([lesson(1,10,3,'07:30','08:20')]).grand.minutes).toBe(50);
+  });
+  it('separa o exemplo do Carlos por turma e também mistura tipos na mesma turma sem duplicar',()=>{
+    const technical={...subjects[0],id:9,name:'Práticas de Laboratório I',workloadKind:'technical' as const};
+    const ls=[lesson(1,11,9,'07:30','08:20'),{...lesson(1,11,9,'08:20','09:10'),weekday:2 as const},lesson(1,10,1,'07:30','08:20')];
+    const w=compute(ls,[t],undefined,[...subjects,technical]);
+    expect(payrollClassBreakdown(w.rows[0],11)).toMatchObject({regularLessons:0,technicalLessons:2,technicalMinutes:100,totalMinutes:100});
+    expect(payrollClassBreakdown(w.rows[0],10)).toMatchObject({regularLessons:1,regularMinutes:60,technicalLessons:0});
+    const mixed=compute([...ls,{...lesson(1,11,1,'09:10','10:00'),weekday:3 as const}],[t],undefined,[...subjects,technical]);
+    const p=payrollClassBreakdown(mixed.rows[0],11);expect(p).toMatchObject({regularLessons:1,regularMinutes:50,technicalLessons:2,technicalMinutes:100,totalMinutes:150});
+    expect(p.regularMinutes+p.technicalMinutes+p.regencyMinutes).toBe(p.totalMinutes);
+  });
+  it('não transforma disciplinas regulares em técnicas só pelo segmento e reconhece variantes de nomes',()=>{
+    for(const name of ['Matemática','Gramática','Redação','Sociologia','Educação Física','Artes','Geografia'])expect(subjectDefaultWorkloadKind({...subjects[0],name,segments:['tecnico']})).toBe('regular');
+    for(const name of ['Mídias Digitais I','Práticas Laboratório I','Inglês Técnico II','Introdução a Informática','Lógica de Programação','Redes de Computadores I','Sistemas Operacionais'])expect(subjectDefaultWorkloadKind({...subjects[0],name})).toBe('technical');
+    expect(subjectDefaultWorkloadKind({...subjects[0],name:'Mídias Digitais I',workloadKind:'regular'})).toBe('regular');
+    expect(subjectDefaultWorkloadKind({...subjects[0],name:'Módulo específico de Administração',segments:['tecnico']})).toBe('technical');
   });
   it('regência do Fund I soma 22h30, não multiplica as disciplinas',()=>{
     const regent={...t,payrollProfiles:[{unitId:1,references:[],regencies:[{classId:10,segment:'fund1' as const,weekdays:[1,2,3,4,5] as any}]}]};

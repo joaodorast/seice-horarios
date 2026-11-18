@@ -2,7 +2,18 @@ import { computeWorkload, lessonTimeCount, monthWeekdayCounts, type Load, type W
 import { SEGMENT_SUBJECTS } from './segments.js';
 import type { Lesson, Period, SchoolClass, Settings, Subject, Teacher, Weekday } from './types.js';
 const fold=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const technicalNames = new Set(SEGMENT_SUBJECTS.tecnico.map(fold).filter((name)=>!['projeto de vida','projeto integrador'].includes(name)));
+const subjectKey=(value:string)=>fold(value).replace(/\b(de|da|do|dos|das|a|as)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+const technicalNames = new Set(SEGMENT_SUBJECTS.tecnico.filter(name=>!['projeto de vida','projeto integrador'].includes(fold(name))).map(subjectKey));
+const regularNames=new Set([...SEGMENT_SUBJECTS.infantil,...SEGMENT_SUBJECTS.fund1,...SEGMENT_SUBJECTS.fund2,...SEGMENT_SUBJECTS.medio].map(subjectKey));
+/** Estar em uma turma/segmento técnico não torna Matemática, Gramática etc. disciplinas técnicas. */
+export function subjectDefaultWorkloadKind(subject:Subject|undefined):'regular'|'technical' {
+  if(subject?.workloadKind==='regular'||subject?.workloadKind==='technical')return subject.workloadKind;
+  if(!subject)return 'regular';
+  const name=subjectKey(subject.name);
+  if(technicalNames.has(name)||/ingles tecnico/.test(name))return 'technical';
+  if(regularNames.has(name))return 'regular';
+  return subject.segments?.length===1&&subject.segments[0]==='tecnico'?'technical':'regular';
+}
 export function isEarlyClass(schoolClass: SchoolClass | undefined) {
   const name=fold(`${schoolClass?.name ?? ''} ${schoolClass?.grade ?? ''}`);
   return /infantil|maternal|bercario|fund\.?\s*(i\b|1\b)|fundamental\s*(i\b|1\b)/.test(name);
@@ -10,9 +21,7 @@ export function isEarlyClass(schoolClass: SchoolClass | undefined) {
 export function lessonWorkloadKind(lesson: Lesson, subjects: Subject[]): 'regular'|'technical'|'excluded' {
   if(lesson.teacherId===null || lesson.workloadKind==='excluded')return 'excluded';
   if(lesson.workloadKind==='regular' || lesson.workloadKind==='technical')return lesson.workloadKind;
-  const subject=subjects.find((s)=>s.id===lesson.subjectId);
-  if(subject?.workloadKind==='regular'||subject?.workloadKind==='technical')return subject.workloadKind;
-  return subject && ((subject.segments?.length===1 && subject.segments[0]==='tecnico') || technicalNames.has(fold(subject.name)) || /ingles tecnico/.test(fold(subject.name))) ? 'technical':'regular';
+  return subjectDefaultWorkloadKind(subjects.find((s)=>s.id===lesson.subjectId));
 }
 export function minutesPerLesson(lesson:Lesson, classes:SchoolClass[],subjects:Subject[]) {
   return lessonWorkloadKind(lesson,subjects)==='technical' ? 50 : isEarlyClass(classes.find((c)=>c.id===lesson.classId)) ? 60 : 50;
@@ -68,4 +77,14 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
     row.payroll=payroll;
   }
   return w;
+}
+
+export interface PayrollClassBreakdown {
+  regularLessons:number;regularMinutes:number;technicalLessons:number;technicalMinutes:number;regencyMinutes:number;totalLessons:number;totalMinutes:number;
+}
+/** Mesma separação em todos os relatórios, inclusive quando a turma mistura os dois tipos. */
+export function payrollClassBreakdown(row:import('./workload.js').TeacherLoad,classId:number):PayrollClassBreakdown {
+ const result:PayrollClassBreakdown={regularLessons:0,regularMinutes:0,technicalLessons:0,technicalMinutes:0,regencyMinutes:0,totalLessons:row.byClass.get(classId)?.lessons??0,totalMinutes:row.byClass.get(classId)?.minutes??0};
+ for(const subject of row.bySubject){const load=subject.byClass.get(classId);if(!load)continue;if(subject.workloadKind==='regency')result.regencyMinutes+=load.minutes;else if(subject.workloadKind==='technical'){result.technicalLessons+=load.lessons;result.technicalMinutes+=load.minutes;}else{result.regularLessons+=load.lessons;result.regularMinutes+=load.minutes;}}
+ return result;
 }

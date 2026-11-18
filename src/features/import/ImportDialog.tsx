@@ -115,7 +115,9 @@ function ImportWizard({ kind, fixed, onClose }: { kind: ImportKind; fixed?: Impo
       selectSheet(scores.indexOf(Math.max(...scores)), list);
       setStep('map');
     } catch (error) {
-      setReadError(error instanceof SpreadsheetError ? error.message : 'Não foi possível ler o arquivo. Use uma planilha .xlsx ou .csv.');
+      const message = error instanceof SpreadsheetError ? error.message : 'Não foi possível ler o arquivo. Use uma planilha .xlsx ou .csv.';
+      setReadError(message);
+      toast.error('Não foi possível abrir a planilha', message);
     } finally {
       setReading(false);
     }

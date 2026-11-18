@@ -52,6 +52,7 @@ export function CalendarSettings({ data }: { data: ScheduleData }) {
       const e: Record<string, string> = {};
       for (const i of parsed.error.issues) e[String(i.path[0])] ??= i.message;
       setErrors(e);
+      toast.error('Confira o calendário antes de salvar', Object.values(e).join(' '));
       return;
     }
     setErrors({});

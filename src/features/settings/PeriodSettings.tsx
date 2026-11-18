@@ -75,6 +75,7 @@ export function PeriodSettings({ data }: { data: ScheduleData }) {
       e[key] ??= issue.message;
     }
     setErrors(e);
+    toast.error('Confira os horários antes de salvar', [...new Set(Object.values(e))].join(' '));
     return null;
   }
 

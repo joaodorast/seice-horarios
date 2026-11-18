@@ -1,3 +1,4 @@
+import {matchesClassScope,type ClassScopeRule} from './coordination.js';
 import { installAcademicRules } from './academicRules.js';
 import { WEEKDAY_LABEL } from '../shared/labels.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -29,7 +30,7 @@ import {
 } from '../shared/schemas.js';
 import { hasBlockingIssues, validateLesson } from '../shared/conflicts.js';
 import { IMPORT_KINDS, type ImportKind } from '../shared/import.js';
-import type { LessonIssue } from '../shared/types.js';
+import type { SchoolClass,LessonIssue } from '../shared/types.js';
 
 export class HttpError extends Error {
   constructor(
@@ -213,21 +214,25 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
   });
 
   /**
-   * Isolamento de leitura: coordenador (e demonstração) recebem apenas os dados da própria unidade.
-   * O professor compartilhado aparece nas duas — é o que permite ver, por exemplo, que a Naissa já
+   * Coordenadores consultam todos os professores reais; turmas e aulas seguem unidade e coordenação.
+   * Os conflitos continuam considerando as duas unidades — por exemplo, que a Naissa já
    * tem aula em Campos Elíseos no horário que se pretende usar em Jardim Primavera.
    */
-  async function scopedData(res: Response) {
-    const allowed = visibleUnitIds(res);
-    const [teachers, classes, lessons] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listLessons()]);
-    if (!allowed) return { teachers, classes, lessons };
-    const inUnit = (id: number | undefined) => id !== undefined && allowed.includes(id);
-    const visibleTeachers = teachers.filter((t) => {
-      // A unidade principal do professor sempre conta; as demais são as unidades em que ele também atua.
-      const units = [...new Set([...(t.unitId ? [t.unitId] : []), ...(t.unitIds ?? [])])];
-      return units.some((u) => allowed.includes(u));
-    });
-    return { teachers: visibleTeachers.map((teacher)=>({...teacher,payrollProfiles:teacher.payrollProfiles?.filter((p)=>allowed.includes(p.unitId))})), classes: classes.filter((c) => inUnit(c.unitId)), lessons: lessons.filter((l) => inUnit(l.unitId)) };
+  function canReadClass(res:Response,c:Pick<SchoolClass,'name'|'grade'|'unitId'>):boolean {
+    const allowed=visibleUnitIds(res),user=res.locals.user;
+    return (!allowed||c.unitId!==undefined&&allowed.includes(c.unitId))&&(user?.role!=='coordenador'||matchesClassScope(user.classScope as ClassScopeRule[]|null,c));
+  }
+  function assertClassAccess(res:Response,c:Pick<SchoolClass,'name'|'grade'|'unitId'>|undefined){
+    if(!c)return;assertUnitAccess(res,c.unitId);
+    if(!canReadClass(res,c))throw new HttpError(403,'wrong_coordination','Esta turma pertence a outra coordenação.');
+  }
+  async function scopedData(res:Response){
+    const allowed=visibleUnitIds(res),user=res.locals.user;
+    const [teachers,classes,lessons]=await Promise.all([repo.listTeachers(),repo.listClasses(),repo.listLessons()]);
+    const visibleClasses=classes.filter(c=>canReadClass(res,c)),ids=new Set(visibleClasses.map(c=>c.id));
+    const teacherUnits=user?.role==='coordenador'?await adminUnits():allowed;
+    const visibleTeachers=teachers.filter(t=>{const units=[...new Set([...(t.unitId?[t.unitId]:[]),...(t.unitIds??[])])];return !teacherUnits||units.some(u=>teacherUnits.includes(u));});
+    return {teachers:visibleTeachers.map(t=>({...t,payrollProfiles:t.payrollProfiles?.filter(p=>!allowed||allowed.includes(p.unitId)).map(p=>({...p,regencies:p.regencies.filter(g=>ids.has(g.classId))}))})),classes:visibleClasses,lessons:lessons.filter(l=>ids.has(l.classId))};
   }
 
   /** Recusa o acesso a um registro de outra unidade. */
@@ -243,7 +248,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     if (!teacher) throw new HttpError(404, 'not_found', 'Professor não encontrado.');
     const allowed = visibleUnitIds(res);
     const units = [...new Set([...(teacher.unitId ? [teacher.unitId] : []), ...(teacher.unitIds ?? [])])];
-    if (allowed && (!units.some((id) => allowed.includes(id)) || (write && units.some((id) => !allowed.includes(id))))) {
+    const readUnits=res.locals.user?.role==='coordenador'&&!write?await adminUnits():allowed;
+    if (readUnits && (!units.some((id) => readUnits.includes(id)) || (write && units.some((id) => !readUnits.includes(id))))) {
       throw new HttpError(403, 'wrong_unit', 'A administração gerencia professores compartilhados ou de outra unidade.');
     }
     return teacher;
@@ -426,10 +432,13 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       for(const regency of input.regencies) {
         const schoolClass = await scoped.getClass(regency.classId);
         if(!schoolClass || schoolClass.unitId !== input.unitId)throw new HttpError(422,'wrong_unit','A regência precisa ser de uma turma desta unidade.');
+        assertClassAccess(res,schoolClass);
         const others = await scoped.listTeachers();
         if(others.some((other)=>other.id!==id && other.payrollProfiles?.some((p)=>p.unitId===input.unitId && p.regencies.some((r)=>r.classId===regency.classId))))throw new HttpError(409,'regency_exists','Esta turma já possui regente cadastrado. Revise o professor antes de trocar.');
       }
-      await scoped.setTeacherPayroll(id,input);
+      const classList=await scoped.listClasses();
+      const hidden=teacher.payrollProfiles?.find(p=>p.unitId===input.unitId)?.regencies.filter(g=>{const c=classList.find(c=>c.id===g.classId);return c&&!canReadClass(res,c);})??[];
+      await scoped.setTeacherPayroll(id,{...input,regencies:[...hidden,...input.regencies]});
     });
     res.json((await scopedTeachers(res)).find((teacher)=>teacher.id===id));
   });
@@ -498,7 +507,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
 
   api.get('/classes/:id', async (req, res) => {
     const id = idParam(req);
-    assertUnitAccess(res, (await repo.getClass(id))?.unitId);
+    assertClassAccess(res,await repo.getClass(id));
     const schoolClass = await repo.getClass(id);
     if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
     res.json(schoolClass);
@@ -522,6 +531,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       }
       input.unitId = input.unitId ?? allowed[0];
     }
+    assertClassAccess(res,input);
     await assertClassNameFree(input.name);
     res.status(201).json(await repo.createClass(input));
   });
@@ -539,6 +549,8 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       }
       input.unitId = currentClass.unitId;
     }
+    assertClassAccess(res,currentClass);
+    assertClassAccess(res,input);
     await assertClassNameFree(input.name, id);
     res.json(await repo.updateClass(id, input));
   });
@@ -547,7 +559,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const id = idParam(req);
     const schoolClass = await repo.getClass(id);
     if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
-    assertUnitAccess(res, schoolClass.unitId);
+    assertClassAccess(res, schoolClass);
     const { active } = parse(statusSchema, req.body);
     res.json(await repo.setClassActive(id, active));
   });
@@ -556,7 +568,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const id = idParam(req);
     const schoolClass = await repo.getClass(id);
     if (!schoolClass) throw new HttpError(404, 'not_found', 'Turma não encontrada.');
-    assertUnitAccess(res, schoolClass.unitId);
+    assertClassAccess(res, schoolClass);
     const lessonCount = await repo.countLessonsBy('class_id', id);
     const withLessons = req.query.withLessons === 'true';
     if (lessonCount > 0 && !withLessons) {
@@ -626,7 +638,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     res.json(await repo.listPeriods());
   });
 
-  installAcademicRules(api,db,{visible:visibleUnitIds,assert:(res,unitId)=>assertUnitAccess(res,unitId),error:(status,code,message)=>new HttpError(status,code,message)});
+  installAcademicRules(api,db,{visible:visibleUnitIds,classes:async(res)=>new Set((await scopedClasses(res)).map(c=>c.id)),assertClass:async(res,id,tx)=>assertClassAccess(res,await (tx?createRepository(tx):repo).getClass(id)),assert:(res,unitId)=>assertUnitAccess(res,unitId),error:(status,code,message)=>new HttpError(status,code,message)});
 
   api.get('/settings', async (_req, res) => {
     res.json(await repo.getSettings());
@@ -685,14 +697,14 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       tx.listPeriods(),
     ]);
     const schoolClass = classes.find((c) => c.id === input.classId);
-    assertUnitAccess(res, schoolClass?.unitId);
+    assertClassAccess(res,schoolClass);
     const issues = validateLesson({ ...input, id }, { lessons, teachers, classes, subjects, settings, periods });
     const allowed = visibleUnitIds(res);
     if (allowed) {
       for (const issue of issues) {
         const other = lessons.find((lesson) => lesson.id === issue.relatedLessonId);
-        if (other?.unitId !== undefined && !allowed.includes(other.unitId)) {
-          const unit = await tx.getUnit(other.unitId);
+        if (other && !canReadClass(res,classes.find(c=>c.id===other.classId)!)) {
+          const unit = other.unitId===undefined?undefined:await tx.getUnit(other.unitId);
           issue.message = `${teachers.find((item) => item.id === input.teacherId)?.name ?? 'Este professor'} já tem aula neste horário em ${unit?.name ?? 'outra unidade'}: ${WEEKDAY_LABEL[other.weekday].toLowerCase()}, ${other.start}–${other.end}. Escolha outro tempo.`;
           issue.hint = 'Escolha outro horário ou outro professor.';
           delete issue.relatedLessonId;
@@ -759,6 +771,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     if (!allowed) return;
     const lesson = await repo.getLesson(lessonId);
     if (!lesson) return;
+    assertClassAccess(res,await repo.getClass(lesson.classId));
     if (lesson.unitId !== undefined && !allowed.includes(lesson.unitId)) {
       throw new HttpError(403, 'wrong_unit', 'Esta aula pertence a outra unidade.');
     }
@@ -827,7 +840,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     }
     const [teachers, classes, subjects] = await Promise.all([repo.listTeachers(), repo.listClasses(), repo.listSubjects()]);
     for (const { classId } of [...batch.upserts, ...batch.removes]) {
-      assertUnitAccess(res, classes.find((c) => c.id === classId)?.unitId);
+      assertClassAccess(res,classes.find((c)=>c.id===classId));
     }
     for (const a of batch.upserts) {
       const schoolClass = classes.find((c) => c.id === a.classId);
@@ -840,8 +853,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       if (!subjects.some((s) => s.id === a.subjectId)) throw new HttpError(422, 'not_found', 'Uma das disciplinas não existe mais. Atualize a página.');
     }
     await db.transaction((tx) => createRepository(tx).applyAssignments(batch));
-    const allowed = visibleUnitIds(res);
-    const classIds = new Set(classes.filter((c) => !allowed || (c.unitId !== undefined && allowed.includes(c.unitId))).map((c) => c.id));
+    const classIds = new Set(classes.filter((c)=>canReadClass(res,c)).map((c) => c.id));
     res.json((await repo.listAssignments()).filter((a) => classIds.has(a.classId)));
   });
 
@@ -852,7 +864,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     if (kind !== 'assignments') assertAdmin(res);
     const request = parse(importRequestSchema, req.body);
     try {
-      res.json(await runImport(db, kind, request, kind === 'assignments' ? visibleUnitIds(res) : null));
+      res.json(await runImport(db, kind, request, kind === 'assignments' ? visibleUnitIds(res) : null,kind==='assignments'?(await scopedClasses(res)).map(c=>c.id):null));
     } catch (error) {
       if (error instanceof ImportFailure) throw new HttpError(422, 'import_failed', error.message);
       throw error;

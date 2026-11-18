@@ -39,6 +39,7 @@ interface Ctx {
   tx: Database;
   repo: Repository;
   assignmentUnitIds: readonly number[] | null;
+  assignmentClassIds: readonly number[] | null;
   results: ImportRowResult[];
   removed: number;
   createdSubjects: string[];
@@ -57,12 +58,12 @@ class FastPathFailure extends Error {
  * Executa a importação numa única transação. Na prévia (dryRun) roda exatamente a mesma lógica,
  * incluindo as gravações, e desfaz tudo no final — o relatório da prévia é o que de fato aconteceria.
  */
-export async function runImport(db: Database, kind: ImportKind, request: ImportRequest, assignmentUnitIds: readonly number[] | null = null): Promise<ImportReport> {
+export async function runImport(db: Database, kind: ImportKind, request: ImportRequest, assignmentUnitIds: readonly number[] | null = null, assignmentClassIds: readonly number[] | null = null): Promise<ImportReport> {
   let ctx: Ctx | undefined;
   const run = async (safe: boolean) => {
     try {
       await db.transaction(async (tx) => {
-        ctx = { tx, repo: createRepository(tx), assignmentUnitIds, results: [], removed: 0, createdSubjects: [], safe };
+        ctx = { tx, repo: createRepository(tx), assignmentUnitIds, assignmentClassIds, results: [], removed: 0, createdSubjects: [], safe };
         await HANDLERS[kind](ctx, request.rows, request.options ?? {});
         if (request.dryRun) throw new DryRunRollback();
       });
@@ -664,7 +665,7 @@ async function importAssignments(ctx: Ctx, rows: ImportRowInput[], options: Impo
   const teacherUnits = (t: Teacher) => t.unitIds?.length ? t.unitIds : t.unitId === undefined ? [] : [t.unitId];
   const allowed = ctx.assignmentUnitIds;
   const teachers = allowed ? allTeachers.filter((t) => teacherUnits(t).some((id) => allowed.includes(id))) : allTeachers;
-  const classes = allowed ? allClasses.filter((c) => c.unitId !== undefined && allowed.includes(c.unitId)) : allClasses;
+  const classes=allClasses.filter(c=>(!allowed||c.unitId!==undefined&&allowed.includes(c.unitId))&&(!ctx.assignmentClassIds||ctx.assignmentClassIds.includes(c.id)));
   const teacherByCode = new Map(teachers.filter((t) => t.code).map((t) => [fold(t.code!), t]));
   const teachersByName = groupBy(teachers, (t) => nameKey(t.name));
   const subjectByName = new Map(subjects.map((s) => [nameKey(s.name), s]));

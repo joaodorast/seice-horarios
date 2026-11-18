@@ -28,7 +28,7 @@ export function UnitSettings() {
           description={
             isAdmin
               ? 'Cada professor e cada turma pertencem a uma unidade. Professores que dão aula nas duas aparecem marcados com as duas siglas.'
-              : 'Seu acesso é desta unidade. Professores e turmas das outras unidades não aparecem para você.'
+              : 'Seu acesso às turmas segue sua unidade e coordenação. A consulta de professores inclui as duas unidades.'
           }
         />
         <ul className="divide-y divide-line border-t border-line">

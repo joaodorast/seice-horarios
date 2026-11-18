@@ -16,6 +16,20 @@ interface ModalProps {
   initialFocus?: string;
 }
 
+// Mais de um modal pode estar aberto. Só o último a fechar libera a página.
+const scrollLocks = new Set<symbol>();
+let previousOverflow = '';
+function lockPageScroll() {
+  const lock = Symbol();
+  if (!scrollLocks.size) previousOverflow = document.documentElement.style.overflow;
+  scrollLocks.add(lock);
+  document.documentElement.style.overflow = 'hidden';
+  return () => {
+    scrollLocks.delete(lock);
+    if (!scrollLocks.size) document.documentElement.style.overflow = previousOverflow;
+  };
+}
+
 const widths = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-3xl', xl: 'sm:max-w-5xl' };
 
 /**
@@ -31,24 +45,23 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) {
-      dialog.showModal();
-      document.documentElement.style.overflow = 'hidden';
-      requestAnimationFrame(() => {
+    if (open) {
+      if (!dialog.open) dialog.showModal();
+      const unlock = lockPageScroll();
+      const frame = requestAnimationFrame(() => {
         const target = initialFocus ? dialog.querySelector<HTMLElement>(initialFocus) : null;
         (target ??
           dialog.querySelector<HTMLElement>('[data-autofocus]') ??
           dialog.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea'))?.focus();
       });
-    } else if (!open && dialog.open) {
-      dialog.close();
+      return () => {
+        cancelAnimationFrame(frame);
+        if (dialog.open) dialog.close();
+        unlock();
+      };
     }
-    return () => {
-      if (!open) document.documentElement.style.overflow = '';
-    };
+    if (dialog.open) dialog.close();
   }, [open, initialFocus]);
-
-  useEffect(() => () => void (document.documentElement.style.overflow = ''), []);
 
   return (
     <dialog
@@ -80,7 +93,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
               <X className="size-[18px]" />
             </IconButton>
           </header>
-          <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 [scrollbar-gutter:stable] [scrollbar-width:auto] sm:px-6">{children}</div>
           {footer && (
             <footer className="flex flex-col-reverse gap-2 border-t border-line bg-subtle/60 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-end sm:rounded-b-xl sm:px-6">
               {footer}

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { IconButton } from './Button';
+import { modalScroll } from '@/lib/modalScroll';
 
 interface ModalProps {
   open: boolean;
@@ -14,20 +15,6 @@ interface ModalProps {
   /** Impede fechar ao clicar fora (ex.: formulário com alterações). */
   dismissible?: boolean;
   initialFocus?: string;
-}
-
-// Mais de um modal pode estar aberto. Só o último a fechar libera a página.
-const scrollLocks = new Set<symbol>();
-let previousOverflow = '';
-function lockPageScroll() {
-  const lock = Symbol();
-  if (!scrollLocks.size) previousOverflow = document.documentElement.style.overflow;
-  scrollLocks.add(lock);
-  document.documentElement.style.overflow = 'hidden';
-  return () => {
-    scrollLocks.delete(lock);
-    if (!scrollLocks.size) document.documentElement.style.overflow = previousOverflow;
-  };
 }
 
 const widths = { sm: 'sm:max-w-md', md: 'sm:max-w-xl', lg: 'sm:max-w-3xl', xl: 'sm:max-w-5xl' };
@@ -47,7 +34,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     if (!dialog) return;
     if (open) {
       if (!dialog.open) dialog.showModal();
-      const unlock = lockPageScroll();
+      const unlock = modalScroll.acquire();
       const frame = requestAnimationFrame(() => {
         const target = initialFocus ? dialog.querySelector<HTMLElement>(initialFocus) : null;
         (target ??
@@ -73,6 +60,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       onMouseDown={(e) => {
         if (dismissible && e.target === ref.current) onCloseRef.current();
       }}
+      onClose={() => { if (open && !ref.current?.open) onCloseRef.current(); }}
       aria-labelledby={titleId}
       className={cn(
         'm-0 mt-auto w-full max-w-none bg-transparent p-0 backdrop:bg-ink/45 backdrop:backdrop-blur-[2px] open:animate-pop-in',

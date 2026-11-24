@@ -53,14 +53,21 @@ const persistentNoticeNews = [
   { title: 'Sem espera indefinida ou repetição automática', description: 'Se o SEICE demorar para responder, a tela explica que o resultado precisa ser conferido antes de repetir a operação. Os campos inválidos também recebem uma orientação antes de salvar.', links: [{label:'Consultar atualizações',to:'/atualizacoes'}] },
 ];
 
-export const updateNews = [
+const assignmentClarityNews = [
   { title: 'Atribuição mesmo sem disciplinas cadastradas', description: 'As disciplinas do professor continuam aparecendo como opções rápidas. Se ele ainda não tiver matérias cadastradas, a tela avisa e permite pesquisar e escolher uma para atribuir as turmas.', links: [{ label: 'Atribuir turmas', to: '/atribuicoes/professor' }] },
   { title: 'Disciplinas e aulas da grade sem confusão', description: 'A atribuição por professor agora mostra as disciplinas, os tempos lançados e o detalhe de cada turma. O planejamento cadastrado aparece separado, sem alterar os horários nem o pagamento do RH.', links: [{ label: 'Conferir atribuições', to: '/atribuicoes/professor' }] },
 ];
 
+export const updateNews = [
+  { title: 'Atribuições sugeridas a partir da grade', description: 'O sistema identifica aulas que já existem e sugere as atribuições que faltam. Filtre por unidade, professor ou turma, revise as quantidades e confirme somente o que estiver certo.', links: [{ label: 'Revisar atribuições automáticas', to: '/atribuicoes/professor' }] },
+  { title: 'Conferência antes de salvar', description: 'Conflitos entre professores ficam destacados. Você pode desmarcar sugestões e ajustar o planejamento. Se os dados mudarem durante a revisão, o sistema pede uma nova conferência.', links: [{ label: 'Conferir por turma', to: '/atribuicoes/turma' }] },
+  { title: 'Horários e cálculo de horas preservados', description: 'A confirmação atualiza as atribuições e os vínculos das disciplinas. Não cria aulas, não move horários e não altera regras de pagamento do RH.', links: [{ label: 'Consultar horários', to: '/horarios' }] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  { id: '2026-11-24-atribuicoes-grade', date: '2026-11-24', title: 'Planejamento e grade explicados separadamente', description: 'Conferência das disciplinas e aulas realmente lançadas por professor e turma.', items: updateNews },
+  { id: '2026-11-24-revisao-automatica', date: '2026-11-24', title: 'Atribuições automáticas com revisão', description: 'A grade e o planejamento se comunicam com conferência antes da confirmação.', items: updateNews },
+  { id: '2026-11-24-atribuicoes-grade', date: '2026-11-24', title: 'Planejamento e grade explicados separadamente', description: 'Conferência das disciplinas e aulas realmente lançadas por professor e turma.', items: assignmentClarityNews },
   {id:'2026-11-18-avisos-rolagem',date:'2026-11-18',title:'Avisos persistentes e revisão da rolagem',description:'Falhas de ações explicadas e controle único para as janelas do sistema.',items:persistentNoticeNews},
   { id: '2026-11-18-salvamento-rolagem', date: '2026-11-18', title: 'Correções no salvamento de disciplinas e na rolagem', description: 'Professores compartilhados e exportação com continuidade de navegação.', items: savingScrollNews },
   { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: coordinationNews },

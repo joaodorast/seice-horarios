@@ -47,15 +47,20 @@ const savingScrollNews = [
   { title: 'Formulário mais claro', description: 'O cadastro explica o que o coordenador pode ajustar em professores das duas unidades. O botão de salvar permanece acessível e os erros aparecem junto dele.', links: [{ label: 'Consultar professores', to: '/professores' }] },
 ];
 
-export const updateNews = [
+const persistentNoticeNews = [
   { title: 'Avisos claros quando uma ação não pode continuar', description: 'Bloqueios de acesso, conflitos e falhas ao salvar agora abrem um aviso com o motivo e uma orientação. Ele permanece visível até você fechar, inclusive sobre outros formulários.', links: [{label:'Conferir professores',to:'/professores'}] },
   { title: 'Rolagem revisada nas janelas do sistema', description: 'O controle de rolagem foi centralizado e testado com janelas sobrepostas e abertura repetida. Fechar a última janela libera a página para continuar navegando.', links: [{label:'Abrir carga horária',to:'/horarios/carga'}] },
   { title: 'Sem espera indefinida ou repetição automática', description: 'Se o SEICE demorar para responder, a tela explica que o resultado precisa ser conferido antes de repetir a operação. Os campos inválidos também recebem uma orientação antes de salvar.', links: [{label:'Consultar atualizações',to:'/atualizacoes'}] },
 ];
 
+export const updateNews = [
+  { title: 'Disciplinas e aulas da grade sem confusão', description: 'A atribuição por professor agora mostra as disciplinas, os tempos lançados e o detalhe de cada turma. O planejamento cadastrado aparece separado, sem alterar os horários nem o pagamento do RH.', links: [{ label: 'Conferir atribuições', to: '/atribuicoes/professor' }] },
+];
+
 /** Mantenha as publicações anteriores e acrescente as novas no início deste histórico. */
 export const updateHistory = [
-  {id:'2026-11-18-avisos-rolagem',date:'2026-11-18',title:'Avisos persistentes e revisão da rolagem',description:'Falhas de ações explicadas e controle único para as janelas do sistema.',items:updateNews},
+  { id: '2026-11-24-atribuicoes-grade', date: '2026-11-24', title: 'Planejamento e grade explicados separadamente', description: 'Conferência das disciplinas e aulas realmente lançadas por professor e turma.', items: updateNews },
+  {id:'2026-11-18-avisos-rolagem',date:'2026-11-18',title:'Avisos persistentes e revisão da rolagem',description:'Falhas de ações explicadas e controle único para as janelas do sistema.',items:persistentNoticeNews},
   { id: '2026-11-18-salvamento-rolagem', date: '2026-11-18', title: 'Correções no salvamento de disciplinas e na rolagem', description: 'Professores compartilhados e exportação com continuidade de navegação.', items: savingScrollNews },
   { id: '2026-11-18-acessos-coordenacao', date: '2026-11-18', title: 'Turmas por coordenação e navegação mais simples', description: 'Consulta de professores ampliada e turmas organizadas para cada coordenador.', items: coordinationNews },
   { id: '2026-11-18-tempos-por-turma', date: '2026-11-18', title: 'Tempos regulares e técnicos identificados em cada turma', description: 'Resumo por turma mais claro e classificação de disciplinas visível e editável.', items: classKindsNews },

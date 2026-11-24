@@ -359,3 +359,7 @@ Todas as janelas usam um controle de rolagem compartilhado. Cada janela libera a
 A conferência no navegador percorre 21 rotas/variações, com 65 verificações de rolagem, incluindo sete tipos de janela abertos e fechados três vezes, erro sobre formulário, salvamento, duas janelas sobrepostas e downloads PDF/Excel. O scroll é testado com a roda do mouse na mesma tela, sem recarregar após fechar a janela. Em telas curtas, o teste acrescenta espaço temporário somente no ambiente descartável para permitir verificar a rolagem.
 
 O roteiro está em `scripts/check-interface.mjs`. Após compilar, execute `node --import tsx scripts/check-interface.mjs` em um ambiente com Playwright e Microsoft Edge disponíveis. Se o pacote Playwright estiver instalado fora do projeto, a variável `SEICE_PLAYWRIGHT_PACKAGE` pode apontar para o caminho absoluto de seu `package.json`. O roteiro usa PostgreSQL em memória, não carrega `.env` e não modifica o sistema real. As capturas e o resultado ficam em uma pasta temporária informada ao final.
+
+## Conferência das atribuições e da grade
+
+Em **Atribuição de aulas → Por professor**, o resumo “O que está na grade desta semana” mostra a quantidade de disciplinas, os tempos lançados e o detalhe por turma. As atribuições são o planejamento cadastrado; podem estar incompletas e não substituem o total real da grade. A conferência não altera horários nem regras de pagamento do RH. Credenciais de acesso não são documentadas no repositório.

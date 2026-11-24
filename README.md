@@ -363,3 +363,5 @@ O roteiro está em `scripts/check-interface.mjs`. Após compilar, execute `node 
 ## Conferência das atribuições e da grade
 
 Em **Atribuição de aulas → Por professor**, o resumo “O que está na grade desta semana” mostra a quantidade de disciplinas, os tempos lançados e o detalhe por turma. As atribuições são o planejamento cadastrado; podem estar incompletas e não substituem o total real da grade. A conferência não altera horários nem regras de pagamento do RH. Credenciais de acesso não são documentadas no repositório.
+
+Na escolha da disciplina, as matérias do professor aparecem como opções rápidas. Quando não houver matérias cadastradas, um aviso explica que ainda é possível pesquisar e selecionar qualquer disciplina para atribuir turmas.

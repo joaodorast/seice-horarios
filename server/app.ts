@@ -462,7 +462,7 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
         if(!schoolClass || schoolClass.unitId !== input.unitId)throw new HttpError(422,'wrong_unit','A regência precisa ser de uma turma desta unidade.');
         assertClassAccess(res,schoolClass);
         const others = await scoped.listTeachers();
-        if(others.some((other)=>other.id!==id && other.payrollProfiles?.some((p)=>p.unitId===input.unitId && p.regencies.some((r)=>r.classId===regency.classId))))throw new HttpError(409,'regency_exists','Esta turma já possui regente cadastrado. Revise o professor antes de trocar.');
+        if(regency.enabled!==false && others.some((other)=>other.id!==id && other.payrollProfiles?.some((p)=>p.unitId===input.unitId && p.regencies.some((r)=>r.enabled!==false && r.classId===regency.classId))))throw new HttpError(409,'regency_exists','Esta turma já possui regente cadastrado. Revise o professor antes de trocar.');
       }
       const classList=await scoped.listClasses();
       const hidden=teacher.payrollProfiles?.find(p=>p.unitId===input.unitId)?.regencies.filter(g=>{const c=classList.find(c=>c.id===g.classId);return c&&!canReadClass(res,c);})??[];

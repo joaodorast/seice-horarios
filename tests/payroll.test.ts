@@ -123,3 +123,16 @@ describe('carga semanal fixa personalizada', () => {
     expect(compute([], [regent]).grand.minutes).toBe(1350);
   });
 });
+
+
+it('alterna entre 19 horas da grade e 22h30 fixas sem perder a configuração', () => {
+  const lessons = Array.from({length:19}, () => lesson(1,10,1,'07:30','08:20'));
+  const regency = {classId:10,segment:'fund1' as const,weekdays:[1,2,3,4,5] as any,weeklyMinutes:1350,enabled:false};
+  const teacher = {...t,payrollProfiles:[{unitId:1,references:[],regencies:[regency]}]};
+  expect(compute(lessons,[teacher]).grand.minutes).toBe(1140);
+  regency.enabled=true;
+  expect(compute(lessons,[teacher]).grand.minutes).toBe(1350);
+  regency.enabled=false;
+  expect(compute(lessons,[teacher]).grand.minutes).toBe(1140);
+  expect(regency.weeklyMinutes).toBe(1350);
+});

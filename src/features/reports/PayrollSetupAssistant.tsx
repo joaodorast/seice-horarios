@@ -27,8 +27,8 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   const items = query.data ?? [];
   const confirmed = items.filter((item) => item.teacherId !== null).length;
   const pending = items.length - confirmed;
-  const configured = data.teachers.filter((teacher) => teacher.payrollProfiles?.some((profile) => profile.regencies.length));
-  const regencyCount = configured.reduce((sum, teacher) => sum + (teacher.payrollProfiles?.reduce((count, profile) => count + profile.regencies.length, 0) ?? 0), 0);
+  const configured = data.teachers.filter((teacher) => teacher.payrollProfiles?.some((profile) => profile.regencies.some((r)=>r.enabled!==false)));
+  const regencyCount = configured.reduce((sum, teacher) => sum + (teacher.payrollProfiles?.reduce((count, profile) => count + profile.regencies.filter((r)=>r.enabled!==false).length, 0) ?? 0), 0);
   const selected = data.teachers.find((teacher) => teacher.id === teacherId);
   const busy = regencyBusy || referenceBusy;
 
@@ -113,7 +113,7 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
           <div><label htmlFor={`${id}-teacher`} className="mb-2 block text-base font-bold">Escolha o professor para configurar</label><Combobox spacious id={`${id}-teacher`} value={teacherId} onChange={selectTeacher} clearable disabled={busy} placeholder="Pesquise e escolha o professor" options={data.teachers.map((teacher)=>({value:teacher.id,label:teacher.name,description:teacher.payrollProfiles?.some((p)=>p.regencies.length)?'Já possui regência configurada':undefined}))} /></div>
           {selected ? <TeacherPayrollSettings key={selected.id} teacher={selected} data={data} regencyOnly onDirtyChange={setDirty} onBusyChange={setRegencyBusy} onRequestChange={requestChange} /> : <p className="rounded-xl border border-dashed border-line p-6 text-center leading-relaxed text-muted">Escolha um professor acima para indicar a turma, o segmento e os dias da semana. O total será mostrado antes de salvar.</p>}
           {configured.length>0 && <section><h3 className="mb-3 flex items-center gap-2 text-lg font-bold"><CheckCircle2 className="size-5 text-success" />Regências já configuradas</h3><div className="grid gap-2 sm:grid-cols-2">{configured.map((teacher)=>{
-            const regencies=teacher.payrollProfiles?.flatMap((p)=>p.regencies)??[];
+            const regencies=teacher.payrollProfiles?.flatMap((p)=>p.regencies).filter((r)=>r.enabled!==false)??[];
             const minutes=regencies.reduce((sum,r)=>sum+regencyWeeklyMinutes(r),0);
             return <button key={teacher.id} type="button" disabled={busy} onClick={()=>selectTeacher(teacher.id)} className="rounded-xl border border-line p-4 text-left hover:bg-subtle"><strong className="block break-words">{teacher.name}</strong><span className="mt-1 block text-base text-muted">{regencies.length} {regencies.length===1?'turma':'turmas'} · {formatHours(minutes)} semanais de regência</span></button>;
           })}</div></section>}

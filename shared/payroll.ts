@@ -44,7 +44,7 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
   const occurs=(l:Lesson)=>scope.scope==='mes'?counts[l.weekday]:1;
   const filtered=lessons.filter((l)=>scope.scope!=='dia'||l.weekday===scope.day);
   const classIds=new Set(classes.map((c)=>c.id));
-  const regencyClasses=new Map(teachers.map((t)=>[t.id,t.payrollProfiles?.flatMap((p)=>p.regencies) ?? []]));
+  const regencyClasses=new Map(teachers.map((t)=>[t.id,t.payrollProfiles?.flatMap((p)=>p.regencies).filter((r)=>r.enabled!==false) ?? []]));
   const billable=filtered.filter((l)=>lessonWorkloadKind(l,subjects)!=='excluded' && !regencyClasses.get(l.teacherId!)?.some((r)=>r.classId===l.classId&&r.weekdays.includes(l.weekday)));
   const units=(l:Lesson)=>lessonTimeCount(l,periods,classes);
   const w=computeWorkload(billable,teachers,classes,undefined,units,occurs,(l)=>units(l)*minutesPerLesson(l,classes,subjects));
@@ -71,7 +71,7 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
         payroll.hasReference=true;
         if(reference.kind==='technical')payroll.referenceTechnical+=reference.weeklyLessons;else payroll.referenceRegular+=reference.weeklyLessons;
       }
-      for(const regency of profile.regencies.filter((r)=>scope.includeRegency!==false && classIds.has(r.classId) && w.classTotals.has(r.classId))) {
+      for(const regency of profile.regencies.filter((r)=>r.enabled!==false && scope.includeRegency!==false && classIds.has(r.classId) && w.classTotals.has(r.classId))) {
         const minutes = regency.weekdays.reduce((sum, day) => {
           const occurrences = scope.scope === 'mes' ? counts[day] : scope.scope === 'dia' ? Number(day === scope.day) : 1;
           return sum + regencyDayMinutes(regency, day) * occurrences;

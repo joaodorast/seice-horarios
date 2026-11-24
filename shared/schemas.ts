@@ -275,7 +275,7 @@ export const loginSchema = z.object({
 export const teacherPayrollSchema = z.object({
   unitId: z.number().int().positive(),
   references: z.array(z.object({label: z.string().trim().min(1).max(120),kind:z.enum(['regular','technical']),weeklyLessons:z.number().int().min(0).max(100)})).max(30),
-  regencies: z.array(z.object({classId:z.number().int().positive(),segment:z.enum(['infantil','fund1']),weeklyMinutes:z.number().int().min(1).max(10080).optional(),weekdays:z.array(weekday).min(1).max(6).transform((days)=>[...new Set(days)].sort())})).max(10),
+  regencies: z.array(z.object({classId:z.number().int().positive(),segment:z.enum(['infantil','fund1']),enabled:z.boolean().optional(),weeklyMinutes:z.number().int().min(1).max(10080).optional(),weekdays:z.array(weekday).min(1).max(6).transform((days)=>[...new Set(days)].sort())})).max(10),
 }).superRefine((input,ctx)=>{
   if(new Set(input.regencies.map((r)=>r.classId)).size!==input.regencies.length)ctx.addIssue({code:'custom',path:['regencies'],message:'A mesma turma não pode ter duas regências para este professor.'});
 });

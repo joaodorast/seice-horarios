@@ -45,6 +45,15 @@ function PayrollForm({teacher,data,unitId,regencyOnly,onDirtyChange,onBusyChange
       <div className="mt-3 space-y-3">{draft.regencies.map((entry,index)=><div key={index} className="space-y-3 rounded-lg border border-line p-3">
         <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold">Turma de regência<select aria-label={`Turma de regência ${index+1}`} className="mt-1 h-10 w-full rounded border border-line-strong px-2 text-sm" value={entry.classId} onChange={(e)=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,classId:Number(e.target.value)}:v)})}><option value={0}>Escolha a turma</option>{classes.map((c)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="text-sm font-semibold">Regra de regência<select className="mt-1 h-10 w-full rounded border border-line-strong px-2 text-sm" value={entry.segment} onChange={(e)=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,segment:e.target.value as 'infantil'|'fund1'}:v)})}><option value="infantil">Educação Infantil</option><option value="fund1">Fundamental I</option></select></label></div>
+        <fieldset disabled={save.isPending} className="space-y-3">
+          <legend className="mb-2 text-sm font-semibold">Forma de contagem desta turma</legend>
+          <div className="flex flex-wrap gap-2">
+            <Button aria-pressed={entry.enabled===false} variant={entry.enabled===false?'primary':'secondary'} onClick={()=>setDraft({...draft,regencies:draft.regencies.map((value,i)=>i===index?{...value,enabled:false}:value)})}>Contar pelos tempos da grade</Button>
+            <Button aria-pressed={entry.enabled!==false} variant={entry.enabled!==false?'primary':'secondary'} onClick={()=>setDraft({...draft,regencies:draft.regencies.map((value,i)=>i===index?{...value,enabled:true}:value)})}>Usar carga fixa</Button>
+          </div>
+          {entry.enabled===false&&<p className="text-sm text-muted">O relatório calculará as horas pelos tempos cadastrados. A carga fixa abaixo fica guardada para quando você quiser reativá-la.</p>}
+        </fieldset>
+        <fieldset disabled={entry.enabled===false||save.isPending} className="space-y-3 disabled:opacity-60">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-semibold">Horas fixas por semana<Input type="number" min={0} max={168} step={1} value={Math.floor(regencyWeeklyMinutes(entry)/60)} onChange={(event)=>{
             const hours=Number(event.target.value);
@@ -57,9 +66,11 @@ function PayrollForm({teacher,data,unitId,regencyOnly,onDirtyChange,onBusyChange
         </div>
         <p className="text-sm text-muted">Total fixo semanal desta regência, independente da quantidade de tempos. Os dias informados distribuem a carga nos relatórios diários e mensais.</p>
         <fieldset><legend className="text-sm font-semibold">Dias de regência informados</legend><div className="mt-2 flex flex-wrap gap-3">{data.settings.enabledDays.map((day)=><label key={day} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={entry.weekdays.includes(day)} onChange={()=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,weekdays:v.weekdays.includes(day)?v.weekdays.filter((d)=>d!==day):[...v.weekdays,day].sort() as Weekday[]}:v)})} />{WEEKDAY_SHORT[day]}</label>)}</div></fieldset>
-        <div className="flex flex-wrap items-center justify-between gap-2"><strong>{formatHours(regencyWeeklyMinutes(entry))} por semana</strong><Button onClick={()=>setDraft({...draft,regencies:draft.regencies.filter((_,i)=>i!==index)})}>Remover regência</Button></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><strong>{entry.enabled===false?'Contagem pelos tempos da grade':formatHours(regencyWeeklyMinutes(entry))+' fixas por semana'}</strong></div>
+        </fieldset>
+        <div className="flex justify-end"><Button onClick={()=>setDraft({...draft,regencies:draft.regencies.filter((_,i)=>i!==index)})}>Remover regência</Button></div>
       </div>)}</div>
-      <Button className="mt-3" disabled={!classes.length} onClick={()=>setDraft({...draft,regencies:[...draft.regencies,{classId:0,segment:'fund1',weeklyMinutes:1350,weekdays:[1,2,3,4,5]}]})}>Adicionar turma de regência</Button>
+      <Button className="mt-3" disabled={!classes.length} onClick={()=>setDraft({...draft,regencies:[...draft.regencies,{classId:0,segment:'fund1',enabled:true,weeklyMinutes:1350,weekdays:[1,2,3,4,5]}]})}>Adicionar turma de regência</Button>
     </section>
     <Button variant="primary" disabled={!dirty} loading={save.isPending} onClick={async()=>{if(draft.regencies.some((r)=>!r.classId||!r.weekdays.length||!Number.isInteger(regencyWeeklyMinutes(r))||regencyWeeklyMinutes(r)<1||regencyWeeklyMinutes(r)>10080)){toast.error('Revise a regência','Escolha uma turma, pelo menos um dia e uma carga fixa maior que zero, de até 168 horas semanais.');return;}try{await save.mutateAsync({id:teacher.id,input:draft});toast.success('Carga para relatórios salva');}catch(error){toast.error('Não foi possível salvar',errorMessage(error));}}}>{regencyOnly?'Salvar regências':'Salvar carga para relatórios'}</Button>
   </div>;

@@ -43,7 +43,7 @@ export type UserRole = 'admin' | 'coordenador' | 'demo';
 export interface TeacherPayrollProfile {
   unitId: number;
   references: {label: string; kind: 'regular' | 'technical'; weeklyLessons: number}[];
-  regencies: {classId: number; segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number}[];
+  regencies: {classId: number; segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number; enabled?: boolean}[];
 }
 
 export interface Teacher {

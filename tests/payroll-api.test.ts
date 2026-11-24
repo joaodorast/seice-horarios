@@ -102,3 +102,14 @@ describe('salvamento da carga fixa personalizada', () => {
     }
   });
 });
+
+
+it('salva e reativa a carga fixa preservando as horas configuradas', async () => {
+  const input = {unitId:ce,references:[],regencies:[{classId:ceClass,segment:'fund1',weekdays:[1,2,3,4,5],weeklyMinutes:1350,enabled:false}]};
+  expect((await call('PUT',`/teachers/${teacher}/payroll`,input)).status).toBe(200);
+  const read = async () => (await call('GET',`/teachers/${teacher}`)).body.payrollProfiles.find((p:any)=>p.unitId===ce).regencies[0];
+  expect(await read()).toMatchObject({enabled:false,weeklyMinutes:1350});
+  input.regencies[0].enabled=true;
+  expect((await call('PUT',`/teachers/${teacher}/payroll`,input)).status).toBe(200);
+  expect(await read()).toMatchObject({enabled:true,weeklyMinutes:1350});
+});

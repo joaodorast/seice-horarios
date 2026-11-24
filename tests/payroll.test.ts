@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {computePayrollWorkload,lessonWorkloadKind,payrollClassBreakdown,subjectDefaultWorkloadKind} from '../shared/payroll.js';
+import {computePayrollWorkload,lessonWorkloadKind,payrollClassBreakdown,subjectDefaultWorkloadKind,regencyDayMinutes} from '../shared/payroll.js';
 import {validateLesson} from '../shared/conflicts.js';
 import type {Lesson,Teacher,SchoolClass,Subject,Settings} from '../shared/types.js';
 const ts = '2026-01-01T00:00:00.000Z';
@@ -99,4 +99,27 @@ describe('regras de pagamento e dias no colégio',()=>{
     const extra={...lesson(1,10,1,'07:30','08:20'),weekday:6 as const};const w=compute([extra],[regent]);expect(w.grand).toEqual({lessons:1,minutes:1410});expect(w.rows[0].payroll?.regularMinutes).toBe(60);
   });
 
+});
+
+
+describe('carga semanal fixa personalizada', () => {
+  it('distribui minutos inteiros e preserva o total semanal de cargas indivisíveis', () => {
+    const regency = {segment:'fund1' as const, weekdays:[1,2,3,4,5] as any, weeklyMinutes:1111};
+    const minutes = regency.weekdays.map((day:any) => regencyDayMinutes(regency,day));
+    expect(minutes).toEqual([223,222,222,222,222]);
+    expect(minutes.reduce((sum:number,value:number) => sum+value,0)).toBe(1111);
+    expect(regencyDayMinutes(regency,6)).toBe(0);
+  });
+  it('aplica o valor semanal informado e distribui os dias sem duplicar disciplinas', () => {
+    const regent = {...t, payrollProfiles: [{unitId: 1, references: [], regencies: [{classId: 10, segment: 'fund1' as const, weekdays: [1,2,3,4,5] as any, weeklyMinutes: 1110}]}]};
+    const result = compute([lesson(1,10,1,'07:30','08:20'), lesson(1,10,2,'08:20','09:10')], [regent]);
+    expect(result.grand.minutes).toBe(1110);
+    expect(result.rows[0].payroll?.regularMinutes).toBe(0);
+    expect(compute([], [regent], {scope:'dia',day:1,month:'2027-03'}).grand.minutes).toBe(222);
+    expect(compute([], [regent], {scope:'mes',day:1,month:'2027-03'}).grand.minutes).toBe(23*222);
+  });
+  it('permite 22h30 também na Educação Infantil', () => {
+    const regent = {...t, payrollProfiles: [{unitId:1, references:[], regencies:[{classId:12, segment:'infantil' as const, weekdays:[1,2,3,4,5] as any, weeklyMinutes:1350}]}]};
+    expect(compute([], [regent]).grand.minutes).toBe(1350);
+  });
 });

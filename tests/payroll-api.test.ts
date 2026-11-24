@@ -89,3 +89,16 @@ describe('API de carga por regência e classificação',()=>{
    const all=(await call('GET',`/teachers/${teacher}`)).body;expect(all.payrollProfiles.find((p:any)=>p.unitId===jp).regencies).toHaveLength(1);
  });
 });
+
+
+describe('salvamento da carga fixa personalizada', () => {
+  it('persiste horas e minutos e rejeita cargas inválidas', async () => {
+    const payload = {unitId:ce,references:[],regencies:[{classId:ceClass,segment:'fund1',weekdays:[1,2,3,4,5],weeklyMinutes:1110}]};
+    expect((await call('PUT',`/teachers/${teacher}/payroll`,payload)).status).toBe(200);
+    const saved = (await call('GET',`/teachers/${teacher}`)).body;
+    expect(saved.payrollProfiles.find((p:any)=>p.unitId===ce).regencies[0].weeklyMinutes).toBe(1110);
+    for (const weeklyMinutes of [0,-1,10081,1.5]) {
+      expect((await call('PUT',`/teachers/${teacher}/payroll`,{...payload,regencies:[{...payload.regencies[0],weeklyMinutes}]})).status).toBe(422);
+    }
+  });
+});

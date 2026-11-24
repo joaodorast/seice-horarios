@@ -1,6 +1,18 @@
 import { computeWorkload, lessonTimeCount, monthWeekdayCounts, type Load, type Workload } from './workload.js';
 import { SEGMENT_SUBJECTS } from './segments.js';
 import type { Lesson, Period, SchoolClass, Settings, Subject, Teacher, Weekday } from './types.js';
+export function regencyWeeklyMinutes(regency: { segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number }): number {
+  return regency.weeklyMinutes ?? regency.weekdays.length * (regency.segment === 'infantil' ? 240 : 270);
+}
+
+export function regencyDayMinutes(regency: { segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number }, day: Weekday): number {
+  const days = [...regency.weekdays].sort();
+  const index = days.indexOf(day);
+  if (index < 0) return 0;
+  const total = regencyWeeklyMinutes(regency);
+  return Math.floor(total / days.length) + Number(index < total % days.length);
+}
+
 const fold=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const subjectKey=(value:string)=>fold(value).replace(/\b(de|da|do|dos|das|a|as)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
 const technicalNames = new Set(SEGMENT_SUBJECTS.tecnico.filter(name=>!['projeto de vida','projeto integrador'].includes(fold(name))).map(subjectKey));
@@ -60,8 +72,10 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
         if(reference.kind==='technical')payroll.referenceTechnical+=reference.weeklyLessons;else payroll.referenceRegular+=reference.weeklyLessons;
       }
       for(const regency of profile.regencies.filter((r)=>scope.includeRegency!==false && classIds.has(r.classId) && w.classTotals.has(r.classId))) {
-        const daysCount=scope.scope==='dia' ? Number(regency.weekdays.includes(scope.day)) : scope.scope==='mes' ? regency.weekdays.reduce((sum,d)=>sum+counts[d],0) : regency.weekdays.length;
-        const minutes=daysCount*(regency.segment==='infantil'?240:270);
+        const minutes = regency.weekdays.reduce((sum, day) => {
+          const occurrences = scope.scope === 'mes' ? counts[day] : scope.scope === 'dia' ? Number(day === scope.day) : 1;
+          return sum + regencyDayMinutes(regency, day) * occurrences;
+        }, 0);
         if(!minutes)continue;
         for(const day of regency.weekdays)if((scope.scope!=='dia'||day===scope.day)&&(scope.scope!=='mes'||counts[day]>0))days.add(day);
         const load:Load={lessons:0,minutes};
@@ -69,7 +83,7 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
         row.total.minutes+=minutes;w.grand.minutes+=minutes;
         const classLoad=w.classTotals.get(regency.classId)!;classLoad.minutes+=minutes;
         payroll.regencyMinutes+=minutes;
-        row.bySubject.push({subjectId:null,workloadKind:'regency',label:`Regência - ${regency.segment==='infantil'?'Infantil (4h/dia)':'Fundamental I (4h30/dia)'}`,byClass:new Map([[regency.classId,load]]),total:load});
+        row.bySubject.push({subjectId:null,workloadKind:'regency',label:`Regência - ${regency.segment==='infantil'?'Infantil':'Fundamental I'} (${regencyWeeklyMinutes(regency)} min/semana)`,byClass:new Map([[regency.classId,load]]),total:load});
       }
     }
     payroll.days=[...days].sort();

@@ -210,7 +210,7 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
               {mySubjects.length ? (
                 mySubjects.map((s) => <SubjectTag key={s.id} subject={s} />)
               ) : (
-                <span className="text-[13px] text-muted">Sem disciplinas cadastradas</span>
+                <span className="text-sm text-ink-2">Sem disciplinas cadastradas. Você pode escolher uma em “Atribuir turmas”.</span>
               )}
             </div>
           </div>
@@ -410,6 +410,12 @@ function AssignClassesModal({ teacher, data, initialSubjectId, onClose }: { teac
         {/* 1. Disciplina */}
         <section>
           <StepTitle n={1}>Disciplina</StepTitle>
+          {mine.length === 0 && (
+            <p className="mb-3 rounded-xl border border-line bg-subtle p-4 text-base leading-relaxed text-ink-2">
+              <strong className="text-ink">Este professor ainda não tem disciplinas cadastradas.</strong>{' '}
+              Você pode pesquisar e escolher qualquer disciplina abaixo para fazer a atribuição normalmente.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             {mine.map((s) => (
               <button

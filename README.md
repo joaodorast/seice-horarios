@@ -365,3 +365,11 @@ O roteiro está em `scripts/check-interface.mjs`. Após compilar, execute `node 
 Em **Atribuição de aulas → Por professor**, o resumo “O que está na grade desta semana” mostra a quantidade de disciplinas, os tempos lançados e o detalhe por turma. As atribuições são o planejamento cadastrado; podem estar incompletas e não substituem o total real da grade. A conferência não altera horários nem regras de pagamento do RH. Credenciais de acesso não são documentadas no repositório.
 
 Na escolha da disciplina, as matérias do professor aparecem como opções rápidas. Quando não houver matérias cadastradas, um aviso explica que ainda é possível pesquisar e selecionar qualquer disciplina para atribuir turmas.
+
+## Revisar atribuições automáticas
+
+Em **Atribuição de aulas**, o cartão de conferência compara o planejamento com a grade existente. Clique em **Revisar atribuições automáticas**, filtre por unidade, professor ou turma e confira cada disciplina. A revisão mostra a quantidade na grade, o planejamento atual e o valor a salvar. É possível ajustar quantidades e desmarcar linhas; somente as sugestões marcadas e visíveis são confirmadas.
+
+A função não cria, remove ou desloca aulas e não altera regras de carga horária ou de pagamento do RH. Usa a mesma contagem de períodos da grade, incluindo aulas duplas. Planejamentos maiores que a grade começam desmarcados; disciplinas com mais de um professor, atribuições de outro professor e cadastros inconsistentes exigem conferência manual. Turmas sem aulas não geram sugestões. Cancelar não grava nada.
+
+A confirmação é transacional, respeita unidade e coordenação e compara novamente a grade com a versão revisada. Se outra pessoa alterar os dados, o lote é recusado para nova revisão, sem aplicação parcial. A disciplina atribuída passa a constar no cadastro do professor. Testes cobrem preservação da grade e da base dos cálculos, conflitos, edição, cancelamento, filtros, permissões e revisões desatualizadas.

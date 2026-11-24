@@ -1,3 +1,4 @@
+import { reviewAssignments } from '../shared/assignmentReview.js';
 import {matchesClassScope,type ClassScopeRule} from './coordination.js';
 import { installAcademicRules } from './academicRules.js';
 import { WEEKDAY_LABEL } from '../shared/labels.js';
@@ -5,7 +6,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZodType } from 'zod';
-import type { Database } from './db.js';
+import { LESSON_LOCK_KEY, type Database } from './db.js';
 import { createRepository, type Repository } from './repository.js';
 import { ImportFailure, runImport } from './import.js';
 import { AuthError, createAuth, sameOriginGuard } from './auth.js';
@@ -13,6 +14,7 @@ import {
   classSchema,
   importRequestSchema,
   assignmentBatchSchema,
+  assignmentReviewSchema,
   availabilitySchema,
   lessonBatchSchema,
   loginSchema,
@@ -855,6 +857,35 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
     const [assignments, classes] = await Promise.all([repo.listAssignments(), scopedClasses(res)]);
     const ids = new Set(classes.map((c) => c.id));
     res.json(assignments.filter((a) => ids.has(a.classId)));
+  });
+
+  api.post('/assignments/reconcile', async (req, res) => {
+    const input = parse(assignmentReviewSchema, req.body);
+    const keys = input.items.map(a => `${a.classId}:${a.subjectId}`);
+    if (new Set(keys).size !== keys.length) throw new HttpError(422, 'duplicate', 'Selecione cada turma e disciplina apenas uma vez.');
+    await db.transaction(async tx => {
+      await tx.query('SELECT pg_advisory_xact_lock($1)', [LESSON_LOCK_KEY]);
+      // A conferência e a gravação usam a mesma versão dos dados, inclusive contra edições manuais.
+      if (tx.kind === 'cloud') await tx.exec('LOCK TABLE assignments, lessons, periods, classes, teachers, teacher_units, subjects IN SHARE ROW EXCLUSIVE MODE');
+      const repository = createRepository(tx);
+      const classes = await repository.listClasses();
+      for (const item of input.items) {
+        const schoolClass = classes.find(c => c.id === item.classId);
+        if (!schoolClass) throw new HttpError(409, 'stale', 'Uma turma deixou de existir. Reabra a revisão para conferir a grade atual.');
+        assertClassAccess(res, schoolClass);
+      }
+      const suggestions = reviewAssignments({ classes, teachers: await repository.listTeachers(), subjects: await repository.listSubjects(),
+        lessons: await repository.listLessons(), periods: await repository.listPeriods(), assignments: await repository.listAssignments() });
+      for (const item of input.items) {
+        const suggestion = suggestions.find(s => s.classId === item.classId && s.subjectId === item.subjectId);
+        if (!suggestion || suggestion.expected !== item.expected || suggestion.teacherId !== item.teacherId)
+          throw new HttpError(409, 'stale', 'A grade ou as atribuições mudaram desde a revisão. Feche e reabra a revisão para conferir os dados atuais. Nada deste lote foi salvo.');
+        if (suggestion.status === 'blocked') throw new HttpError(409, 'assignment_conflict', suggestion.reason!);
+      }
+      await repository.applyAssignments({ upserts: input.items.map(({ expected: _expected, ...item }) => item), removes: [] });
+    });
+    const visible = new Set((await scopedClasses(res)).map(c => c.id));
+    res.json((await repo.listAssignments()).filter(a => visible.has(a.classId)));
   });
 
   api.post('/assignments/batch', async (req, res) => {

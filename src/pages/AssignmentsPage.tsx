@@ -9,7 +9,7 @@ import { errorMessage } from '@/api/client';
 import { ImportButton, TemplateButton } from '@/features/import/ImportDialog';
 import { CellPicker, type PickerGroup } from '@/components/schedule/CellPicker';
 import { Avatar } from '@/pages/TeachersPage';
-import { assignmentKey, assignmentProgress, classCapacity, type AssignmentProgress } from '@shared/assignments';
+import { assignmentKey, assignmentProgress, classCapacity, lessonUnits, type AssignmentProgress } from '@shared/assignments';
 import { SHIFT_LABEL } from '@shared/labels';
 import { hasAvailability, rangesText, slotsOfDay } from '@shared/availability';
 import { teacherSubjectIds } from '@shared/suggest';
@@ -176,6 +176,21 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
   const totalWeekly = own.reduce((s, a) => s + a.weeklyLessons, 0);
   const totalPlaced = own.reduce((s, a) => s + Math.min(a.weeklyLessons, progress.get(assignmentKey(a.classId, a.subjectId))?.placed ?? 0), 0);
   const className = (id: number) => data.classes.find((c) => c.id === id);
+  const scheduled = data.lessons.filter((l) => l.teacherId === teacher.id);
+  const scheduledTotal = scheduled.reduce((sum, l) => sum + lessonUnits(l, data.periods, data.classes), 0);
+  const scheduledSubjects = [...new Set(scheduled.map((l) => l.subjectId).filter((sid): sid is number => sid !== null))];
+  const scheduledRows = [...new Set(scheduled.map((l) => `${l.classId}:${l.subjectId}`))].map((key) => {
+    const rows = scheduled.filter((l) => `${l.classId}:${l.subjectId}` === key);
+    const first = rows[0];
+    return {
+      key,
+      classId: first.classId,
+      subject: data.subjects.find((s) => s.id === first.subjectId)?.name ?? 'Sem disciplina',
+      units: rows.reduce((sum, l) => sum + lessonUnits(l, data.periods, data.classes), 0),
+      assigned: own.find((a) => a.classId === first.classId && a.subjectId === first.subjectId)?.weeklyLessons,
+    };
+  }).sort((a, b) => byName({ name: className(a.classId)?.name ?? '' }, { name: className(b.classId)?.name ?? '' }) || a.subject.localeCompare(b.subject, 'pt-BR'));
+
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -207,10 +222,10 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
 
       {/* Números da semana */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Aulas atribuídas por semana" value={String(totalWeekly)} />
+        <Stat label="Aulas planejadas nas atribuições" value={String(totalWeekly)} />
         <Stat label="Turmas" value={String(new Set(own.map((a) => a.classId)).size)} />
         <Card className="px-4 py-3">
-          <p className="text-[13px] font-semibold text-ink-2">Já lançadas no quadro</p>
+          <p className="text-[13px] font-semibold text-ink-2">Planejamento já lançado no quadro</p>
           <p className="tabular mt-0.5 text-2xl font-extrabold text-ink">
             {totalPlaced} <span className="text-base font-bold text-ink-2">de {totalWeekly}</span>
           </p>
@@ -218,11 +233,32 @@ function TeacherPanel({ teacher, data }: { teacher: Teacher; data: ScheduleData 
         </Card>
       </div>
 
+      <Card className="overflow-hidden">
+        <div className="border-b border-line bg-subtle p-4">
+          <h3 className="text-lg font-extrabold text-ink">O que está na grade desta semana</h3>
+          <p className="mt-1 text-base text-ink-2">
+            <strong>{scheduledSubjects.length} disciplinas</strong> · <strong>{scheduledTotal} tempos de aula</strong> · {plural(new Set(scheduled.map((l) => l.classId)).size, 'turma', 'turmas')}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-ink-2">
+            Disciplinas são as matérias que o professor leciona. Tempos são as aulas lançadas na semana.
+            As atribuições acima são o planejamento cadastrado e podem estar incompletas; elas não representam o total da grade nem alteram o pagamento do RH.
+          </p>
+        </div>
+        {scheduledRows.length ? <div className="overflow-x-auto"><table className="w-full text-left text-base">
+          <thead className="border-b border-line"><tr><th className="px-4 py-3">Turma e disciplina</th><th className="px-4 py-3">Na grade</th><th className="px-4 py-3">Planejado</th></tr></thead>
+          <tbody className="divide-y divide-line">{scheduledRows.map((row) => <tr key={row.key}>
+            <td className="px-4 py-3"><Link className="font-semibold underline underline-offset-2" to={`/horarios/turma/${row.classId}`}>{className(row.classId)?.name ?? 'Turma'}</Link><span className="mt-1 block text-ink-2">{row.subject}</span></td>
+            <td className="px-4 py-3 font-bold whitespace-nowrap">{plural(row.units, 'tempo', 'tempos')}</td>
+            <td className="px-4 py-3 text-ink-2">{row.assigned === undefined ? 'Sem atribuição cadastrada' : plural(row.assigned, 'aula', 'aulas')}</td>
+          </tr>)}</tbody>
+        </table></div> : <p className="p-4 text-base text-ink-2">Nenhuma aula lançada na grade para este professor.</p>}
+      </Card>
+
       {own.length === 0 ? (
         <Card>
           <EmptyState
             icon={<UserPlus />}
-            title={`${firstName(teacher.name)} ainda não tem turmas`}
+            title={`${firstName(teacher.name)} ainda não tem atribuições cadastradas`}
             description="Escolha a disciplina e marque as turmas que este professor vai assumir. Dá para marcar várias de uma vez."
             action={
               <Button variant="primary" icon={<UserPlus className="size-4" />} onClick={() => setEditing({ subjectId: null })}>

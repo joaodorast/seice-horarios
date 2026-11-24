@@ -182,6 +182,13 @@ export const assignmentBatchSchema = z.object({
 });
 export type AssignmentBatchInput = z.output<typeof assignmentBatchSchema>;
 
+/** Revisão explícita: somente atribuições derivadas de uma grade que não mudou. */
+export const assignmentReviewSchema = z.object({
+  items: z.array(assignmentSchema.extend({ expected: z.string().min(1).max(100_000) }).strict()).min(1).max(500),
+}).strict();
+export type AssignmentReviewInput = z.output<typeof assignmentReviewSchema>;
+
+
 export const periodSchema = z
   .object({
     id: z.number().int().positive().optional(),

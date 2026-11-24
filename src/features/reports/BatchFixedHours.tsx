@@ -5,6 +5,7 @@ import { request, errorMessage } from '@/api/client';
 import { keys, type ScheduleData } from '@/api/hooks';
 import { useUnits } from '@/api/units';
 import { formatHours } from '@/lib/format';
+import { matchesName } from '@/lib/text';
 
 export function BatchFixedHours({data, disabled, onBusyChange}: {data: ScheduleData; disabled: boolean; onBusyChange: (busy: boolean) => void}) {
   const {data: units = []} = useUnits();
@@ -21,8 +22,7 @@ export function BatchFixedHours({data, disabled, onBusyChange}: {data: ScheduleD
   const valid = Number.isInteger(hours) && hours >= 0 && Number.isInteger(minutes) && minutes >= 0 && minutes < 60 && weeklyMinutes > 0 && weeklyMinutes <= 10080;
   const teachers = data.teachers.filter((teacher) => (teacher.unitIds ?? [teacher.unitId]).includes(unitId));
   const selected = teachers.filter((teacher) => selectedIds.includes(teacher.id));
-  const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  const visible = teachers.filter((teacher) => fold(teacher.name).includes(fold(search)));
+  const visible = teachers.filter((teacher) => matchesName(teacher.name, search));
 
   async function applyHours() {
     if (!valid || !selected.length || saving || disabled) return;

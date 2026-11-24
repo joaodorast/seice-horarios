@@ -19,6 +19,7 @@ import { errorMessage } from '@/api/client';
 import { downloadWorkloadReport, workloadReportFileName } from '@/lib/workloadReport';
 import { ReportSelection } from '@/features/reports/ReportSelection';
 import { GUIDES } from '@/lib/guides';
+import { matchesName, normalize } from '@/lib/text';
 
 type Scope = 'dia' | 'semana' | 'mes';
 type View = 'professor' | 'turma';
@@ -46,6 +47,7 @@ export function WorkloadPage() {
 function WorkloadView({ data }: { data: ScheduleData }) {
   const [, setSearchParams] = useSearchParams();
   const [teacherIds, setTeacherIds] = useState<number[] | null>(null);
+  const [teacherSearch, setTeacherSearch] = useState('');
   const [view, setView] = useState<View>('professor');
   const [scope, setScope] = useState<Scope>('semana');
   const [day, setDay] = useState<Weekday>(data.settings.enabledDays[0] ?? 1);
@@ -81,7 +83,11 @@ function WorkloadView({ data }: { data: ScheduleData }) {
   }, [data, teacherIds, classIds, unitIds, shift, scope, day, subjectIds, weekdayCounts, month]);
 
   const periodLabel = scope === 'dia' ? WEEKDAY_LABEL[day] : scope === 'mes' ? `Calendário de ${month.split('-').reverse().join('/')}` : 'Semana completa';
-  const rows = workload.rows.filter((row) => includeEmpty || (row.total.minutes > 0 || Boolean(row.payroll?.attendanceDays) || Boolean(row.payroll?.hasReference)));
+  const searchTerms = normalize(teacherSearch).split(/\s+/).filter(Boolean);
+  const rows = workload.rows.filter((row) =>
+    (includeEmpty || searchTerms.length > 0 || row.total.minutes > 0 || Boolean(row.payroll?.attendanceDays) || Boolean(row.payroll?.hasReference)) &&
+    matchesName(row.teacher.name, teacherSearch)
+  );
   const visibleClasses = workload.classes.filter((schoolClass) =>
     includeEmpty || (workload.classTotals.get(schoolClass.id)?.minutes ?? 0) > 0);
   const subjectName = (id: number | null) => data.subjects.find((subject) => subject.id === id)?.name ?? 'Sem disciplina';
@@ -101,7 +107,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     ['Unidades', selectionText(unitIds,'Todas as unidades disponíveis neste login',(id) => units.find((unit) => unit.id === id)?.name ?? unitName(id))],
     ['Turno', shift === 'todos' ? 'Todos os turnos' : SHIFT_LABEL[shift]],
   ];
-  function clearFilters() { setTeacherIds(null);setClassIds(null);setSubjectIds(null);setUnitIds(null);setShift('todos'); }
+  function clearFilters() { setTeacherSearch('');setTeacherIds(null);setClassIds(null);setSubjectIds(null);setUnitIds(null);setShift('todos'); }
   function filterFields(location: 'page' | 'export') {
     return <div className={`grid min-w-0 gap-4 sm:grid-cols-2 ${location === 'page' ? 'xl:grid-cols-4' : ''}`}>
       <ReportSelection label="Professores" allLabel="Todos os professores" value={teacherIds} onChange={setTeacherIds} disabled={exporting}
@@ -173,6 +179,11 @@ function WorkloadView({ data }: { data: ScheduleData }) {
     <div className="flex flex-col gap-5">
       <PayrollSetupAssistant data={data} />
       <Card className="flex flex-col gap-4 p-4">
+        <label className="font-semibold">Pesquisar professor por nome
+          <Input type="search" className="mt-2 h-12" placeholder="Digite o nome do professor, por exemplo Raissa"
+            value={teacherSearch} onChange={(event) => {setTeacherSearch(event.target.value); setView('professor');}} />
+          {searchTerms.length > 0 && <span role="status" className="mt-2 block text-sm font-normal text-muted">{rows.length} professores encontrados nesta lista</span>}
+        </label>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="mb-2 text-sm font-bold">Período do cálculo</h2>{periodControls('page')}</div>
           <Button variant="ghost" onClick={clearFilters}>Limpar filtros</Button>

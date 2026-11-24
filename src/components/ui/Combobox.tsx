@@ -25,6 +25,7 @@ interface ComboboxProps {
   autoFocusTarget?: boolean;
   /** Lista ampla, dentro do fluxo do formulário, com nomes completos. */
   spacious?: boolean;
+  filterOption?: (option: ComboOption, query: string) => boolean;
   'aria-invalid'?: boolean;
   'aria-describedby'?: string;
 }
@@ -44,6 +45,7 @@ export function Combobox({
   disabled,
   autoFocusTarget,
   spacious = false,
+  filterOption,
   ...aria
 }: ComboboxProps) {
   const autoId = useId();
@@ -58,8 +60,8 @@ export function Combobox({
 
   const selected = options.find((o) => o.value === value) ?? null;
   const filtered = useMemo(
-    () => options.filter((o) => matches([o.label, o.description], query)),
-    [options, query],
+    () => options.filter((o) => filterOption ? filterOption(o, query) : matches([o.label, o.description], query)),
+    [options, query, filterOption],
   );
 
   useEffect(() => {

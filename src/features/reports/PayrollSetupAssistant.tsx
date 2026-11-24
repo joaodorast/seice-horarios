@@ -9,8 +9,10 @@ import type { PayrollReference } from '@shared/types';
 import { formatHours } from '@/lib/format';
 import { regencyWeeklyMinutes } from '@shared/payroll';
 import { PayrollReferenceReview } from './PayrollReferenceReview';
+import { QuickPayrollSettings } from './QuickPayrollSettings';
 import { TeacherPayrollSettings } from './TeacherPayrollSettings';
 import { BatchFixedHours } from './BatchFixedHours';
+import { matchesName } from '@/lib/text';
 
 type Step = 'references' | 'regencies';
 
@@ -18,8 +20,9 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   const query = useQuery({ queryKey: ['payroll-references'], queryFn: () => request<PayrollReference[]>('GET', '/payroll-references') });
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<Step>('references');
+  const [step, setStep] = useState<Step>('regencies');
   const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [detailed, setDetailed] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [regencyBusy, setRegencyBusy] = useState(false);
   const [referenceBusy, setReferenceBusy] = useState(false);
@@ -36,6 +39,7 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   useEffect(() => {
     const destination = searchParams.get('configurar');
     if (destination !== 'professores' && destination !== 'regencias') return;
+    setDetailed(false);
     const requestedTeacher = searchParams.get('configurarProfessor');
     if (requestedTeacher !== null) {
       const requestedId = Number(requestedTeacher);
@@ -56,10 +60,11 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
     if (value !== step) requestChange(() => setStep(value));
   }
   function selectTeacher(value: number | null) {
-    if (value !== teacherId) requestChange(() => setTeacherId(value));
+    if (value !== teacherId) requestChange(() => {setTeacherId(value); setDetailed(false);});
   }
   function launch(value: Step) {
     setStep(value);
+    setDetailed(false);
     setOpen(true);
   }
 
@@ -71,7 +76,7 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
           <h2 className="text-xl font-bold">Configurar cargas e professores</h2>
           <p className="mt-1 text-base leading-relaxed text-ink-2">Confira os nomes da lista e personalize as regências. As configurações salvas atualizam os relatórios.</p>
         </div>
-        <Button variant="primary" size="lg" className="w-full sm:w-auto" icon={<Settings2 className="size-5" />} onClick={() => launch('references')}>Configurar cargas e professores</Button>
+        <Button variant="primary" size="lg" className="w-full sm:w-auto" icon={<Settings2 className="size-5" />} onClick={() => launch('regencies')}>Alterar carga horária</Button>
       </div>
       <div className="grid gap-3 border-t border-line bg-subtle/60 p-5 sm:grid-cols-3 sm:p-6">
         <button type="button" onClick={() => launch('references')} className="rounded-xl border border-line bg-surface p-4 text-left transition-colors hover:border-line-strong">
@@ -95,11 +100,11 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
 
     <Modal open={open} onClose={() => requestChange(() => setOpen(false))} size="xl" dismissible={!busy}
       title={<span className="text-2xl">Configurar cargas e professores</span>}
-      description={<span className="text-base leading-relaxed">Confira os professores e personalize as regências, sem alterar os horários já cadastrados.</span>}
-      footer={<><p className="mr-auto text-base text-muted">{dirty ? 'Há alterações não salvas. Use “Salvar regências” antes de sair.' : 'Os relatórios usam as configurações que você salvar.'}</p><Button size="lg" disabled={busy} onClick={() => requestChange(() => setOpen(false))}>Concluir</Button></>}>
+      description={<span className="text-base leading-relaxed">Escolha o professor, veja a carga atual e clique em Alterar carga horária.</span>}
+      footer={<><p className="mr-auto text-base text-muted">{dirty ? 'Há alterações não salvas. Use “Salvar alteração” antes de sair.' : 'Os relatórios usam as configurações que você salvar.'}</p><Button size="lg" disabled={busy} onClick={() => requestChange(() => setOpen(false))}>Concluir</Button></>}>
       <div className="text-base [&_p]:text-base [&_label]:text-base [&_button]:text-base [&_input]:text-lg [&_select]:text-base [&_li[role=option]]:text-lg">
         <div role="tablist" aria-label="Etapas da configuração" className="sticky -top-5 z-20 mb-5 grid gap-2 rounded-xl border border-line bg-subtle p-2 shadow-raise sm:grid-cols-2">
-          {([{value:'references',label:'1. Conferir professores',Icon:ClipboardCheck},{value:'regencies',label:'2. Configurar regências',Icon:GraduationCap}] as const).map(({value,label,Icon}) => <button type="button" role="tab" key={value} id={`${id}-${value}-tab`} aria-controls={`${id}-${value}-panel`} aria-selected={step===value} tabIndex={step===value?0:-1} disabled={busy}
+          {([{value:'references',label:'Conferir cadastros',Icon:ClipboardCheck},{value:'regencies',label:'Alterar carga horária',Icon:GraduationCap}] as const).map(({value,label,Icon}) => <button type="button" role="tab" key={value} id={`${id}-${value}-tab`} aria-controls={`${id}-${value}-panel`} aria-selected={step===value} tabIndex={step===value?0:-1} disabled={busy}
             onClick={() => changeStep(value)} onKeyDown={(event) => { if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const target=event.key==='Home'?'references':event.key==='End'?'regencies':step==='references'?'regencies':'references';if(target!==step)requestChange(()=>{setStep(target);requestAnimationFrame(()=>document.getElementById(`${id}-${target}-tab`)?.focus());});} }}
             className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-3 py-3 text-base font-bold transition-colors ${step===value?'bg-ink text-white shadow-raise':'text-ink-2 hover:bg-surface'}`}><Icon className="size-5 shrink-0" />{label}</button>)}
         </div>
@@ -111,14 +116,15 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
           ].map(([title,description],index)=><li key={title} className="rounded-xl border border-line bg-surface p-4"><span className="mb-3 grid size-8 place-items-center rounded-full bg-brand font-bold">{index+1}</span><strong className="block text-lg">{title}</strong><p className="mt-2 text-base leading-relaxed text-ink-2">{description}</p></li>)}</ol></details>
           {query.isLoading ? <p className="p-6 text-center text-muted">Carregando referências…</p> : query.isError ? <Button onClick={() => void query.refetch()}>Tentar carregar referências novamente</Button> : <PayrollReferenceReview data={data} items={items} onBusyChange={setReferenceBusy} />}
         </div> : <div role="tabpanel" id={`${id}-regencies-panel`} aria-labelledby={`${id}-regencies-tab`} className="space-y-5">
+          <div><label htmlFor={`${id}-teacher`} className="mb-2 block text-base font-bold">Professor</label><Combobox spacious filterOption={(option,query)=>matchesName(option.label,query)} id={`${id}-teacher`} value={teacherId} onChange={selectTeacher} clearable disabled={busy} placeholder="Pesquise e escolha o professor" options={data.teachers.map((teacher)=>({value:teacher.id,label:teacher.name,description:teacher.payrollProfiles?.some((p)=>p.regencies.length)?'Já possui regência configurada':undefined}))} /></div>
+          {selected ? <div className="space-y-3">
+            {detailed ? <>
+              <Button disabled={busy} onClick={() => requestChange(() => setDetailed(false))}>Voltar para alteração simplificada</Button>
+              <TeacherPayrollSettings key={selected.id} teacher={selected} data={data} regencyOnly onDirtyChange={setDirty} onBusyChange={setRegencyBusy} onRequestChange={requestChange} />
+            </> : <QuickPayrollSettings key={selected.id} teacher={selected} data={data} onDirtyChange={setDirty} onBusyChange={setRegencyBusy} onRequestChange={requestChange} onOpenDetails={() => requestChange(() => setDetailed(true))} />}
+          </div> : <p className="rounded-xl border border-dashed border-line p-6 text-center leading-relaxed text-muted">Escolha um professor para ver a carga atual e o botão Alterar carga horária.</p>}
           <BatchFixedHours data={data} disabled={busy || dirty} onBusyChange={setReferenceBusy} />
           <details className="rounded-2xl border border-line bg-subtle p-4 sm:p-5"><summary className="cursor-pointer text-lg font-bold">Como configurar uma regência <span className="font-normal text-ink-2">— veja o passo a passo</span></summary><h3 className="mt-4 text-xl font-bold">O que é regência?</h3><p className="mt-2 text-base leading-relaxed text-ink-2">É a carga fixa do professor responsável por uma turma, no segmento que você selecionar. Defina o total fixo semanal em horas e minutos, independente dos tempos lançados. Cada turma é contada uma vez.</p><ol className="mt-4 space-y-3 text-base leading-relaxed"><li><strong>1. Escolha o professor e a unidade.</strong> Depois, clique em “Adicionar turma de regência”.</li><li><strong>2. Escolha a turma e o segmento.</strong> Marque os dias em que ele é regente dessa turma.</li><li><strong>3. Confira as horas e clique em “Salvar regências”.</strong> Preencha as horas e os minutos fixos da semana. Os dias distribuem essa carga nos relatórios diários e mensais.</li></ol></details>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[#bdd6f4] bg-[#edf5ff] p-4"><h3 className="text-lg font-bold">Educação Infantil</h3><p className="mt-1">4h por dia · <strong>20h em cinco dias</strong></p></div>
-            <div className="rounded-xl border border-[#b9dfc7] bg-[#eaf7ef] p-4"><h3 className="text-lg font-bold">Fundamental I</h3><p className="mt-1">4h30 por dia · <strong>22h30 em cinco dias</strong></p></div>
-          </div>
-          <div><label htmlFor={`${id}-teacher`} className="mb-2 block text-base font-bold">Escolha o professor para configurar</label><Combobox spacious id={`${id}-teacher`} value={teacherId} onChange={selectTeacher} clearable disabled={busy} placeholder="Pesquise e escolha o professor" options={data.teachers.map((teacher)=>({value:teacher.id,label:teacher.name,description:teacher.payrollProfiles?.some((p)=>p.regencies.length)?'Já possui regência configurada':undefined}))} /></div>
-          {selected ? <TeacherPayrollSettings key={selected.id} teacher={selected} data={data} regencyOnly onDirtyChange={setDirty} onBusyChange={setRegencyBusy} onRequestChange={requestChange} /> : <p className="rounded-xl border border-dashed border-line p-6 text-center leading-relaxed text-muted">Escolha um professor acima para indicar a turma, o segmento e os dias da semana. O total será mostrado antes de salvar.</p>}
           {configured.length>0 && <section><h3 className="mb-3 flex items-center gap-2 text-lg font-bold"><CheckCircle2 className="size-5 text-success" />Regências já configuradas</h3><div className="grid gap-2 sm:grid-cols-2">{configured.map((teacher)=>{
             const regencies=teacher.payrollProfiles?.flatMap((p)=>p.regencies).filter((r)=>r.enabled!==false)??[];
             const minutes=regencies.reduce((sum,r)=>sum+regencyWeeklyMinutes(r),0);

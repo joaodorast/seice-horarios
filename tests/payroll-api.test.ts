@@ -113,3 +113,13 @@ it('salva e reativa a carga fixa preservando as horas configuradas', async () =>
   expect((await call('PUT',`/teachers/${teacher}/payroll`,input)).status).toBe(200);
   expect(await read()).toMatchObject({enabled:true,weeklyMinutes:1350});
 });
+
+
+it('permite carga fixa em todos os segmentos cadastrados', async () => {
+  for (const segment of ['infantil','fund1','fund2','medio','tecnico','multidisciplinar']) {
+    const input={unitId:ce,references:[],regencies:[{classId:ceClass,segment,weekdays:[1,2,3,4,5],weeklyMinutes:975,enabled:true}]};
+    expect((await call('PUT',`/teachers/${teacher}/payroll`,input)).status).toBe(200);
+    const saved=(await call('GET',`/teachers/${teacher}`)).body.payrollProfiles.find((p:any)=>p.unitId===ce).regencies[0];
+    expect(saved).toMatchObject({segment,weeklyMinutes:975,enabled:true});
+  }
+});

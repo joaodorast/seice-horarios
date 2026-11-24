@@ -1,11 +1,11 @@
 import { computeWorkload, lessonTimeCount, monthWeekdayCounts, type Load, type Workload } from './workload.js';
-import { SEGMENT_SUBJECTS } from './segments.js';
+import { SEGMENT_SUBJECTS, SEGMENT_LABEL, type SegmentKey } from './segments.js';
 import type { Lesson, Period, SchoolClass, Settings, Subject, Teacher, Weekday } from './types.js';
-export function regencyWeeklyMinutes(regency: { segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number }): number {
+export function regencyWeeklyMinutes(regency: { segment: SegmentKey; weekdays: Weekday[]; weeklyMinutes?: number }): number {
   return regency.weeklyMinutes ?? regency.weekdays.length * (regency.segment === 'infantil' ? 240 : 270);
 }
 
-export function regencyDayMinutes(regency: { segment: 'infantil' | 'fund1'; weekdays: Weekday[]; weeklyMinutes?: number }, day: Weekday): number {
+export function regencyDayMinutes(regency: { segment: SegmentKey; weekdays: Weekday[]; weeklyMinutes?: number }, day: Weekday): number {
   const days = [...regency.weekdays].sort();
   const index = days.indexOf(day);
   if (index < 0) return 0;
@@ -83,7 +83,7 @@ export function computePayrollWorkload(lessons:Lesson[],teachers:Teacher[],class
         row.total.minutes+=minutes;w.grand.minutes+=minutes;
         const classLoad=w.classTotals.get(regency.classId)!;classLoad.minutes+=minutes;
         payroll.regencyMinutes+=minutes;
-        row.bySubject.push({subjectId:null,workloadKind:'regency',label:`Regência - ${regency.segment==='infantil'?'Infantil':'Fundamental I'} (${regencyWeeklyMinutes(regency)} min/semana)`,byClass:new Map([[regency.classId,load]]),total:load});
+        row.bySubject.push({subjectId:null,workloadKind:'regency',label:`Regência - ${SEGMENT_LABEL[regency.segment]} (${regencyWeeklyMinutes(regency)} min/semana)`,byClass:new Map([[regency.classId,load]]),total:load});
       }
     }
     payroll.days=[...days].sort();

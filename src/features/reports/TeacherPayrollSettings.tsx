@@ -7,6 +7,7 @@ import type { Teacher, TeacherPayrollProfile, Weekday } from '@shared/types';
 import { WEEKDAY_SHORT } from '@shared/labels';
 import { formatHours } from '@/lib/format';
 import { regencyWeeklyMinutes } from '@shared/payroll';
+import { SEGMENT_KEYS, SEGMENT_LABEL, type SegmentKey } from '@shared/segments';
 export function TeacherPayrollSettings({teacher,data,regencyOnly=false,onDirtyChange,onBusyChange,onRequestChange}:{teacher:Teacher;data:ScheduleData;regencyOnly?:boolean;onDirtyChange?:(dirty:boolean)=>void;onBusyChange?:(busy:boolean)=>void;onRequestChange?:(action:()=>void)=>void}) {
   const {data:units=[]}=useUnits();
   const [busy,setBusy]=useState(false);
@@ -44,7 +45,7 @@ function PayrollForm({teacher,data,unitId,regencyOnly,onDirtyChange,onBusyChange
     <section><h3 className="font-bold">Regência com carga fixa</h3><p className="mt-1 text-sm text-muted">Defina a carga fixa semanal do regente em horas e minutos. Cada turma é contada uma vez, independente das disciplinas ou tempos na grade. Os dias informados distribuem esse total nos relatórios.</p>
       <div className="mt-3 space-y-3">{draft.regencies.map((entry,index)=><div key={index} className="space-y-3 rounded-lg border border-line p-3">
         <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold">Turma de regência<select aria-label={`Turma de regência ${index+1}`} className="mt-1 h-10 w-full rounded border border-line-strong px-2 text-sm" value={entry.classId} onChange={(e)=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,classId:Number(e.target.value)}:v)})}><option value={0}>Escolha a turma</option>{classes.map((c)=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <label className="text-sm font-semibold">Regra de regência<select className="mt-1 h-10 w-full rounded border border-line-strong px-2 text-sm" value={entry.segment} onChange={(e)=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,segment:e.target.value as 'infantil'|'fund1'}:v)})}><option value="infantil">Educação Infantil</option><option value="fund1">Fundamental I</option></select></label></div>
+        <label className="text-sm font-semibold">Regra de regência<select className="mt-1 h-10 w-full rounded border border-line-strong px-2 text-sm" value={entry.segment} onChange={(e)=>setDraft({...draft,regencies:draft.regencies.map((v,i)=>i===index?{...v,segment:e.target.value as SegmentKey}:v)})}>{SEGMENT_KEYS.map((segment)=><option key={segment} value={segment}>{SEGMENT_LABEL[segment]}</option>)}</select></label></div>
         <fieldset disabled={save.isPending} className="space-y-3">
           <legend className="mb-2 text-sm font-semibold">Forma de contagem desta turma</legend>
           <div className="flex flex-wrap gap-2">

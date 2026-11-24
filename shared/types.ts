@@ -41,6 +41,8 @@ export interface Unit {
 export type UserRole = 'admin' | 'coordenador' | 'demo';
 
 export interface TeacherPayrollProfile {
+  defaultWeeklyMinutes?: number;
+  defaultRegencySegment?: SegmentKey;
   unitId: number;
   references: {label: string; kind: 'regular' | 'technical'; weeklyLessons: number}[];
   regencies: {classId: number; segment: SegmentKey; weekdays: Weekday[]; weeklyMinutes?: number; enabled?: boolean}[];

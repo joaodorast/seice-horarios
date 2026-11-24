@@ -26,6 +26,7 @@ import {
   subjectSchema,
   teacherSchema,
   teacherPayrollSchema,
+  payrollHoursBatchSchema,
   resolvePayrollReferenceSchema,
   unitSchema,
   type LessonInput,
@@ -439,10 +440,36 @@ export function createApp(db: Database, options: { staticDir?: string } = {}) {
       const teacher=await scoped.getTeacher(input.teacherId);
       if(!teacher || !(teacher.unitIds?.includes(reference.unitId)||teacher.unitId===reference.unitId))throw new HttpError(422,'wrong_unit','Escolha um professor cadastrado nesta unidade.');
       const existing=teacher.payrollProfiles?.find((p)=>p.unitId===reference.unitId);
-      await scoped.setTeacherPayroll(teacher.id,{unitId:reference.unitId,references:reference.references,regencies:existing?.regencies ?? []});
+      await scoped.setTeacherPayroll(teacher.id,{...existing,unitId:reference.unitId,references:reference.references,regencies:existing?.regencies ?? []});
       await scoped.resolvePayrollReference(id,teacher.id);
     });
     res.json({saved:true});
+  });
+
+  api.put('/teachers/payroll-hours/batch', async (req,res) => {
+    const input = parse(payrollHoursBatchSchema, req.body);
+    assertUnitAccess(res, input.unitId);
+    const visibleTeacherIds = new Set((await scopedTeachers(res)).map((teacher) => teacher.id));
+    await db.transaction(async (tx) => {
+      const scoped = createRepository(tx);
+      await scoped.lockLessons();
+      const classList = await scoped.listClasses();
+      const visibleIds = new Set(classList.filter((schoolClass) => schoolClass.unitId === input.unitId && canReadClass(res, schoolClass)).map((schoolClass) => schoolClass.id));
+      for (const id of input.teacherIds) {
+        await tx.query('SELECT id FROM teachers WHERE id = $1 FOR UPDATE', [id]);
+        const teacher = await scoped.getTeacher(id);
+        if (!teacher || !visibleTeacherIds.has(id) || !(teacher.unitIds ?? [teacher.unitId]).includes(input.unitId)) {
+          throw new HttpError(422, 'wrong_teacher', 'Um dos professores não está disponível nesta unidade. Confira a seleção.');
+        }
+        const profile = teacher.payrollProfiles?.find((profile) => profile.unitId === input.unitId) ?? {unitId:input.unitId, references:[], regencies:[]};
+        await scoped.setTeacherPayroll(id, {
+          ...profile,
+          defaultWeeklyMinutes: input.weeklyMinutes,
+          regencies: profile.regencies.map((regency) => visibleIds.has(regency.classId) ? {...regency, weeklyMinutes: input.weeklyMinutes} : regency),
+        });
+      }
+    });
+    res.json({updated: input.teacherIds.length});
   });
 
   api.put('/teachers/:id/payroll', async (req,res) => {

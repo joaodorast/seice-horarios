@@ -10,6 +10,7 @@ import { formatHours } from '@/lib/format';
 import { regencyWeeklyMinutes } from '@shared/payroll';
 import { PayrollReferenceReview } from './PayrollReferenceReview';
 import { TeacherPayrollSettings } from './TeacherPayrollSettings';
+import { BatchFixedHours } from './BatchFixedHours';
 
 type Step = 'references' | 'regencies';
 
@@ -35,11 +36,16 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
   useEffect(() => {
     const destination = searchParams.get('configurar');
     if (destination !== 'professores' && destination !== 'regencias') return;
+    const requestedTeacher = searchParams.get('configurarProfessor');
+    if (requestedTeacher !== null) {
+      const requestedId = Number(requestedTeacher);
+      setTeacherId(data.teachers.some((teacher) => teacher.id === requestedId) ? requestedId : null);
+    }
     setStep(destination === 'regencias' ? 'regencies' : 'references');
     setOpen(true);
     // Consome o atalho para que fechar o assistente não o reabra na próxima renderização.
-    setSearchParams((current) => { const next = new URLSearchParams(current); next.delete('configurar'); return next; }, { replace: true });
-  }, [searchParams, setSearchParams]);
+    setSearchParams((current) => { const next = new URLSearchParams(current); next.delete('configurar'); next.delete('configurarProfessor'); return next; }, { replace: true });
+  }, [searchParams, setSearchParams, data.teachers]);
 
   function requestChange(action: () => void) {
     if (busy) return;
@@ -105,6 +111,7 @@ export function PayrollSetupAssistant({ data }: { data: ScheduleData }) {
           ].map(([title,description],index)=><li key={title} className="rounded-xl border border-line bg-surface p-4"><span className="mb-3 grid size-8 place-items-center rounded-full bg-brand font-bold">{index+1}</span><strong className="block text-lg">{title}</strong><p className="mt-2 text-base leading-relaxed text-ink-2">{description}</p></li>)}</ol></details>
           {query.isLoading ? <p className="p-6 text-center text-muted">Carregando referências…</p> : query.isError ? <Button onClick={() => void query.refetch()}>Tentar carregar referências novamente</Button> : <PayrollReferenceReview data={data} items={items} onBusyChange={setReferenceBusy} />}
         </div> : <div role="tabpanel" id={`${id}-regencies-panel`} aria-labelledby={`${id}-regencies-tab`} className="space-y-5">
+          <BatchFixedHours data={data} disabled={busy || dirty} onBusyChange={setReferenceBusy} />
           <details className="rounded-2xl border border-line bg-subtle p-4 sm:p-5"><summary className="cursor-pointer text-lg font-bold">Como configurar uma regência <span className="font-normal text-ink-2">— veja o passo a passo</span></summary><h3 className="mt-4 text-xl font-bold">O que é regência?</h3><p className="mt-2 text-base leading-relaxed text-ink-2">É a carga fixa do professor responsável por uma turma, no segmento que você selecionar. Defina o total fixo semanal em horas e minutos, independente dos tempos lançados. Cada turma é contada uma vez.</p><ol className="mt-4 space-y-3 text-base leading-relaxed"><li><strong>1. Escolha o professor e a unidade.</strong> Depois, clique em “Adicionar turma de regência”.</li><li><strong>2. Escolha a turma e o segmento.</strong> Marque os dias em que ele é regente dessa turma.</li><li><strong>3. Confira as horas e clique em “Salvar regências”.</strong> Preencha as horas e os minutos fixos da semana. Os dias distribuem essa carga nos relatórios diários e mensais.</li></ol></details>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[#bdd6f4] bg-[#edf5ff] p-4"><h3 className="text-lg font-bold">Educação Infantil</h3><p className="mt-1">4h por dia · <strong>20h em cinco dias</strong></p></div>

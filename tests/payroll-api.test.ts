@@ -123,3 +123,27 @@ it('permite carga fixa em todos os segmentos cadastrados', async () => {
     expect(saved).toMatchObject({segment,weeklyMinutes:975,enabled:true});
   }
 });
+
+
+it('lote altera apenas minutos e preserva modo, turma, dias, segmento e outra unidade; falha desfaz o lote', async () => {
+  const a=(await call('POST','/teachers',{name:'Lote A',unitId:ce,unitIds:[ce,jp]})).body;
+  const b=(await call('POST','/teachers',{name:'Lote B',unitId:ce,unitIds:[ce]})).body;
+  const klass=(await call('POST','/classes',{name:'Turma lote',grade:'Fund I',shift:'manha',unitId:ce})).body;
+  const initial={unitId:ce,references:[{label:'Referência',kind:'regular',weeklyLessons:3}],regencies:[{classId:klass.id,segment:'fund1',weekdays:[1,2,3],weeklyMinutes:1350,enabled:false}]};
+  expect((await call('PUT',`/teachers/${a.id}/payroll`,initial)).status).toBe(200);
+  expect((await call('PUT',`/teachers/${a.id}/payroll`,{unitId:jp,references:[],regencies:[],defaultWeeklyMinutes:777})).status).toBe(200);
+  const payload={unitId:ce,teacherIds:[a.id,b.id],weeklyMinutes:1110};
+  expect((await call('PUT','/teachers/payroll-hours/batch',payload)).body.updated).toBe(2);
+  const read=async(id:number)=>(await call('GET',`/teachers/${id}`)).body.payrollProfiles;
+  expect((await read(a.id)).find((p:any)=>p.unitId===ce)).toEqual({...initial,defaultWeeklyMinutes:1110,regencies:[{...initial.regencies[0],weeklyMinutes:1110}]});
+  expect((await read(a.id)).find((p:any)=>p.unitId===jp).defaultWeeklyMinutes).toBe(777);
+  expect((await read(b.id)).find((p:any)=>p.unitId===ce)).toMatchObject({defaultWeeklyMinutes:1110,regencies:[]});
+  expect((await call('PUT','/teachers/payroll-hours/batch',{...payload,teacherIds:[a.id,99999999],weeklyMinutes:900})).status).toBe(422);
+  expect((await read(a.id)).find((p:any)=>p.unitId===ce).regencies[0].weeklyMinutes).toBe(1110);
+  expect((await call('PUT','/teachers/payroll-hours/batch',{...payload,weeklyMinutes:0})).status).toBe(422);
+  await upsertUser(server.db,'lote-coord@teste.com','Coordenador lote','senha-teste-segura');
+  await server.db.query("UPDATE users SET role='coordenador',unit_id=$1 WHERE email='lote-coord@teste.com'",[ce]);
+  const login=await server.anonymous('POST','/auth/login',{email:'lote-coord@teste.com',password:'senha-teste-segura'});
+  const cookie=login.headers.get('set-cookie')!.split(';')[0];
+  expect((await server.anonymous('PUT','/teachers/payroll-hours/batch',{...payload,unitId:jp},{Cookie:cookie})).status).toBe(403);
+});

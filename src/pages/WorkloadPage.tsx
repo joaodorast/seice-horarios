@@ -44,6 +44,7 @@ export function WorkloadPage() {
 }
 
 function WorkloadView({ data }: { data: ScheduleData }) {
+  const [, setSearchParams] = useSearchParams();
   const [teacherIds, setTeacherIds] = useState<number[] | null>(null);
   const [view, setView] = useState<View>('professor');
   const [scope, setScope] = useState<Scope>('semana');
@@ -158,7 +159,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
         {name:'Resumo por professor',header:['Professor','Regulares (tempos)','Horas regulares','Técnicos (tempos)','Horas técnicas','Regência fixa','Total de tempos','Minutos totais','Total em horas','Dias no colégio','Dias para conferir VT','Referência regular por semana','Referência técnica por semana'],rows:summary},
         {name:'Resumo por turma',header:['Professor','Unidade / Turma','Tempos regulares','Minutos regulares','Horas regulares','Tempos técnicos','Minutos técnicos','Horas técnicas','Minutos de regência fixa','Total de tempos','Minutos totais','Total em horas'],rows:workload.rows.flatMap(row=>[...row.byClass.keys()].map(id=>{const p=payrollClassBreakdown(row,id);return [row.teacher.name,className(id),p.regularLessons,p.regularMinutes,formatHours(p.regularMinutes),p.technicalLessons,p.technicalMinutes,formatHours(p.technicalMinutes),p.regencyMinutes,p.totalLessons,p.totalMinutes,formatHours(p.totalMinutes)];}))},
         {name:'Detalhes',header:['Professor','Turma','Disciplina / regência','Período','Tempos','Minutos pagos','Horas','Dias no colégio','Dias para conferir VT'],rows:details,totals:['Total do recorte','','',periodLabel,workload.grand.lessons,workload.grand.minutes,paidHours(workload.grand.minutes),'','']},
-        {name:'Como ler',header:['Informação','Descrição'],rows:[...exportFilters,['Cálculo','Regulares e técnicos são contados separadamente. Regência Infantil 20h/semana e Fund. I 22h30/semana em 5 dias, sem multiplicar por disciplina.'],['Vale-transporte','Dias distintos neste recorte; várias aulas no mesmo dia contam uma vez. Não são valores ou quantidade de passagens.'],['Referência','Valores semanais informados pela escola, separados dos horários cadastrados.']]},
+        {name:'Como ler',header:['Informação','Descrição'],rows:[...exportFilters,['Cálculo','Regulares e técnicos são contados separadamente. Regência usa a carga fixa configurada por professor e turma, contada uma vez por turma.'],['Vale-transporte','Dias distintos neste recorte; várias aulas no mesmo dia contam uma vez. Não são valores ou quantidade de passagens.'],['Referência','Valores semanais informados pela escola, separados dos horários cadastrados.']]},
       ]);
       setExportOpen(false);
     } catch (error) {
@@ -180,7 +181,7 @@ function WorkloadView({ data }: { data: ScheduleData }) {
         <div className="flex flex-wrap items-center gap-4 border-t border-line pt-3">
           <Segmented size="lg" className="border border-line-strong [&_[aria-checked=true]]:bg-ink [&_[aria-checked=true]]:text-white" label="Turno do cálculo" value={shift} onChange={setShift}
             options={[{ value: 'todos' as const, label: 'Todos os turnos' }, ...CLASS_SHIFTS.map((value) => ({ value, label: SHIFT_LABEL[value] }))]} />
-          <p className="max-w-md text-sm text-muted">Regência: Infantil 20h/semana; Fundamental I 22h30/semana. Demais aulas: 60 min no Infantil/Fund. I e 50 min nos outros segmentos. <Link to="/professores" className="font-semibold underline">Configurar por professor</Link></p>
+          <p className="max-w-md text-sm text-muted">Regência: carga fixa configurável por professor e turma. Demais aulas: 60 min no Infantil/Fund. I e 50 min nos outros segmentos. <Link to="/professores" className="font-semibold underline">Configurar por professor</Link></p>
           <Button variant="primary" size="lg" className="ml-auto w-full sm:w-auto" icon={<Download className="size-5" />} loading={exporting}
             onClick={() => setExportOpen(true)}>Baixar PDF ou Excel</Button>
         </div>
@@ -230,6 +231,15 @@ function WorkloadView({ data }: { data: ScheduleData }) {
                 <LoadNumbers count={row.total.lessons} minutes={row.total.minutes} />
               </summary>
               <div className="flex flex-col gap-4 border-t border-line bg-subtle/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4">
+                  <div><h3 className="font-bold">Forma de contagem de {row.teacher.name}</h3><p className="mt-1 text-sm text-muted">Escolha carga fixa ou contagem pelos tempos da grade.</p></div>
+                  <Button variant="primary" onClick={() => setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('configurar', 'regencias');
+                    next.set('configurarProfessor', String(row.teacher.id));
+                    return next;
+                  }, { replace: true })}>Alterar carga horária deste professor</Button>
+                </div>
                 <PayrollBreakdown row={row} scope={scope} />
                 <section className="rounded-xl border border-line bg-surface p-4"><h3 className="mb-3 text-lg font-bold">Resumo por turma · regulares e técnicos</h3><div className="grid gap-3 lg:grid-cols-2">{[...row.byClass.keys()].map(id=><div key={id} className="rounded-lg border border-line p-3"><h4 className="mb-3 text-base font-bold">{className(id)}</h4><PayrollClassKinds row={row} classId={id}/></div>)}</div></section>
                 <div className="flex flex-wrap items-center justify-between gap-2">

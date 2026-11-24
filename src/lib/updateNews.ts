@@ -54,6 +54,7 @@ const persistentNoticeNews = [
 ];
 
 export const updateNews = [
+  { title: 'Atribuição mesmo sem disciplinas cadastradas', description: 'As disciplinas do professor continuam aparecendo como opções rápidas. Se ele ainda não tiver matérias cadastradas, a tela avisa e permite pesquisar e escolher uma para atribuir as turmas.', links: [{ label: 'Atribuir turmas', to: '/atribuicoes/professor' }] },
   { title: 'Disciplinas e aulas da grade sem confusão', description: 'A atribuição por professor agora mostra as disciplinas, os tempos lançados e o detalhe de cada turma. O planejamento cadastrado aparece separado, sem alterar os horários nem o pagamento do RH.', links: [{ label: 'Conferir atribuições', to: '/atribuicoes/professor' }] },
 ];
 

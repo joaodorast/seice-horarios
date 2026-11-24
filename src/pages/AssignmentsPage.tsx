@@ -1,3 +1,4 @@
+import { AssignmentReview } from '@/features/assignments/AssignmentReview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronLeft, ChevronRight, Minus, PencilRuler, Plus, Trash2, UserPlus, Users } from 'lucide-react';
@@ -63,10 +64,11 @@ export function AssignmentsPage({ view }: { view: View }) {
                 description="A atribuição liga um professor a uma turma em uma disciplina."
               />
             </Card>
-          ) : view === 'teacher' ? (
-            <TeacherView data={data} />
           ) : (
-            <ClassView data={data} />
+            <>
+              <AssignmentReview data={data} />
+              {view === 'teacher' ? <TeacherView data={data} /> : <ClassView data={data} />}
+            </>
           )
         }
       </DataGate>
